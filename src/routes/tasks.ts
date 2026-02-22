@@ -62,14 +62,16 @@ function toEvidence(row: EvidenceDbRow, taskId: string) {
   };
 }
 
-function getNamesForEmails(tenantId: string, emails: string[]): Record<string, string> {
+/** Uma única query em batch: evita N+1 ao resolver email → nome. */
+async function getNamesForEmails(tenantId: string, emails: string[]): Promise<Record<string, string>> {
   const unique = [...new Set(emails)].filter(Boolean);
   const map: Record<string, string> = {};
-  for (const email of unique) {
-    const u = db.prepare("SELECT nome FROM users WHERE tenant_id = ? AND email = ?")
-      .get(tenantId, email) as { nome: string } | undefined;
-    if (u) map[email] = u.nome;
-  }
+  if (unique.length === 0) return map;
+  const placeholders = unique.map(() => "?").join(",");
+  const rows = await db.prepare(
+    `SELECT email, nome FROM users WHERE tenant_id = ? AND email IN (${placeholders})`
+  ).all(tenantId, ...unique) as { email: string; nome: string }[];
+  for (const r of rows) map[r.email] = r.nome;
   return map;
 }
 
@@ -113,23 +115,23 @@ function rowToTask(
   };
 }
 
-function canReadTask(user: Request["user"], task: TaskDbRow): boolean {
+async function canReadTask(user: Request["user"], task: TaskDbRow): Promise<boolean> {
   if (!user) return false;
   if (user.role === "ADMIN") return true;
   if (user.role === "LEADER") return task.area === user.area;
   if (task.responsavel_email === user.email) return true;
   if (task.parent_task_id) {
-    const parent = db.prepare("SELECT responsavel_email FROM tasks WHERE id = ? AND tenant_id = ?")
+    const parent = await db.prepare("SELECT responsavel_email FROM tasks WHERE id = ? AND tenant_id = ?")
       .get(task.parent_task_id, user.tenantId) as { responsavel_email: string } | undefined;
     if (parent && parent.responsavel_email === user.email) return true;
   }
   return false;
 }
 
-function canManageTask(user: Request["user"], task: TaskDbRow): boolean {
+async function canManageTask(user: Request["user"], task: TaskDbRow): Promise<boolean> {
   if (!user) return false;
   if (task.parent_task_id) {
-    const parent = db.prepare("SELECT responsavel_email FROM tasks WHERE id = ? AND tenant_id = ?")
+    const parent = await db.prepare("SELECT responsavel_email FROM tasks WHERE id = ? AND tenant_id = ?")
       .get(task.parent_task_id, user.tenantId) as { responsavel_email: string } | undefined;
     if (parent && parent.responsavel_email === user.email) return false;
   }
@@ -150,8 +152,46 @@ function buildWhereClause(user: Request["user"]): { where: string; params: Array
   return { where: `${baseWhere} AND responsavel_email = ?`, params: [...params, user!.email] };
 }
 
+/** WHERE para contar só tarefas principais (notificações). USER não tem parent_task_id IS NULL no list, então acrescentamos aqui. */
+function buildMainTasksWhereForCount(user: Request["user"]): { where: string; params: Array<string | number | null> } {
+  const { where, params } = buildWhereClause(user);
+  if (user!.role === "USER") {
+    return { where: `${where} AND parent_task_id IS NULL`, params: [...params] };
+  }
+  return { where, params: [...params] };
+}
+
+// GET /api/tasks/notification-counts — contagens para notificações (todas as competências)
+router.get("/notification-counts", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { where, params } = buildMainTasksWhereForCount(req.user);
+    const today = new Date().toISOString().slice(0, 10);
+    const tomorrowDate = new Date();
+    tomorrowDate.setDate(tomorrowDate.getDate() + 1);
+    const tomorrow = tomorrowDate.toISOString().slice(0, 10);
+
+    const overdueRow = await db.prepare(
+      `SELECT COUNT(*) as n FROM tasks WHERE ${where} AND status = 'Em Atraso'`
+    ).get(...params) as { n: number };
+    const dueTodayRow = await db.prepare(
+      `SELECT COUNT(*) as n FROM tasks WHERE ${where} AND prazo = ? AND status NOT IN ('Concluído', 'Concluído em Atraso')`
+    ).get(...params, today) as { n: number };
+    const dueTomorrowRow = await db.prepare(
+      `SELECT COUNT(*) as n FROM tasks WHERE ${where} AND prazo = ? AND status NOT IN ('Concluído', 'Concluído em Atraso')`
+    ).get(...params, tomorrow) as { n: number };
+
+    res.json({
+      overdue: overdueRow.n ?? 0,
+      dueToday: dueTodayRow.n ?? 0,
+      dueTomorrow: dueTomorrowRow.n ?? 0,
+    });
+  } catch {
+    res.status(500).json({ error: "Erro ao buscar contagens.", code: "INTERNAL" });
+  }
+});
+
 // GET /api/tasks
-router.get("/", (req: Request, res: Response): void => {
+router.get("/", async (req: Request, res: Response): Promise<void> => {
   try {
     const { where, params } = buildWhereClause(req.user);
 
@@ -181,7 +221,7 @@ router.get("/", (req: Request, res: Response): void => {
       dynamicParams.push(`%${search}%`, `%${search}%`);
     }
 
-    const rows = db.prepare(`
+    const rows = await db.prepare(`
       SELECT * FROM tasks WHERE ${dynamicWhere}
       ORDER BY competencia_ym DESC, prazo ASC, created_at DESC
     `).all(...dynamicParams) as TaskDbRow[];
@@ -190,7 +230,7 @@ router.get("/", (req: Request, res: Response): void => {
 
     if (taskIds.length > 0) {
       const placeholders = taskIds.map(() => "?").join(",");
-      const evidenceRows = db.prepare(`
+      const evidenceRows = await db.prepare(`
         SELECT * FROM task_evidences
         WHERE task_id IN (${placeholders})
         ORDER BY uploaded_at DESC
@@ -208,13 +248,13 @@ router.get("/", (req: Request, res: Response): void => {
       if (row.prazo_modified_by) auditEmails.push(row.prazo_modified_by);
       if (row.realizado_por) auditEmails.push(row.realizado_por);
     }
-    const emailToName = getNamesForEmails(req.user!.tenantId, auditEmails);
+    const emailToName = await getNamesForEmails(req.user!.tenantId, auditEmails);
 
     const mainIds = rows.filter(r => !r.parent_task_id).map(r => r.id);
     let subtasksByParentId = new Map<string, TaskDbRow[]>();
     if (mainIds.length > 0) {
       const placeholders = mainIds.map(() => "?").join(",");
-      const subtaskRows = db.prepare(`
+      const subtaskRows = await db.prepare(`
         SELECT * FROM tasks WHERE parent_task_id IN (${placeholders}) AND deleted_at IS NULL
       `).all(...mainIds) as TaskDbRow[];
       for (const st of subtaskRows) {
@@ -228,12 +268,15 @@ router.get("/", (req: Request, res: Response): void => {
     for (const r of rows) {
       if (!r.parent_task_id) parentAtividadeById[r.id] = r.atividade;
     }
-    for (const r of rows) {
-      if (r.parent_task_id && !parentAtividadeById[r.parent_task_id]) {
-        const parent = db.prepare("SELECT atividade FROM tasks WHERE id = ? AND tenant_id = ?")
-          .get(r.parent_task_id, req.user!.tenantId) as { atividade: string } | undefined;
-        if (parent) parentAtividadeById[r.parent_task_id] = parent.atividade;
-      }
+    const missingParentIds = [...new Set(
+      rows.filter(r => r.parent_task_id && !parentAtividadeById[r.parent_task_id!]).map(r => r.parent_task_id!)
+    )];
+    if (missingParentIds.length > 0) {
+      const ph = missingParentIds.map(() => "?").join(",");
+      const parentRows = await db.prepare(
+        `SELECT id, atividade FROM tasks WHERE tenant_id = ? AND id IN (${ph})`
+      ).all(req.user!.tenantId, ...missingParentIds) as { id: string; atividade: string }[];
+      for (const p of parentRows) parentAtividadeById[p.id] = p.atividade;
     }
     function getEffectiveStatus(main: TaskDbRow): string {
       const subs = subtasksByParentId.get(main.id);
@@ -250,7 +293,7 @@ router.get("/", (req: Request, res: Response): void => {
     let justificationLatestByTask = new Map<string, { status: string }>();
     if (lateTaskIds.length > 0) {
       const ph = lateTaskIds.map(() => "?").join(",");
-      const jRows = db.prepare(`
+      const jRows = await db.prepare(`
         SELECT task_id, status FROM task_justifications
         WHERE task_id IN (${ph}) AND tenant_id = ?
         ORDER BY created_at DESC
@@ -293,7 +336,7 @@ router.get("/", (req: Request, res: Response): void => {
 });
 
 // POST /api/tasks
-router.post("/", (req: Request, res: Response): void => {
+router.post("/", async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user!;
     const tenantId = req.tenantId!;
@@ -319,7 +362,7 @@ router.post("/", (req: Request, res: Response): void => {
         res.status(403).json({ error: "Apenas líder ou administrador pode criar subtarefas.", code: "FORBIDDEN" });
         return;
       }
-      parent = db.prepare("SELECT * FROM tasks WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL")
+      parent = await db.prepare("SELECT * FROM tasks WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL")
         .get(parentTaskId, tenantId) as TaskDbRow | undefined;
       if (!parent) {
         res.status(404).json({ error: "Tarefa principal não encontrada.", code: "NOT_FOUND" });
@@ -327,6 +370,11 @@ router.post("/", (req: Request, res: Response): void => {
       }
       if (parent.parent_task_id) {
         res.status(400).json({ error: "Não é possível criar subtarefa de outra subtarefa.", code: "VALIDATION" });
+        return;
+      }
+      const parentConcluida = parent.status === "Concluído" || parent.status === "Concluído em Atraso";
+      if (parentConcluida) {
+        res.status(400).json({ error: "Não é possível adicionar subtarefas a uma tarefa já concluída.", code: "VALIDATION" });
         return;
       }
       if (user.role === "LEADER" && parent.area !== user.area) {
@@ -338,7 +386,7 @@ router.post("/", (req: Request, res: Response): void => {
       tipo = parent.tipo;
       area = parent.area;
       responsavelEmail = mustString(body.responsavelEmail, "Responsável");
-      const respUser = db.prepare("SELECT nome, area FROM users WHERE tenant_id = ? AND email = ?")
+      const respUser = await db.prepare("SELECT nome, area FROM users WHERE tenant_id = ? AND email = ?")
         .get(tenantId, responsavelEmail) as { nome: string; area: string } | undefined;
       if (!respUser) {
         res.status(400).json({ error: "Responsável não encontrado.", code: "USER_NOT_FOUND" });
@@ -352,7 +400,7 @@ router.post("/", (req: Request, res: Response): void => {
     } else {
       if (user.role === "ADMIN" || user.role === "LEADER") {
         responsavelEmail = mustString(body.responsavelEmail, "Responsável");
-        const respUser = db.prepare("SELECT nome, area FROM users WHERE tenant_id = ? AND email = ?")
+        const respUser = await db.prepare("SELECT nome, area FROM users WHERE tenant_id = ? AND email = ?")
           .get(tenantId, responsavelEmail) as { nome: string; area: string } | undefined;
         if (!respUser) {
           res.status(400).json({ error: "Responsável não encontrado.", code: "USER_NOT_FOUND" });
@@ -374,7 +422,7 @@ router.post("/", (req: Request, res: Response): void => {
         competenciaYm = mustString(body.competenciaYm, "Competência");
         recorrencia = mustString(body.recorrencia, "Recorrência");
         tipo = mustString(body.tipo, "Tipo");
-        const rule = db.prepare("SELECT allowed_recorrencias FROM rules WHERE tenant_id = ? AND area = ?")
+        const rule = await db.prepare("SELECT allowed_recorrencias FROM rules WHERE tenant_id = ? AND area = ?")
           .get(tenantId, area) as { allowed_recorrencias: string } | undefined;
         if (!rule) {
           res.status(400).json({ error: "Nenhuma regra configurada para sua área. Contate o ADMIN.", code: "NO_RULE" });
@@ -412,7 +460,7 @@ router.post("/", (req: Request, res: Response): void => {
     const now = nowIso();
     const realizadoPor = realizado ? user.email : null;
 
-    db.prepare(`
+    await db.prepare(`
       INSERT INTO tasks (id, tenant_id, competencia_ym, recorrencia, tipo, atividade,
         responsavel_email, responsavel_nome, area, prazo, realizado, status, observacoes,
         created_at, created_by, updated_at, updated_by, prazo_modified_by, realizado_por, parent_task_id)
@@ -429,8 +477,8 @@ router.post("/", (req: Request, res: Response): void => {
       parentTaskId
     );
 
-    const created = db.prepare("SELECT * FROM tasks WHERE id = ?").get(id) as TaskDbRow;
-    const emailToName = getNamesForEmails(tenantId, [created.prazo_modified_by, created.realizado_por].filter(Boolean) as string[]);
+    const created = await db.prepare("SELECT * FROM tasks WHERE id = ?").get(id) as TaskDbRow;
+    const emailToName = await getNamesForEmails(tenantId, [created.prazo_modified_by, created.realizado_por].filter(Boolean) as string[]);
     res.status(201).json({ task: rowToTask(created, [], emailToName) });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Erro ao criar tarefa.";
@@ -439,13 +487,13 @@ router.post("/", (req: Request, res: Response): void => {
 });
 
 // PUT /api/tasks/:id
-router.put("/:id", (req: Request, res: Response): void => {
+router.put("/:id", async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user!;
     const tenantId = req.tenantId!;
     const { id } = req.params;
 
-    const task = db.prepare("SELECT * FROM tasks WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL")
+    const task = await db.prepare("SELECT * FROM tasks WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL")
       .get(id, tenantId) as TaskDbRow | undefined;
 
     if (!task) {
@@ -476,7 +524,7 @@ router.put("/:id", (req: Request, res: Response): void => {
     let area: string;
 
     if (task.parent_task_id) {
-      const parentTask = db.prepare("SELECT prazo FROM tasks WHERE id = ? AND tenant_id = ?")
+      const parentTask = await db.prepare("SELECT prazo FROM tasks WHERE id = ? AND tenant_id = ?")
         .get(task.parent_task_id, tenantId) as { prazo: string | null } | undefined;
       prazo = parentTask?.prazo ?? null;
     } else {
@@ -509,7 +557,7 @@ router.put("/:id", (req: Request, res: Response): void => {
     }
 
     if (!task.parent_task_id && realizado?.trim()) {
-      const subs = db.prepare("SELECT id, realizado FROM tasks WHERE parent_task_id = ? AND tenant_id = ? AND deleted_at IS NULL")
+      const subs = await db.prepare("SELECT id, realizado FROM tasks WHERE parent_task_id = ? AND tenant_id = ? AND deleted_at IS NULL")
         .all(task.id, tenantId) as { id: string; realizado: string | null }[];
       const pendente = subs.find(s => !s.realizado?.trim());
       if (pendente) {
@@ -527,7 +575,7 @@ router.put("/:id", (req: Request, res: Response): void => {
     const prazoModifiedBy = prazoChanged ? user.email : (task.prazo_modified_by ?? null);
     const realizadoPor = realizado ? user.email : null;
 
-    db.prepare(`
+    await db.prepare(`
       UPDATE tasks SET
         competencia_ym = ?, recorrencia = ?, tipo = ?, atividade = ?,
         responsavel_email = ?, responsavel_nome = ?, area = ?,
@@ -544,11 +592,11 @@ router.put("/:id", (req: Request, res: Response): void => {
       id, tenantId
     );
 
-    const updated = db.prepare("SELECT * FROM tasks WHERE id = ?").get(id) as TaskDbRow;
-    const evidences = db.prepare("SELECT * FROM task_evidences WHERE task_id = ? ORDER BY uploaded_at DESC")
+    const updated = await db.prepare("SELECT * FROM tasks WHERE id = ?").get(id) as TaskDbRow;
+    const evidences = await db.prepare("SELECT * FROM task_evidences WHERE task_id = ? ORDER BY uploaded_at DESC")
       .all(id) as EvidenceDbRow[];
     const auditEmails = [updated.prazo_modified_by, updated.realizado_por].filter(Boolean) as string[];
-    const emailToName = getNamesForEmails(tenantId, auditEmails);
+    const emailToName = await getNamesForEmails(tenantId, auditEmails);
     res.json({ task: rowToTask(updated, evidences, emailToName) });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Erro ao atualizar tarefa.";
@@ -557,13 +605,13 @@ router.put("/:id", (req: Request, res: Response): void => {
 });
 
 // DELETE /api/tasks/:id (soft delete)
-router.delete("/:id", (req: Request, res: Response): void => {
+router.delete("/:id", async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user!;
     const tenantId = req.tenantId!;
     const { id } = req.params;
 
-    const task = db.prepare("SELECT * FROM tasks WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL")
+    const task = await db.prepare("SELECT * FROM tasks WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL")
       .get(id, tenantId) as TaskDbRow | undefined;
 
     if (!task) {
@@ -582,12 +630,12 @@ router.delete("/:id", (req: Request, res: Response): void => {
     }
 
     const now = nowIso();
-    db.prepare(`
+    await db.prepare(`
       UPDATE tasks SET deleted_at = ?, deleted_by = ?
       WHERE id = ? AND tenant_id = ?
     `).run(now, user.email, id, tenantId);
     if (!task.parent_task_id) {
-      db.prepare(`
+      await db.prepare(`
         UPDATE tasks SET deleted_at = ?, deleted_by = ?
         WHERE parent_task_id = ? AND tenant_id = ?
       `).run(now, user.email, id, tenantId);
@@ -600,24 +648,24 @@ router.delete("/:id", (req: Request, res: Response): void => {
 });
 
 // GET /api/tasks/:id/subtasks
-router.get("/:id/subtasks", (req: Request, res: Response): void => {
+router.get("/:id/subtasks", async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user!;
     const tenantId = req.tenantId!;
     const { id: parentId } = req.params;
 
-    const parent = db.prepare("SELECT * FROM tasks WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL")
+    const parent = await db.prepare("SELECT * FROM tasks WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL")
       .get(parentId, tenantId) as TaskDbRow | undefined;
     if (!parent) {
       res.status(404).json({ error: "Tarefa não encontrada.", code: "NOT_FOUND" });
       return;
     }
-    if (!canReadTask(user, parent)) {
+    if (!await canReadTask(user, parent)) {
       res.status(403).json({ error: "Sem permissão para ver subtarefas desta tarefa.", code: "FORBIDDEN" });
       return;
     }
 
-    const rows = db.prepare(`
+    const rows = await db.prepare(`
       SELECT * FROM tasks WHERE parent_task_id = ? AND tenant_id = ? AND deleted_at IS NULL
       ORDER BY created_at ASC
     `).all(parentId, tenantId) as TaskDbRow[];
@@ -625,7 +673,7 @@ router.get("/:id/subtasks", (req: Request, res: Response): void => {
     const evidencesByTask = new Map<string, EvidenceDbRow[]>();
     if (taskIds.length > 0) {
       const placeholders = taskIds.map(() => "?").join(",");
-      const evidenceRows = db.prepare(`
+      const evidenceRows = await db.prepare(`
         SELECT * FROM task_evidences WHERE task_id IN (${placeholders}) ORDER BY uploaded_at DESC
       `).all(...taskIds) as EvidenceDbRow[];
       for (const e of evidenceRows) {
@@ -639,7 +687,7 @@ router.get("/:id/subtasks", (req: Request, res: Response): void => {
       if (row.prazo_modified_by) auditEmails.push(row.prazo_modified_by);
       if (row.realizado_por) auditEmails.push(row.realizado_por);
     }
-    const emailToName = getNamesForEmails(tenantId, auditEmails);
+    const emailToName = await getNamesForEmails(tenantId, auditEmails);
     const parentAtividade = parent.atividade;
     const tasks = rows.map(row => rowToTask(row, evidencesByTask.get(row.id) || [], emailToName, { parentTaskAtividade: parentAtividade }));
     res.json({ tasks });
@@ -649,7 +697,7 @@ router.get("/:id/subtasks", (req: Request, res: Response): void => {
 });
 
 // POST /api/tasks/:id/duplicate
-router.post("/:id/duplicate", (req: Request, res: Response): void => {
+router.post("/:id/duplicate", async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user!;
     const tenantId = req.tenantId!;
@@ -660,7 +708,7 @@ router.post("/:id/duplicate", (req: Request, res: Response): void => {
       return;
     }
 
-    const task = db.prepare("SELECT * FROM tasks WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL")
+    const task = await db.prepare("SELECT * FROM tasks WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL")
       .get(id, tenantId) as TaskDbRow | undefined;
 
     if (!task) {
@@ -671,7 +719,7 @@ router.post("/:id/duplicate", (req: Request, res: Response): void => {
     const newId = uuidv4();
     const now = nowIso();
 
-    db.prepare(`
+    await db.prepare(`
       INSERT INTO tasks (id, tenant_id, competencia_ym, recorrencia, tipo, atividade,
         responsavel_email, responsavel_nome, area, prazo, realizado, status, observacoes,
         created_at, created_by, updated_at, updated_by, prazo_modified_by, realizado_por, parent_task_id)
@@ -683,7 +731,7 @@ router.post("/:id/duplicate", (req: Request, res: Response): void => {
       task.parent_task_id ?? null
     );
 
-    const created = db.prepare("SELECT * FROM tasks WHERE id = ?").get(newId) as TaskDbRow;
+    const created = await db.prepare("SELECT * FROM tasks WHERE id = ?").get(newId) as TaskDbRow;
     res.status(201).json({ task: rowToTask(created, [], {}) });
   } catch {
     res.status(500).json({ error: "Erro ao duplicar tarefa.", code: "INTERNAL" });
@@ -713,25 +761,25 @@ function parseBase64Payload(input: string): string {
 }
 
 // GET /api/tasks/:id/evidences
-router.get("/:id/evidences", (req: Request, res: Response): void => {
+router.get("/:id/evidences", async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user!;
     const tenantId = req.tenantId!;
     const { id } = req.params;
 
-    const task = db.prepare("SELECT * FROM tasks WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL")
+    const task = await db.prepare("SELECT * FROM tasks WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL")
       .get(id, tenantId) as TaskDbRow | undefined;
 
     if (!task) {
       res.status(404).json({ error: "Tarefa não encontrada.", code: "NOT_FOUND" });
       return;
     }
-    if (!canReadTask(user, task)) {
+    if (!await canReadTask(user, task)) {
       res.status(403).json({ error: "Sem permissão para visualizar evidências.", code: "FORBIDDEN" });
       return;
     }
 
-    const evidenceRows = db.prepare(`
+    const evidenceRows = await db.prepare(`
       SELECT * FROM task_evidences
       WHERE task_id = ? AND tenant_id = ?
       ORDER BY uploaded_at DESC
@@ -744,21 +792,21 @@ router.get("/:id/evidences", (req: Request, res: Response): void => {
 });
 
 // POST /api/tasks/:id/evidences
-router.post("/:id/evidences", (req: Request, res: Response): void => {
+router.post("/:id/evidences", async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user!;
     const tenantId = req.tenantId!;
     const { id: taskId } = req.params;
     const { fileName: fileNameRaw, mimeType: mimeTypeRaw, contentBase64 } = req.body || {};
 
-    const task = db.prepare("SELECT * FROM tasks WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL")
+    const task = await db.prepare("SELECT * FROM tasks WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL")
       .get(taskId, tenantId) as TaskDbRow | undefined;
 
     if (!task) {
       res.status(404).json({ error: "Tarefa não encontrada.", code: "NOT_FOUND" });
       return;
     }
-    if (!canManageTask(user, task)) {
+    if (!await canManageTask(user, task)) {
       res.status(403).json({ error: "Sem permissão para anexar evidências.", code: "FORBIDDEN" });
       return;
     }
@@ -797,7 +845,7 @@ router.post("/:id/evidences", (req: Request, res: Response): void => {
     const relativePath = path.relative(process.cwd(), absolutePath).replaceAll("\\", "/");
     const now = nowIso();
 
-    db.prepare(`
+    await db.prepare(`
       INSERT INTO task_evidences
       (id, tenant_id, task_id, file_name, file_path, mime_type, file_size, uploaded_at, uploaded_by)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -813,12 +861,12 @@ router.post("/:id/evidences", (req: Request, res: Response): void => {
       user.email
     );
 
-    const evidence = db.prepare("SELECT * FROM task_evidences WHERE id = ?").get(evidenceId) as EvidenceDbRow;
-    const evidences = db.prepare("SELECT * FROM task_evidences WHERE task_id = ? ORDER BY uploaded_at DESC")
+    const evidence = await db.prepare("SELECT * FROM task_evidences WHERE id = ?").get(evidenceId) as EvidenceDbRow;
+    const evidences = await db.prepare("SELECT * FROM task_evidences WHERE task_id = ? ORDER BY uploaded_at DESC")
       .all(taskId) as EvidenceDbRow[];
-    const updatedTask = db.prepare("SELECT * FROM tasks WHERE id = ?").get(taskId) as TaskDbRow;
+    const updatedTask = await db.prepare("SELECT * FROM tasks WHERE id = ?").get(taskId) as TaskDbRow;
     const auditEmails = [updatedTask.prazo_modified_by, updatedTask.realizado_por].filter(Boolean) as string[];
-    const emailToName = getNamesForEmails(tenantId, auditEmails);
+    const emailToName = await getNamesForEmails(tenantId, auditEmails);
 
     res.status(201).json({
       evidence: toEvidence(evidence, taskId),
@@ -831,25 +879,25 @@ router.post("/:id/evidences", (req: Request, res: Response): void => {
 });
 
 // GET /api/tasks/:id/evidences/:evidenceId/download
-router.get("/:id/evidences/:evidenceId/download", (req: Request, res: Response): void => {
+router.get("/:id/evidences/:evidenceId/download", async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user!;
     const tenantId = req.tenantId!;
     const { id: taskId, evidenceId } = req.params;
 
-    const task = db.prepare("SELECT * FROM tasks WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL")
+    const task = await db.prepare("SELECT * FROM tasks WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL")
       .get(taskId, tenantId) as TaskDbRow | undefined;
 
     if (!task) {
       res.status(404).json({ error: "Tarefa não encontrada.", code: "NOT_FOUND" });
       return;
     }
-    if (!canReadTask(user, task)) {
+    if (!await canReadTask(user, task)) {
       res.status(403).json({ error: "Sem permissão para baixar evidências.", code: "FORBIDDEN" });
       return;
     }
 
-    const evidence = db.prepare(`
+    const evidence = await db.prepare(`
       SELECT * FROM task_evidences
       WHERE id = ? AND task_id = ? AND tenant_id = ?
     `).get(evidenceId, taskId, tenantId) as EvidenceDbRow | undefined;
@@ -887,25 +935,25 @@ router.get("/:id/evidences/:evidenceId/download", (req: Request, res: Response):
 });
 
 // DELETE /api/tasks/:id/evidences/:evidenceId
-router.delete("/:id/evidences/:evidenceId", (req: Request, res: Response): void => {
+router.delete("/:id/evidences/:evidenceId", async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user!;
     const tenantId = req.tenantId!;
     const { id: taskId, evidenceId } = req.params;
 
-    const task = db.prepare("SELECT * FROM tasks WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL")
+    const task = await db.prepare("SELECT * FROM tasks WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL")
       .get(taskId, tenantId) as TaskDbRow | undefined;
 
     if (!task) {
       res.status(404).json({ error: "Tarefa não encontrada.", code: "NOT_FOUND" });
       return;
     }
-    if (!canManageTask(user, task)) {
+    if (!await canManageTask(user, task)) {
       res.status(403).json({ error: "Sem permissão para remover evidências.", code: "FORBIDDEN" });
       return;
     }
 
-    const evidence = db.prepare(`
+    const evidence = await db.prepare(`
       SELECT * FROM task_evidences
       WHERE id = ? AND task_id = ? AND tenant_id = ?
     `).get(evidenceId, taskId, tenantId) as EvidenceDbRow | undefined;
@@ -920,13 +968,13 @@ router.delete("/:id/evidences/:evidenceId", (req: Request, res: Response): void 
       fs.unlinkSync(absolutePath);
     }
 
-    db.prepare("DELETE FROM task_evidences WHERE id = ? AND tenant_id = ?").run(evidenceId, tenantId);
+    await db.prepare("DELETE FROM task_evidences WHERE id = ? AND tenant_id = ?").run(evidenceId, tenantId);
 
-    const evidences = db.prepare("SELECT * FROM task_evidences WHERE task_id = ? ORDER BY uploaded_at DESC")
+    const evidences = await db.prepare("SELECT * FROM task_evidences WHERE task_id = ? ORDER BY uploaded_at DESC")
       .all(taskId) as EvidenceDbRow[];
-    const updatedTask = db.prepare("SELECT * FROM tasks WHERE id = ?").get(taskId) as TaskDbRow;
+    const updatedTask = await db.prepare("SELECT * FROM tasks WHERE id = ?").get(taskId) as TaskDbRow;
     const auditEmails = [updatedTask.prazo_modified_by, updatedTask.realizado_por].filter(Boolean) as string[];
-    const emailToName = getNamesForEmails(tenantId, auditEmails);
+    const emailToName = await getNamesForEmails(tenantId, auditEmails);
 
     res.json({ ok: true, task: rowToTask(updatedTask, evidences, emailToName) });
   } catch {

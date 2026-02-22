@@ -1,3 +1,11 @@
+/**
+ * Seed mínima: cria apenas tenant demo + admin + lookups + 3 tarefas.
+ * Se o tenant demo já existir, pula. Usa o DB definido em DB_PROVIDER (.env).
+ *
+ * Para dados completos (evidências, justificativas, múltiplos tenants) use:
+ *   npm run seed:local
+ * Depois, para migrar para o Supabase: npm run migrate:supabase
+ */
 import "dotenv/config";
 import db from "./index";
 import bcrypt from "bcryptjs";

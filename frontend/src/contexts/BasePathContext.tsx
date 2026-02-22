@@ -10,12 +10,38 @@ export function useBasePath(): string {
   return ctx ?? "";
 }
 
-/** Sincroniza tenant do path com a API e fornece basePath para links. */
+/**
+ * Detecta se estamos em modo subdomínio (produção/staging com hostname real).
+ * Retorna o slug do tenant derivado do subdomínio, ou null se for localhost.
+ */
+function getSubdomainSlug(): string | null {
+  if (typeof window === "undefined") return null;
+  const h = window.location.hostname;
+  if (!h || h === "localhost" || h === "127.0.0.1" || h.split(".").length < 3) return null;
+  const sub = h.split(".")[0].toLowerCase();
+  return sub === "sistema" ? "system" : sub;
+}
+
+/**
+ * Sincroniza o tenant (por subdomínio em produção ou por path em dev)
+ * e fornece basePath para links internos.
+ *
+ * Em produção/staging (hostname real com 3+ partes):
+ *   - tenant = subdomínio (ex.: "empresa1", "system")
+ *   - basePath = "" (não há prefixo no path — o slug está no hostname)
+ *
+ * Em desenvolvimento (localhost):
+ *   - tenant e basePath derivados do path como antes (/empresax/login → "empresax")
+ */
 export function SyncTenantAndBasePath() {
   const location = useLocation();
   const pathname = location.pathname;
-  const tenant = getTenantFromPath(pathname);
-  const basePath = getBasePath(pathname);
+
+  const subdomainSlug = getSubdomainSlug();
+  const isSubdomainMode = subdomainSlug !== null;
+
+  const tenant = isSubdomainMode ? subdomainSlug : getTenantFromPath(pathname);
+  const basePath = isSubdomainMode ? "" : getBasePath(pathname);
 
   useEffect(() => {
     setTenantSlug(tenant);

@@ -10,10 +10,13 @@ interface HeaderProps {
 
 const PAGE_TITLES: Record<string, string> = {
   "/tasks": "Tarefas",
+  "/justificativas": "Justificativas",
   "/calendar": "Calendário",
   "/performance": "Performance",
   "/users": "Usuários",
   "/admin": "Configurações",
+  "/sistema": "Visão geral",
+  "/logs-acesso": "Logs de acesso",
   "/empresas": "Cadastro de empresas",
   "/empresa": "Empresa",
 };

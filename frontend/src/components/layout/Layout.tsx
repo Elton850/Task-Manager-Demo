@@ -3,6 +3,7 @@ import { Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import Sidebar from "./Sidebar";
 import Header from "./Header";
+import NotificationCards from "@/components/notifications/NotificationCards";
 import Button from "@/components/ui/Button";
 import { Eye, ArrowLeft } from "lucide-react";
 
@@ -39,6 +40,7 @@ export default function Layout() {
           </div>
         )}
         <Header onMenuToggle={() => setSidebarOpen(o => !o)} />
+        <NotificationCards />
         <main className="flex-1 min-h-0 min-w-0 w-full overflow-y-auto overflow-x-hidden p-4 lg:p-6 bg-gradient-to-b from-slate-100 to-white">
           <Outlet />
         </main>

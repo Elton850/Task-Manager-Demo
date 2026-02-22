@@ -6,6 +6,7 @@ import path from "path";
 import db from "../db";
 import { requireAuth, requireRole, optionalAuth } from "../middleware/auth";
 import { nowIso } from "../utils";
+import { getDefaultTiposList } from "../constants/defaultTipos";
 
 const router = Router();
 const uploadsBaseDir = path.resolve(process.cwd(), "data", "uploads");
@@ -57,14 +58,14 @@ function canManageTenants(req: Request, res: Response): boolean {
 }
 
 // GET /api/tenants/logo/:slug — serve logo da empresa (público, para login e layout)
-router.get("/logo/:slug", (req: Request, res: Response): void => {
+router.get("/logo/:slug", async (req: Request, res: Response): Promise<void> => {
   try {
     const slug = (req.params.slug || "").trim().toLowerCase();
     if (!slug) {
       res.status(404).end();
       return;
     }
-    const row = db.prepare("SELECT id, logo_path FROM tenants WHERE slug = ?").get(slug) as { id: string; logo_path: string | null } | undefined;
+    const row = await db.prepare("SELECT id, logo_path FROM tenants WHERE slug = ?").get(slug) as { id: string; logo_path: string | null } | undefined;
     if (!row || !row.logo_path) {
       res.status(404).end();
       return;
@@ -76,7 +77,7 @@ router.get("/logo/:slug", (req: Request, res: Response): void => {
       return;
     }
     if (!fs.existsSync(absolutePath)) {
-      db.prepare("UPDATE tenants SET logo_path = NULL WHERE id = ?").run(row.id);
+      await db.prepare("UPDATE tenants SET logo_path = NULL WHERE id = ?").run(row.id);
       res.status(404).end();
       return;
     }
@@ -99,10 +100,10 @@ router.get("/logo/:slug", (req: Request, res: Response): void => {
 });
 
 // GET /api/tenants — list all tenants (administrador do sistema logado ou chave)
-router.get("/", optionalAuth, (req: Request, res: Response): void => {
+router.get("/", optionalAuth, async (req: Request, res: Response): Promise<void> => {
   if (!canListTenants(req, res)) return;
   try {
-    const rows = db.prepare("SELECT id, slug, name, active, created_at, logo_path, logo_updated_at FROM tenants WHERE slug != ? ORDER BY name ASC").all(SYSTEM_TENANT_SLUG) as { id: string; slug: string; name: string; active: number; created_at: string; logo_path: string | null; logo_updated_at: string | null }[];
+    const rows = await db.prepare("SELECT id, slug, name, active, created_at, logo_path, logo_updated_at FROM tenants WHERE slug != ? ORDER BY name ASC").all(SYSTEM_TENANT_SLUG) as { id: string; slug: string; name: string; active: number; created_at: string; logo_path: string | null; logo_updated_at: string | null }[];
     const tenants = rows.map((r) => ({
       id: r.id,
       slug: r.slug,
@@ -135,7 +136,7 @@ router.get("/current", (req: Request, res: Response): void => {
 });
 
 // PATCH /api/tenants/current — update current tenant (ADMIN only)
-router.patch("/current", requireAuth, requireRole("ADMIN"), (req: Request, res: Response): void => {
+router.patch("/current", requireAuth, requireRole("ADMIN"), async (req: Request, res: Response): Promise<void> => {
   try {
     const tenant = req.tenant;
     if (!tenant) {
@@ -147,7 +148,7 @@ router.patch("/current", requireAuth, requireRole("ADMIN"), (req: Request, res: 
       res.status(400).json({ error: "Nome da empresa é obrigatório.", code: "MISSING_NAME" });
       return;
     }
-    db.prepare("UPDATE tenants SET name = ? WHERE id = ?").run(name.trim(), tenant.id);
+    await db.prepare("UPDATE tenants SET name = ? WHERE id = ?").run(name.trim(), tenant.id);
     res.json({
       tenant: {
         id: tenant.id,
@@ -173,7 +174,7 @@ router.post("/", optionalAuth, async (req: Request, res: Response): Promise<void
     }
 
     const slugNorm = String(slug).trim().toLowerCase().replace(/[^a-z0-9-]/g, "-");
-    const existing = db.prepare("SELECT id FROM tenants WHERE slug = ?").get(slugNorm);
+    const existing = await db.prepare("SELECT id FROM tenants WHERE slug = ?").get(slugNorm);
 
     if (existing) {
       res.status(409).json({ error: "Slug já em uso.", code: "DUPLICATE_SLUG" });
@@ -189,27 +190,43 @@ router.post("/", optionalAuth, async (req: Request, res: Response): Promise<void
       TIPO: ["Rotina", "Projeto", "Reunião", "Auditoria", "Treinamento"],
     };
 
-    db.exec("BEGIN");
+    await db.exec("BEGIN");
     try {
-      db.prepare("INSERT INTO tenants (id, slug, name, active, created_at) VALUES (?, ?, ?, 1, ?)")
+      await db.prepare("INSERT INTO tenants (id, slug, name, active, created_at) VALUES (?, ?, ?, 1, ?)")
         .run(tenantId, slugNorm, String(name).trim(), now);
 
       let order = 0;
       for (const [category, values] of Object.entries(DEFAULT_LOOKUPS)) {
         for (const value of values) {
-          db.prepare("INSERT OR IGNORE INTO lookups (id, tenant_id, category, value, order_index, created_at) VALUES (?, ?, ?, ?, ?, ?)")
+          await db.prepare("INSERT OR IGNORE INTO lookups (id, tenant_id, category, value, order_index, created_at) VALUES (?, ?, ?, ?, ?, ?)")
             .run(uuidv4(), tenantId, category, value, order++, now);
         }
       }
-      db.exec("COMMIT");
+      const defaultTipos = getDefaultTiposList();
+      const defaultTiposJson = JSON.stringify(defaultTipos);
+      const updatedBy = req.user?.email ?? "system";
+      for (const area of DEFAULT_LOOKUPS.AREA) {
+        await db.prepare(`
+          INSERT INTO rules (id, tenant_id, area, allowed_recorrencias, allowed_tipos, custom_tipos, default_tipos, updated_at, updated_by)
+          VALUES (?, ?, ?, '[]', NULL, ?, ?, ?, ?)
+        `).run(uuidv4(), tenantId, area, defaultTiposJson, defaultTiposJson, now, updatedBy);
+      }
+      await db.exec("COMMIT");
     } catch (e) {
-      db.exec("ROLLBACK");
+      await db.exec("ROLLBACK");
       throw e;
     }
 
+    // Se APP_DOMAIN estiver configurado, retorna o link completo com subdomínio.
+    // Sem APP_DOMAIN (dev local), retorna o path relativo como antes.
+    const appDomain = (process.env.APP_DOMAIN || "").trim();
+    const accessUrl = appDomain
+      ? `https://${slugNorm}.${appDomain}`
+      : `/${slugNorm}`;
+
     res.status(201).json({
       tenant: { id: tenantId, slug: slugNorm, name: String(name).trim() },
-      accessUrl: `/${slugNorm}`,
+      accessUrl,
     });
   } catch {
     res.status(500).json({ error: "Erro ao criar empresa.", code: "INTERNAL" });
@@ -217,16 +234,16 @@ router.post("/", optionalAuth, async (req: Request, res: Response): Promise<void
 });
 
 // PATCH /api/tenants/:id/toggle-active (administrador do sistema ou chave)
-router.patch("/:id/toggle-active", optionalAuth, (req: Request, res: Response): void => {
+router.patch("/:id/toggle-active", optionalAuth, async (req: Request, res: Response): Promise<void> => {
   if (!canManageTenants(req, res)) return;
   try {
     const { id } = req.params;
-    const tenant = db.prepare("SELECT * FROM tenants WHERE id = ?").get(id) as { active: number } | undefined;
+    const tenant = await db.prepare("SELECT * FROM tenants WHERE id = ?").get(id) as { active: number } | undefined;
     if (!tenant) {
       res.status(404).json({ error: "Tenant não encontrado.", code: "NOT_FOUND" });
       return;
     }
-    db.prepare("UPDATE tenants SET active = ? WHERE id = ?").run(tenant.active === 1 ? 0 : 1, id);
+    await db.prepare("UPDATE tenants SET active = ? WHERE id = ?").run(tenant.active === 1 ? 0 : 1, id);
     res.json({ ok: true });
   } catch {
     res.status(500).json({ error: "Erro.", code: "INTERNAL" });
@@ -234,11 +251,11 @@ router.patch("/:id/toggle-active", optionalAuth, (req: Request, res: Response): 
 });
 
 // POST /api/tenants/:id/logo — upload logo (apenas admin mestre)
-router.post("/:id/logo", optionalAuth, (req: Request, res: Response): void => {
+router.post("/:id/logo", optionalAuth, async (req: Request, res: Response): Promise<void> => {
   if (!canManageTenants(req, res)) return;
   try {
     const { id: tenantId } = req.params;
-    const tenant = db.prepare("SELECT id, slug, logo_path FROM tenants WHERE id = ? AND slug != ?").get(tenantId, SYSTEM_TENANT_SLUG) as { id: string; slug: string; logo_path: string | null } | undefined;
+    const tenant = await db.prepare("SELECT id, slug, logo_path FROM tenants WHERE id = ? AND slug != ?").get(tenantId, SYSTEM_TENANT_SLUG) as { id: string; slug: string; logo_path: string | null } | undefined;
     if (!tenant) {
       res.status(404).json({ error: "Empresa não encontrada.", code: "NOT_FOUND" });
       return;
@@ -267,7 +284,7 @@ router.post("/:id/logo", optionalAuth, (req: Request, res: Response): void => {
     const absolutePath = path.join(logoDir, logoFileName);
     fs.writeFileSync(absolutePath, buffer);
     const relativePath = path.relative(process.cwd(), absolutePath).replaceAll("\\", "/");
-    db.prepare("UPDATE tenants SET logo_path = ?, logo_updated_at = datetime('now') WHERE id = ?").run(relativePath, tenantId);
+    await db.prepare("UPDATE tenants SET logo_path = ?, logo_updated_at = datetime('now') WHERE id = ?").run(relativePath, tenantId);
     res.json({ ok: true, logoPath: relativePath });
   } catch {
     res.status(500).json({ error: "Erro ao salvar logo.", code: "INTERNAL" });
@@ -275,11 +292,11 @@ router.post("/:id/logo", optionalAuth, (req: Request, res: Response): void => {
 });
 
 // DELETE /api/tenants/:id/logo — remove logo (apenas admin mestre)
-router.delete("/:id/logo", optionalAuth, (req: Request, res: Response): void => {
+router.delete("/:id/logo", optionalAuth, async (req: Request, res: Response): Promise<void> => {
   if (!canManageTenants(req, res)) return;
   try {
     const { id: tenantId } = req.params;
-    const tenant = db.prepare("SELECT id, logo_path FROM tenants WHERE id = ?").get(tenantId) as { id: string; logo_path: string | null } | undefined;
+    const tenant = await db.prepare("SELECT id, logo_path FROM tenants WHERE id = ?").get(tenantId) as { id: string; logo_path: string | null } | undefined;
     if (!tenant) {
       res.status(404).json({ error: "Empresa não encontrada.", code: "NOT_FOUND" });
       return;
@@ -290,7 +307,7 @@ router.delete("/:id/logo", optionalAuth, (req: Request, res: Response): void => 
       if (absolutePath.startsWith(allowedDir + path.sep) && fs.existsSync(absolutePath)) {
         fs.unlinkSync(absolutePath);
       }
-      db.prepare("UPDATE tenants SET logo_path = NULL, logo_updated_at = datetime('now') WHERE id = ?").run(tenantId);
+      await db.prepare("UPDATE tenants SET logo_path = NULL, logo_updated_at = datetime('now') WHERE id = ?").run(tenantId);
     }
     res.json({ ok: true });
   } catch {
@@ -299,13 +316,13 @@ router.delete("/:id/logo", optionalAuth, (req: Request, res: Response): void => 
 });
 
 // GET /api/tenants/:id/info — tenant info (authenticated, same tenant)
-router.get("/:id/info", requireAuth, (req: Request, res: Response): void => {
+router.get("/:id/info", requireAuth, async (req: Request, res: Response): Promise<void> => {
   try {
     if (req.user!.tenantId !== req.params.id) {
       res.status(403).json({ error: "Acesso negado.", code: "FORBIDDEN" });
       return;
     }
-    const tenant = db.prepare("SELECT id, slug, name, active, created_at FROM tenants WHERE id = ?")
+    const tenant = await db.prepare("SELECT id, slug, name, active, created_at FROM tenants WHERE id = ?")
       .get(req.params.id);
     if (!tenant) {
       res.status(404).json({ error: "Tenant não encontrado.", code: "NOT_FOUND" });

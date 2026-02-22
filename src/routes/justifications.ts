@@ -86,7 +86,7 @@ function getJustificationStatus(
 }
 
 // GET /api/justifications/mine — User: minhas tarefas concluídas em atraso no período
-router.get("/mine", (req: Request, res: Response): void => {
+router.get("/mine", async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user!;
     const tenantId = req.tenantId!;
@@ -101,7 +101,7 @@ router.get("/mine", (req: Request, res: Response): void => {
       where += " AND competencia_ym = ?";
       params.push(competenciaYm);
     }
-    const tasks = db.prepare(`
+    const tasks = await db.prepare(`
       SELECT id, tenant_id, atividade, responsavel_email, responsavel_nome, area, prazo, realizado, status,
              justification_blocked, justification_blocked_at, justification_blocked_by, competencia_ym
       FROM tasks WHERE ${where}
@@ -111,7 +111,7 @@ router.get("/mine", (req: Request, res: Response): void => {
     const justificationMap = new Map<string, JustificationRow>();
     if (taskIds.length > 0) {
       const placeholders = taskIds.map(() => "?").join(",");
-      const rows = db.prepare(`
+      const rows = await db.prepare(`
         SELECT j.* FROM task_justifications j
         WHERE j.task_id IN (${placeholders}) AND j.tenant_id = ?
         ORDER BY j.created_at DESC
@@ -125,7 +125,7 @@ router.get("/mine", (req: Request, res: Response): void => {
     const justIds = [...justificationMap.values()].map(j => j.id);
     if (justIds.length > 0) {
       const ph = justIds.map(() => "?").join(",");
-      const evRows = db.prepare(`
+      const evRows = await db.prepare(`
         SELECT * FROM justification_evidences WHERE justification_id IN (${ph}) ORDER BY uploaded_at DESC
       `).all(...justIds) as JustificationEvidenceRow[];
       for (const e of evRows) {
@@ -179,7 +179,7 @@ router.get("/mine", (req: Request, res: Response): void => {
 });
 
 // GET /api/justifications/pending — Leader: solicitações pendentes da sua área
-router.get("/pending", (req: Request, res: Response): void => {
+router.get("/pending", async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user!;
     const tenantId = req.tenantId!;
@@ -190,7 +190,7 @@ router.get("/pending", (req: Request, res: Response): void => {
     const areaFilter = user.role === "LEADER" ? " AND t.area = ?" : "";
     const params: string[] = [tenantId];
     if (user.role === "LEADER") params.push(user.area);
-    const rows = db.prepare(`
+    const rows = await db.prepare(`
       SELECT j.id, j.task_id, j.description, j.status, j.created_at, j.created_by,
              t.atividade, t.responsavel_email, t.responsavel_nome, t.prazo, t.realizado, t.area
       FROM task_justifications j
@@ -220,7 +220,7 @@ router.get("/pending", (req: Request, res: Response): void => {
 });
 
 // GET /api/justifications/approved — Leader: justificativas aprovadas da sua área
-router.get("/approved", (req: Request, res: Response): void => {
+router.get("/approved", async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user!;
     const tenantId = req.tenantId!;
@@ -231,7 +231,7 @@ router.get("/approved", (req: Request, res: Response): void => {
     const areaFilter = user.role === "LEADER" ? " AND t.area = ?" : "";
     const params: string[] = [tenantId];
     if (user.role === "LEADER") params.push(user.area);
-    const rows = db.prepare(`
+    const rows = await db.prepare(`
       SELECT j.id, j.task_id, j.description, j.status, j.created_at, j.created_by,
              j.reviewed_at, j.reviewed_by,
              t.atividade, t.responsavel_email, t.responsavel_nome, t.prazo, t.realizado, t.area
@@ -264,7 +264,7 @@ router.get("/approved", (req: Request, res: Response): void => {
 });
 
 // GET /api/justifications/blocked — Leader: tarefas com justificativa bloqueada
-router.get("/blocked", (req: Request, res: Response): void => {
+router.get("/blocked", async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user!;
     const tenantId = req.tenantId!;
@@ -275,7 +275,7 @@ router.get("/blocked", (req: Request, res: Response): void => {
     const areaFilter = user.role === "LEADER" ? " AND area = ?" : "";
     const params: string[] = [tenantId];
     if (user.role === "LEADER") params.push(user.area);
-    const rows = db.prepare(`
+    const rows = await db.prepare(`
       SELECT id, tenant_id, atividade, responsavel_email, responsavel_nome, area, prazo, realizado,
              justification_blocked_at, justification_blocked_by
       FROM tasks
@@ -296,7 +296,7 @@ router.get("/blocked", (req: Request, res: Response): void => {
 });
 
 // PUT /api/justifications/task/:taskId/unblock — Leader: habilitar justificativa novamente
-router.put("/task/:taskId/unblock", (req: Request, res: Response): void => {
+router.put("/task/:taskId/unblock", async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user!;
     const tenantId = req.tenantId!;
@@ -305,7 +305,7 @@ router.put("/task/:taskId/unblock", (req: Request, res: Response): void => {
       res.status(403).json({ error: "Apenas líder ou administrador.", code: "FORBIDDEN" });
       return;
     }
-    const task = db.prepare("SELECT id, area FROM tasks WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL")
+    const task = await db.prepare("SELECT id, area FROM tasks WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL")
       .get(taskId, tenantId) as { id: string; area: string } | undefined;
     if (!task) {
       res.status(404).json({ error: "Tarefa não encontrada.", code: "NOT_FOUND" });
@@ -315,7 +315,7 @@ router.put("/task/:taskId/unblock", (req: Request, res: Response): void => {
       res.status(403).json({ error: "Sem permissão.", code: "FORBIDDEN" });
       return;
     }
-    db.prepare(`
+    await db.prepare(`
       UPDATE tasks SET justification_blocked = 0, justification_blocked_at = NULL, justification_blocked_by = NULL
       WHERE id = ? AND tenant_id = ?
     `).run(taskId, tenantId);
@@ -326,7 +326,7 @@ router.put("/task/:taskId/unblock", (req: Request, res: Response): void => {
 });
 
 // POST /api/justifications — User: criar justificativa para tarefa concluída em atraso
-router.post("/", (req: Request, res: Response): void => {
+router.post("/", async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user!;
     const tenantId = req.tenantId!;
@@ -341,7 +341,7 @@ router.post("/", (req: Request, res: Response): void => {
       res.status(400).json({ error: "Descrição muito longa (máx 2000 caracteres).", code: "VALIDATION" });
       return;
     }
-    const task = db.prepare(`
+    const task = await db.prepare(`
       SELECT id, responsavel_email, status, justification_blocked
       FROM tasks WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL AND parent_task_id IS NULL
     `).get(taskId, tenantId) as { id: string; responsavel_email: string; status: string; justification_blocked: number } | undefined;
@@ -361,7 +361,7 @@ router.post("/", (req: Request, res: Response): void => {
       res.status(400).json({ error: "Justificativa bloqueada para esta tarefa.", code: "BLOCKED" });
       return;
     }
-    const existing = db.prepare("SELECT id FROM task_justifications WHERE task_id = ? AND tenant_id = ? AND status = 'pending'")
+    const existing = await db.prepare("SELECT id FROM task_justifications WHERE task_id = ? AND tenant_id = ? AND status = 'pending'")
       .get(taskId, tenantId) as { id: string } | undefined;
     if (existing) {
       res.status(400).json({ error: "Já existe uma justificativa em análise para esta tarefa.", code: "PENDING_EXISTS" });
@@ -369,11 +369,11 @@ router.post("/", (req: Request, res: Response): void => {
     }
     const id = uuidv4();
     const now = nowIso();
-    db.prepare(`
+    await db.prepare(`
       INSERT INTO task_justifications (id, tenant_id, task_id, description, status, created_at, created_by)
       VALUES (?, ?, ?, ?, 'pending', ?, ?)
     `).run(id, tenantId, taskId, description, now, user.email);
-    const row = db.prepare("SELECT * FROM task_justifications WHERE id = ?").get(id) as JustificationRow;
+    const row = await db.prepare("SELECT * FROM task_justifications WHERE id = ?").get(id) as JustificationRow;
     res.status(201).json({
       justification: {
         id: row.id,
@@ -392,18 +392,18 @@ router.post("/", (req: Request, res: Response): void => {
 });
 
 // GET /api/justifications/:id — detalhe de uma justificativa (User dono ou Leader área)
-router.get("/:id", (req: Request, res: Response): void => {
+router.get("/:id", async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user!;
     const tenantId = req.tenantId!;
     const { id } = req.params;
-    const j = db.prepare("SELECT * FROM task_justifications WHERE id = ? AND tenant_id = ?")
+    const j = await db.prepare("SELECT * FROM task_justifications WHERE id = ? AND tenant_id = ?")
       .get(id, tenantId) as JustificationRow | undefined;
     if (!j) {
       res.status(404).json({ error: "Justificativa não encontrada.", code: "NOT_FOUND" });
       return;
     }
-    const task = db.prepare("SELECT * FROM tasks WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL")
+    const task = await db.prepare("SELECT * FROM tasks WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL")
       .get(j.task_id, tenantId) as TaskRow | undefined;
     if (!task) {
       res.status(404).json({ error: "Tarefa não encontrada.", code: "NOT_FOUND" });
@@ -416,7 +416,7 @@ router.get("/:id", (req: Request, res: Response): void => {
       res.status(403).json({ error: "Sem permissão.", code: "FORBIDDEN" });
       return;
     }
-    const evidences = db.prepare("SELECT * FROM justification_evidences WHERE justification_id = ? ORDER BY uploaded_at DESC")
+    const evidences = await db.prepare("SELECT * FROM justification_evidences WHERE justification_id = ? ORDER BY uploaded_at DESC")
       .all(id) as JustificationEvidenceRow[];
     res.json({
       justification: {
@@ -446,13 +446,13 @@ router.get("/:id", (req: Request, res: Response): void => {
 });
 
 // POST /api/justifications/:id/evidences — anexar evidência (máx 1 por justificativa)
-router.post("/:id/evidences", (req: Request, res: Response): void => {
+router.post("/:id/evidences", async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user!;
     const tenantId = req.tenantId!;
     const { id: justificationId } = req.params;
     const { fileName: fileNameRaw, mimeType: mimeTypeRaw, contentBase64 } = req.body || {};
-    const j = db.prepare("SELECT * FROM task_justifications WHERE id = ? AND tenant_id = ?")
+    const j = await db.prepare("SELECT * FROM task_justifications WHERE id = ? AND tenant_id = ?")
       .get(justificationId, tenantId) as JustificationRow | undefined;
     if (!j) {
       res.status(404).json({ error: "Justificativa não encontrada.", code: "NOT_FOUND" });
@@ -462,13 +462,13 @@ router.post("/:id/evidences", (req: Request, res: Response): void => {
       res.status(400).json({ error: "Só é possível anexar evidência em justificativa pendente.", code: "VALIDATION" });
       return;
     }
-    const task = db.prepare("SELECT responsavel_email FROM tasks WHERE id = ? AND tenant_id = ?")
+    const task = await db.prepare("SELECT responsavel_email FROM tasks WHERE id = ? AND tenant_id = ?")
       .get(j.task_id, tenantId) as { responsavel_email: string } | undefined;
     if (!task || task.responsavel_email !== user.email) {
       res.status(403).json({ error: "Sem permissão.", code: "FORBIDDEN" });
       return;
     }
-    const existing = db.prepare("SELECT COUNT(*) as c FROM justification_evidences WHERE justification_id = ?").get(justificationId) as { c: number };
+    const existing = await db.prepare("SELECT COUNT(*) as c FROM justification_evidences WHERE justification_id = ?").get(justificationId) as { c: number };
     if (existing.c >= 1) {
       res.status(400).json({ error: "Apenas uma evidência por justificativa.", code: "MAX_EVIDENCE" });
       return;
@@ -498,11 +498,11 @@ router.post("/:id/evidences", (req: Request, res: Response): void => {
     fs.writeFileSync(absolutePath, fileBuffer);
     const relativePath = path.relative(process.cwd(), absolutePath).replaceAll("\\", "/");
     const now = nowIso();
-    db.prepare(`
+    await db.prepare(`
       INSERT INTO justification_evidences (id, tenant_id, justification_id, file_name, file_path, mime_type, file_size, uploaded_at, uploaded_by)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(evidenceId, tenantId, justificationId, fileName, relativePath, mimeType, fileBuffer.length, now, user.email);
-    const ev = db.prepare("SELECT * FROM justification_evidences WHERE id = ?").get(evidenceId) as JustificationEvidenceRow;
+    const ev = await db.prepare("SELECT * FROM justification_evidences WHERE id = ?").get(evidenceId) as JustificationEvidenceRow;
     res.status(201).json({
       evidence: {
         id: ev.id,
@@ -520,18 +520,18 @@ router.post("/:id/evidences", (req: Request, res: Response): void => {
 });
 
 // GET /api/justifications/:id/evidences/:eid/download
-router.get("/:id/evidences/:eid/download", (req: Request, res: Response): void => {
+router.get("/:id/evidences/:eid/download", async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user!;
     const tenantId = req.tenantId!;
     const { id: justificationId, eid: evidenceId } = req.params;
-    const j = db.prepare("SELECT * FROM task_justifications WHERE id = ? AND tenant_id = ?")
+    const j = await db.prepare("SELECT * FROM task_justifications WHERE id = ? AND tenant_id = ?")
       .get(justificationId, tenantId) as JustificationRow | undefined;
     if (!j) {
       res.status(404).json({ error: "Justificativa não encontrada.", code: "NOT_FOUND" });
       return;
     }
-    const task = db.prepare("SELECT * FROM tasks WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL")
+    const task = await db.prepare("SELECT * FROM tasks WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL")
       .get(j.task_id, tenantId) as TaskRow | undefined;
     if (!task) {
       res.status(404).json({ error: "Tarefa não encontrada.", code: "NOT_FOUND" });
@@ -544,7 +544,7 @@ router.get("/:id/evidences/:eid/download", (req: Request, res: Response): void =
       res.status(403).json({ error: "Sem permissão.", code: "FORBIDDEN" });
       return;
     }
-    const ev = db.prepare(`
+    const ev = await db.prepare(`
       SELECT * FROM justification_evidences WHERE id = ? AND justification_id = ? AND tenant_id = ?
     `).get(evidenceId, justificationId, tenantId) as JustificationEvidenceRow | undefined;
     if (!ev) {
@@ -577,12 +577,12 @@ router.get("/:id/evidences/:eid/download", (req: Request, res: Response): void =
 });
 
 // DELETE /api/justifications/:id/evidences/:eid
-router.delete("/:id/evidences/:eid", (req: Request, res: Response): void => {
+router.delete("/:id/evidences/:eid", async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user!;
     const tenantId = req.tenantId!;
     const { id: justificationId, eid: evidenceId } = req.params;
-    const j = db.prepare("SELECT * FROM task_justifications WHERE id = ? AND tenant_id = ?")
+    const j = await db.prepare("SELECT * FROM task_justifications WHERE id = ? AND tenant_id = ?")
       .get(justificationId, tenantId) as JustificationRow | undefined;
     if (!j) {
       res.status(404).json({ error: "Justificativa não encontrada.", code: "NOT_FOUND" });
@@ -592,13 +592,13 @@ router.delete("/:id/evidences/:eid", (req: Request, res: Response): void => {
       res.status(400).json({ error: "Só é possível remover evidência de justificativa pendente.", code: "VALIDATION" });
       return;
     }
-    const task = db.prepare("SELECT responsavel_email FROM tasks WHERE id = ? AND tenant_id = ?")
+    const task = await db.prepare("SELECT responsavel_email FROM tasks WHERE id = ? AND tenant_id = ?")
       .get(j.task_id, tenantId) as { responsavel_email: string } | undefined;
     if (!task || task.responsavel_email !== user.email) {
       res.status(403).json({ error: "Sem permissão.", code: "FORBIDDEN" });
       return;
     }
-    const ev = db.prepare(`
+    const ev = await db.prepare(`
       SELECT * FROM justification_evidences WHERE id = ? AND justification_id = ? AND tenant_id = ?
     `).get(evidenceId, justificationId, tenantId) as JustificationEvidenceRow | undefined;
     if (!ev) {
@@ -607,7 +607,7 @@ router.delete("/:id/evidences/:eid", (req: Request, res: Response): void => {
     }
     const absolutePath = path.resolve(process.cwd(), ev.file_path);
     if (fs.existsSync(absolutePath)) fs.unlinkSync(absolutePath);
-    db.prepare("DELETE FROM justification_evidences WHERE id = ? AND tenant_id = ?").run(evidenceId, tenantId);
+    await db.prepare("DELETE FROM justification_evidences WHERE id = ? AND tenant_id = ?").run(evidenceId, tenantId);
     res.json({ ok: true });
   } catch {
     res.status(500).json({ error: "Erro ao remover evidência.", code: "INTERNAL" });
@@ -615,7 +615,7 @@ router.delete("/:id/evidences/:eid", (req: Request, res: Response): void => {
 });
 
 // PUT /api/justifications/:id/review — Leader: aprovar, recusar ou recusar e bloquear
-router.put("/:id/review", (req: Request, res: Response): void => {
+router.put("/:id/review", async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user!;
     const tenantId = req.tenantId!;
@@ -630,7 +630,7 @@ router.put("/:id/review", (req: Request, res: Response): void => {
       res.status(403).json({ error: "Apenas líder ou administrador.", code: "FORBIDDEN" });
       return;
     }
-    const j = db.prepare("SELECT * FROM task_justifications WHERE id = ? AND tenant_id = ?")
+    const j = await db.prepare("SELECT * FROM task_justifications WHERE id = ? AND tenant_id = ?")
       .get(id, tenantId) as JustificationRow | undefined;
     if (!j) {
       res.status(404).json({ error: "Justificativa não encontrada.", code: "NOT_FOUND" });
@@ -640,7 +640,7 @@ router.put("/:id/review", (req: Request, res: Response): void => {
       res.status(400).json({ error: "Justificativa já foi analisada.", code: "ALREADY_REVIEWED" });
       return;
     }
-    const task = db.prepare("SELECT id, area FROM tasks WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL")
+    const task = await db.prepare("SELECT id, area FROM tasks WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL")
       .get(j.task_id, tenantId) as { id: string; area: string } | undefined;
     if (!task) {
       res.status(404).json({ error: "Tarefa não encontrada.", code: "NOT_FOUND" });
@@ -657,17 +657,17 @@ router.put("/:id/review", (req: Request, res: Response): void => {
     }
     const now = nowIso();
     const newStatus = action === "approve" ? "approved" : "refused";
-    db.prepare(`
+    await db.prepare(`
       UPDATE task_justifications SET status = ?, reviewed_at = ?, reviewed_by = ?, review_comment = ?
       WHERE id = ? AND tenant_id = ?
     `).run(newStatus, now, user.email, action === "approve" ? null : reviewComment || null, id, tenantId);
     if (action === "refuse_and_block") {
-      db.prepare(`
+      await db.prepare(`
         UPDATE tasks SET justification_blocked = 1, justification_blocked_at = ?, justification_blocked_by = ?
         WHERE id = ? AND tenant_id = ?
       `).run(now, user.email, j.task_id, tenantId);
     }
-    const updated = db.prepare("SELECT * FROM task_justifications WHERE id = ?").get(id) as JustificationRow;
+    const updated = await db.prepare("SELECT * FROM task_justifications WHERE id = ?").get(id) as JustificationRow;
     res.json({
       justification: {
         id: updated.id,

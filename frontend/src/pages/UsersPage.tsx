@@ -720,9 +720,11 @@ export default function UsersPage() {
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
                     Último logout
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
-                    Ações
-                  </th>
+                  {isAdmin && (
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                      Ações
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 bg-white">
@@ -802,66 +804,64 @@ export default function UsersPage() {
                     <td className="px-4 py-3 text-sm text-slate-600" title={u.lastLogoutAt ?? undefined}>
                       {formatDateTime(u.lastLogoutAt)}
                     </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1">
-                        {isMasterAdmin && (
+                    {isAdmin && (
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-1">
+                          {isMasterAdmin && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleViewAs(u)}
+                              disabled={!!impersonatingId}
+                              loading={impersonatingId === u.id}
+                              title="Ver como este usuário (somente leitura)"
+                              className="hover:text-brand-700 hover:bg-brand-50"
+                            >
+                              <Eye size={13} />
+                            </Button>
+                          )}
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleViewAs(u)}
-                            disabled={!!impersonatingId}
-                            loading={impersonatingId === u.id}
-                            title="Ver como este usuário (somente leitura)"
-                            className="hover:text-brand-700 hover:bg-brand-50"
+                            onClick={() => {
+                              setEditUser(u);
+                              setModalOpen(true);
+                            }}
+                            title="Editar"
                           >
-                            <Eye size={13} />
+                            <Edit2 size={13} />
                           </Button>
-                        )}
-                        {isAdmin && (
-                          <>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setEditUser(u);
-                                setModalOpen(true);
-                              }}
-                              title="Editar"
-                            >
-                              <Edit2 size={13} />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleSendResetEmail(u)}
-                              disabled={sendingResetId === u.id}
-                              loading={sendingResetId === u.id}
-                              title="Enviar código por e-mail"
-                              className="hover:text-amber-700 hover:bg-amber-50"
-                            >
-                              <Key size={13} />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setToggleTarget(u)}
-                              title={u.active ? "Desativar" : "Ativar"}
-                              className={
-                                u.active
-                                  ? "hover:text-rose-700 hover:bg-rose-50"
-                                  : "hover:text-emerald-700 hover:bg-emerald-50"
-                              }
-                            >
-                              {u.active ? (
-                                <UserX size={13} />
-                              ) : (
-                                <UserCheck size={13} />
-                              )}
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                    </td>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleSendResetEmail(u)}
+                            disabled={sendingResetId === u.id}
+                            loading={sendingResetId === u.id}
+                            title="Enviar código por e-mail"
+                            className="hover:text-amber-700 hover:bg-amber-50"
+                          >
+                            <Key size={13} />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setToggleTarget(u)}
+                            title={u.active ? "Desativar" : "Ativar"}
+                            className={
+                              u.active
+                                ? "hover:text-rose-700 hover:bg-rose-50"
+                                : "hover:text-emerald-700 hover:bg-emerald-50"
+                            }
+                          >
+                            {u.active ? (
+                              <UserX size={13} />
+                            ) : (
+                              <UserCheck size={13} />
+                            )}
+                          </Button>
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

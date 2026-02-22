@@ -13,8 +13,8 @@ function isSystemAdmin(req: Request): boolean {
   return !!(req.user && req.tenant?.slug === SYSTEM_TENANT_SLUG && req.user.role === "ADMIN");
 }
 
-function getTenantIdBySlug(slug: string): string | null {
-  const row = db.prepare("SELECT id FROM tenants WHERE slug = ? AND active = 1").get(slug) as { id: string } | undefined;
+async function getTenantIdBySlug(slug: string): Promise<string | null> {
+  const row = await db.prepare("SELECT id FROM tenants WHERE slug = ? AND active = 1").get(slug) as { id: string } | undefined;
   return row?.id ?? null;
 }
 
@@ -23,34 +23,52 @@ interface RuleDbRow {
   tenant_id: string;
   area: string;
   allowed_recorrencias: string;
+  allowed_tipos?: string | null;
+  custom_tipos?: string | null;
+  default_tipos?: string | null;
   updated_at: string;
   updated_by: string;
 }
 
 function rowToRule(row: RuleDbRow) {
+  const allowedTipos =
+    row.allowed_tipos == null || row.allowed_tipos === ""
+      ? undefined
+      : (JSON.parse(row.allowed_tipos) as string[]);
+  const customTipos =
+    row.custom_tipos == null || row.custom_tipos === ""
+      ? undefined
+      : (JSON.parse(row.custom_tipos) as string[]);
+  const defaultTipos =
+    row.default_tipos == null || row.default_tipos === ""
+      ? undefined
+      : (JSON.parse(row.default_tipos) as string[]);
   return {
     id: row.id,
     tenantId: row.tenant_id,
     area: row.area,
     allowedRecorrencias: JSON.parse(row.allowed_recorrencias || "[]") as string[],
+    allowedTipos,
+    customTipos: customTipos ?? [],
+    defaultTipos: defaultTipos ?? [],
     updatedAt: row.updated_at,
     updatedBy: row.updated_by,
   };
 }
 
 // GET /api/rules/by-tenant/:tenantSlug — regras de uma empresa (só Admin Mestre)
-router.get("/by-tenant/:tenantSlug", (req: Request, res: Response): void => {
+router.get("/by-tenant/:tenantSlug", async (req: Request, res: Response): Promise<void> => {
   if (!isSystemAdmin(req)) {
     res.status(403).json({ error: "Apenas o Administrador Mestre pode ver regras de outra empresa.", code: "FORBIDDEN" });
     return;
   }
   try {
-    const tenantId = getTenantIdBySlug(req.params.tenantSlug);
+    const tenantId = await getTenantIdBySlug(req.params.tenantSlug);
     if (!tenantId) {
       res.status(404).json({ error: "Empresa não encontrada.", code: "NOT_FOUND" });
       return;
     }
-    const rows = db.prepare("SELECT * FROM rules WHERE tenant_id = ? ORDER BY area ASC").all(tenantId) as RuleDbRow[];
+    const rows = await db.prepare("SELECT * FROM rules WHERE tenant_id = ? ORDER BY area ASC").all(tenantId) as RuleDbRow[];
     res.json({ rules: rows.map(rowToRule) });
   } catch {
     res.status(500).json({ error: "Erro ao buscar regras.", code: "INTERNAL" });
@@ -58,18 +76,18 @@ router.get("/by-tenant/:tenantSlug", (req: Request, res: Response): void => {
 });
 
 // PUT /api/rules/for-tenant — salvar regra de uma área para uma empresa (só Admin Mestre)
-router.put("/for-tenant", (req: Request, res: Response): void => {
+router.put("/for-tenant", async (req: Request, res: Response): Promise<void> => {
   if (!isSystemAdmin(req)) {
     res.status(403).json({ error: "Apenas o Administrador Mestre pode definir regras de outra empresa.", code: "FORBIDDEN" });
     return;
   }
   try {
-    const { tenantSlug, area, allowedRecorrencias } = req.body;
+    const { tenantSlug, area, allowedRecorrencias, allowedTipos, customTipos, defaultTipos } = req.body;
     if (!tenantSlug || !area) {
       res.status(400).json({ error: "tenantSlug e area são obrigatórios.", code: "MISSING_FIELDS" });
       return;
     }
-    const tenantId = getTenantIdBySlug(String(tenantSlug).trim().toLowerCase());
+    const tenantId = await getTenantIdBySlug(String(tenantSlug).trim().toLowerCase());
     if (!tenantId) {
       res.status(404).json({ error: "Empresa não encontrada.", code: "NOT_FOUND" });
       return;
@@ -78,25 +96,42 @@ router.put("/for-tenant", (req: Request, res: Response): void => {
       res.status(400).json({ error: "allowedRecorrencias deve ser um array.", code: "VALIDATION" });
       return;
     }
-
-    const existing = db.prepare("SELECT id FROM rules WHERE tenant_id = ? AND area = ?")
-      .get(tenantId, area) as { id: string } | undefined;
+    const existingRow = await db.prepare("SELECT * FROM rules WHERE tenant_id = ? AND area = ?")
+      .get(tenantId, area) as RuleDbRow | undefined;
     const now = nowIso();
     const allowedJson = JSON.stringify(allowedRecorrencias);
+    const allowedTiposJson =
+      allowedTipos === undefined
+        ? (existingRow?.allowed_tipos ?? null)
+        : Array.isArray(allowedTipos)
+          ? JSON.stringify(allowedTipos)
+          : null;
+    const customTiposJson =
+      customTipos === undefined
+        ? (existingRow?.custom_tipos ?? "[]")
+        : Array.isArray(customTipos)
+          ? JSON.stringify(customTipos)
+          : "[]";
+    const defaultTiposJson =
+      defaultTipos === undefined
+        ? (existingRow?.default_tipos ?? "[]")
+        : Array.isArray(defaultTipos)
+          ? JSON.stringify(defaultTipos)
+          : "[]";
 
-    if (existing) {
-      db.prepare(`
-        UPDATE rules SET allowed_recorrencias = ?, updated_at = ?, updated_by = ?
+    if (existingRow) {
+      await db.prepare(`
+        UPDATE rules SET allowed_recorrencias = ?, allowed_tipos = ?, custom_tipos = ?, default_tipos = ?, updated_at = ?, updated_by = ?
         WHERE tenant_id = ? AND area = ?
-      `).run(allowedJson, now, req.user!.email, tenantId, area);
+      `).run(allowedJson, allowedTiposJson, customTiposJson, defaultTiposJson, now, req.user!.email, tenantId, area);
     } else {
-      db.prepare(`
-        INSERT INTO rules (id, tenant_id, area, allowed_recorrencias, updated_at, updated_by)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `).run(uuidv4(), tenantId, area, allowedJson, now, req.user!.email);
+      await db.prepare(`
+        INSERT INTO rules (id, tenant_id, area, allowed_recorrencias, allowed_tipos, custom_tipos, default_tipos, updated_at, updated_by)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(uuidv4(), tenantId, area, allowedJson, allowedTiposJson, customTiposJson, defaultTiposJson, now, req.user!.email);
     }
 
-    const updated = db.prepare("SELECT * FROM rules WHERE tenant_id = ? AND area = ?")
+    const updated = await db.prepare("SELECT * FROM rules WHERE tenant_id = ? AND area = ?")
       .get(tenantId, area) as RuleDbRow | undefined;
     if (!updated) {
       res.status(500).json({ error: "Erro ao salvar regra.", code: "INTERNAL" });
@@ -109,7 +144,7 @@ router.put("/for-tenant", (req: Request, res: Response): void => {
 });
 
 // GET /api/rules — rules for current user's area (or all areas for ADMIN)
-router.get("/", (req: Request, res: Response): void => {
+router.get("/", async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user!;
     const tenantId = req.tenantId!;
@@ -117,9 +152,9 @@ router.get("/", (req: Request, res: Response): void => {
     let rows: RuleDbRow[];
 
     if (user.role === "ADMIN") {
-      rows = db.prepare("SELECT * FROM rules WHERE tenant_id = ? ORDER BY area ASC").all(tenantId) as RuleDbRow[];
+      rows = await db.prepare("SELECT * FROM rules WHERE tenant_id = ? ORDER BY area ASC").all(tenantId) as RuleDbRow[];
     } else {
-      rows = db.prepare("SELECT * FROM rules WHERE tenant_id = ? AND area = ?").all(tenantId, user.area) as RuleDbRow[];
+      rows = await db.prepare("SELECT * FROM rules WHERE tenant_id = ? AND area = ?").all(tenantId, user.area) as RuleDbRow[];
     }
 
     res.json({ rules: rows.map(rowToRule) });
@@ -129,7 +164,7 @@ router.get("/", (req: Request, res: Response): void => {
 });
 
 // GET /api/rules/by-area — get rules for a specific area
-router.get("/by-area", (req: Request, res: Response): void => {
+router.get("/by-area", async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user!;
     const tenantId = req.tenantId!;
@@ -146,7 +181,7 @@ router.get("/by-area", (req: Request, res: Response): void => {
       return;
     }
 
-    const row = db.prepare("SELECT * FROM rules WHERE tenant_id = ? AND area = ?")
+    const row = await db.prepare("SELECT * FROM rules WHERE tenant_id = ? AND area = ?")
       .get(tenantId, area) as RuleDbRow | undefined;
 
     res.json({ rule: row ? rowToRule(row) : null });
@@ -156,11 +191,11 @@ router.get("/by-area", (req: Request, res: Response): void => {
 });
 
 // PUT /api/rules — upsert rules for an area (LEADER manages own area, ADMIN manages all)
-router.put("/", (req: Request, res: Response): void => {
+router.put("/", async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user!;
     const tenantId = req.tenantId!;
-    const { area, allowedRecorrencias } = req.body;
+    const { area, allowedRecorrencias, allowedTipos, customTipos, defaultTipos } = req.body;
 
     if (user.role === "USER") {
       res.status(403).json({ error: "Sem permissão.", code: "FORBIDDEN" });
@@ -183,25 +218,43 @@ router.put("/", (req: Request, res: Response): void => {
       return;
     }
 
-    const existing = db.prepare("SELECT id FROM rules WHERE tenant_id = ? AND area = ?")
-      .get(tenantId, area) as { id: string } | undefined;
+    const existing = await db.prepare("SELECT * FROM rules WHERE tenant_id = ? AND area = ?")
+      .get(tenantId, area) as RuleDbRow | undefined;
 
     const now = nowIso();
     const allowedJson = JSON.stringify(allowedRecorrencias);
+    const allowedTiposJson =
+      allowedTipos === undefined
+        ? (existing?.allowed_tipos ?? null)
+        : Array.isArray(allowedTipos)
+          ? JSON.stringify(allowedTipos)
+          : null;
+    const customTiposJson =
+      customTipos === undefined
+        ? (existing?.custom_tipos ?? "[]")
+        : Array.isArray(customTipos)
+          ? JSON.stringify(customTipos)
+          : "[]";
+    const defaultTiposJson =
+      defaultTipos === undefined
+        ? (existing?.default_tipos ?? "[]")
+        : Array.isArray(defaultTipos)
+          ? JSON.stringify(defaultTipos)
+          : "[]";
 
     if (existing) {
-      db.prepare(`
-        UPDATE rules SET allowed_recorrencias = ?, updated_at = ?, updated_by = ?
+      await db.prepare(`
+        UPDATE rules SET allowed_recorrencias = ?, allowed_tipos = ?, custom_tipos = ?, default_tipos = ?, updated_at = ?, updated_by = ?
         WHERE tenant_id = ? AND area = ?
-      `).run(allowedJson, now, user.email, tenantId, area);
+      `).run(allowedJson, allowedTiposJson, customTiposJson, defaultTiposJson, now, user.email, tenantId, area);
     } else {
-      db.prepare(`
-        INSERT INTO rules (id, tenant_id, area, allowed_recorrencias, updated_at, updated_by)
-        VALUES (?, ?, ?, ?, ?, ?)
-      `).run(uuidv4(), tenantId, area, allowedJson, now, user.email);
+      await db.prepare(`
+        INSERT INTO rules (id, tenant_id, area, allowed_recorrencias, allowed_tipos, custom_tipos, default_tipos, updated_at, updated_by)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(uuidv4(), tenantId, area, allowedJson, allowedTiposJson, customTiposJson, defaultTiposJson, now, user.email);
     }
 
-    const updated = db.prepare("SELECT * FROM rules WHERE tenant_id = ? AND area = ?")
+    const updated = await db.prepare("SELECT * FROM rules WHERE tenant_id = ? AND area = ?")
       .get(tenantId, area) as RuleDbRow | undefined;
     if (!updated) {
       res.status(500).json({ error: "Erro ao salvar regra.", code: "INTERNAL" });

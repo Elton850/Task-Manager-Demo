@@ -10,7 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
 import { tasksApi, usersApi, lookupsApi, rulesApi } from "@/services/api";
 import { exportTasksToCsv, exportTasksToPdf } from "@/utils/exportTasks";
-import type { Task, TaskFilters as Filters, Lookups, User } from "@/types";
+import type { Task, TaskFilters as Filters, Lookups, User, Rule } from "@/types";
 
 const DEFAULT_FILTERS: Filters = {
   search: "",
@@ -44,6 +44,7 @@ export default function TasksPage() {
   const [canCreateTask, setCanCreateTask] = useState(true);
   const [createBlockedReason, setCreateBlockedReason] = useState("");
   const [allowedRecorrencias, setAllowedRecorrencias] = useState<string[]>([]);
+  const [rules, setRules] = useState<Rule[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -58,12 +59,24 @@ export default function TasksPage() {
         setTasks(tasksRes.tasks);
         setUsers(usersRes.users);
         setLookups(lookupsRes.lookups);
-
+        setRules(ruleRes.rule ? [ruleRes.rule] : []);
         const allowed = ruleRes.rule?.allowedRecorrencias || [];
         setAllowedRecorrencias(allowed);
         const canCreate = allowed.length > 0;
         setCanCreateTask(canCreate);
         setCreateBlockedReason(canCreate ? "" : "Sua área não possui recorrências permitidas para criação de tarefas.");
+      } else if (user?.role === "LEADER") {
+        const [tasksRes, usersRes, lookupsRes, rulesRes] = await Promise.all([
+          ...basePromises,
+          rulesApi.list(),
+        ]);
+        setTasks(tasksRes.tasks);
+        setUsers(usersRes.users);
+        setLookups(lookupsRes.lookups);
+        setRules(rulesRes.rules);
+        setCanCreateTask(true);
+        setCreateBlockedReason("");
+        setAllowedRecorrencias([]);
       } else {
         const [tasksRes, usersRes, lookupsRes] = await Promise.all(basePromises);
         setTasks(tasksRes.tasks);
@@ -98,7 +111,10 @@ export default function TasksPage() {
     });
   }, [tasks, filters]);
 
-  const handleSave = async (data: Partial<Task>) => {
+  const handleSave = async (
+    data: Partial<Task>,
+    options?: { pendingSubtasks?: { atividade: string; responsavelEmail: string }[] }
+  ) => {
     setSaving(true);
     try {
       if (editTask) {
@@ -112,6 +128,20 @@ export default function TasksPage() {
 
       const { task } = await tasksApi.create(data);
       setTasks(prev => [task, ...prev]);
+      if (options?.pendingSubtasks?.length && task.id) {
+        for (const s of options.pendingSubtasks) {
+          if (!s.atividade.trim() || !s.responsavelEmail) continue;
+          try {
+            await tasksApi.create({
+              parentTaskId: task.id,
+              atividade: s.atividade.trim(),
+              responsavelEmail: s.responsavelEmail,
+            });
+          } catch (subErr) {
+            toast(subErr instanceof Error ? subErr.message : "Erro ao criar subtarefa", "error");
+          }
+        }
+      }
       toast("Tarefa criada", "success");
       setModalOpen(false);
       setEditTask(null);
@@ -276,6 +306,7 @@ export default function TasksPage() {
         task={editTask}
         lookups={lookups}
         users={users}
+        rules={rules}
         allowedRecorrencias={user?.role === "USER" ? allowedRecorrencias : undefined}
         onClose={() => {
           setModalOpen(false);

@@ -12,22 +12,22 @@ function isSystemAdmin(req: Request): boolean {
 }
 
 /** GET /api/system/stats — visão geral (apenas admin do sistema) */
-router.get("/stats", (req: Request, res: Response): void => {
+router.get("/stats", async (req: Request, res: Response): Promise<void> => {
   try {
     if (!isSystemAdmin(req)) {
       res.status(403).json({ error: "Acesso apenas para administrador do sistema.", code: "FORBIDDEN" });
       return;
     }
-    const tenantsCount = db.prepare(
+    const tenantsCount = await db.prepare(
       "SELECT COUNT(*) as c FROM tenants WHERE slug != ? AND active = 1"
     ).get(SYSTEM_TENANT_SLUG) as { c: number };
-    const usersCount = db.prepare(
+    const usersCount = await db.prepare(
       "SELECT COUNT(*) as c FROM users u JOIN tenants t ON t.id = u.tenant_id WHERE t.slug != ? AND u.tenant_id IS NOT NULL"
     ).get(SYSTEM_TENANT_SLUG) as { c: number };
-    const tasksCount = db.prepare(
+    const tasksCount = await db.prepare(
       "SELECT COUNT(*) as c FROM tasks WHERE deleted_at IS NULL"
     ).get() as { c: number };
-    const recentLogins = db.prepare(`
+    const recentLogins = await db.prepare(`
       SELECT le.logged_at, le.tenant_id, le.user_id,
              t.slug as tenant_slug, t.name as tenant_name,
              u.email as user_email, u.nome as user_nome
@@ -64,7 +64,7 @@ router.get("/stats", (req: Request, res: Response): void => {
 });
 
 /** GET /api/system/login-logs — log de acessos (apenas admin do sistema) */
-router.get("/login-logs", (req: Request, res: Response): void => {
+router.get("/login-logs", async (req: Request, res: Response): Promise<void> => {
   try {
     if (!isSystemAdmin(req)) {
       res.status(403).json({ error: "Acesso apenas para administrador do sistema.", code: "FORBIDDEN" });
@@ -94,7 +94,7 @@ router.get("/login-logs", (req: Request, res: Response): void => {
     }
     params.push(limit);
 
-    const rows = db.prepare(`
+    const rows = await db.prepare(`
       SELECT le.logged_at, le.tenant_id, le.user_id,
              t.slug as tenant_slug, t.name as tenant_name,
              u.email as user_email, u.nome as user_nome

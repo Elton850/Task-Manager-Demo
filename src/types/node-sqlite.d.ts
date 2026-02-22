@@ -16,8 +16,8 @@ declare module "node:sqlite" {
     | ArrayBuffer;
 
   export interface StatementSync {
-    all(...params: SupportedValueType[]): Record<string, SupportedValueType>[];
-    get(...params: SupportedValueType[]): Record<string, SupportedValueType> | undefined;
+    all(...params: SupportedValueType[]): unknown[];
+    get(...params: SupportedValueType[]): unknown | undefined;
     run(...params: SupportedValueType[]): StatementResultingChanges;
     setAllowBareNamedParameters(enabled: boolean): void;
     setReadBigInts(enabled: boolean): void;

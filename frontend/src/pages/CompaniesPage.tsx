@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { Building2, Plus, RefreshCw, CheckCircle, XCircle, ImagePlus, Trash2 } from "lucide-react";
+import { Building2, Plus, RefreshCw, CheckCircle, XCircle, ImagePlus, Trash2, Copy, ExternalLink } from "lucide-react";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
@@ -7,6 +7,15 @@ import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import { useToast } from "@/contexts/ToastContext";
 import { tenantApi } from "@/services/api";
 import type { TenantListItem } from "@/types";
+
+/** Domínio base configurado no build (ex.: fluxiva.com.br). Vazio em dev local. */
+const APP_DOMAIN = (import.meta.env.VITE_APP_DOMAIN as string | undefined) || "";
+
+/** Monta a URL de acesso completa da empresa. */
+function getTenantAccessUrl(slug: string): string {
+  if (!slug) return "";
+  return APP_DOMAIN ? `https://${slug}.${APP_DOMAIN}` : `/${slug}`;
+}
 
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -47,6 +56,15 @@ export default function CompaniesPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  const handleCopyLink = (slug: string) => {
+    const url = getTenantAccessUrl(slug);
+    if (!url) return;
+    navigator.clipboard.writeText(url).then(
+      () => toast("Link copiado!", "success"),
+      () => toast("Não foi possível copiar. Copie manualmente.", "error"),
+    );
+  };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -143,7 +161,8 @@ export default function CompaniesPage() {
             />
           </div>
           <p className="text-xs text-slate-600">
-            Os usuários serão cadastrados na aba Usuários. Cada um acessa pelo link: <strong>site.com/{form.slug.trim() || "slug"}</strong>
+            Os usuários serão cadastrados na aba Usuários. Cada um acessa pelo link:{" "}
+            <strong className="font-mono">{getTenantAccessUrl(form.slug.trim() || "slug")}</strong>
           </p>
           <Button type="submit" icon={<Plus size={16} />} loading={creating}>
             Cadastrar empresa
@@ -176,7 +195,7 @@ export default function CompaniesPage() {
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase w-24">Logo</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase">Nome</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase">Identificador</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase">Identificador / Link</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase">Status</th>
                 </tr>
               </thead>
@@ -226,7 +245,31 @@ export default function CompaniesPage() {
                       </div>
                     </td>
                     <td className="px-4 py-3 text-sm font-medium text-slate-800">{t.name}</td>
-                    <td className="px-4 py-3 text-sm text-slate-600 font-mono">@{t.slug}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex flex-col gap-1">
+                        <span className="text-sm text-slate-600 font-mono">@{t.slug}</span>
+                        <div className="flex items-center gap-1">
+                          <a
+                            href={getTenantAccessUrl(t.slug)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-brand-600 hover:text-brand-800 font-mono truncate max-w-[180px]"
+                            title={getTenantAccessUrl(t.slug)}
+                          >
+                            <ExternalLink size={11} className="inline mr-0.5" />
+                            {getTenantAccessUrl(t.slug)}
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => handleCopyLink(t.slug)}
+                            title="Copiar link"
+                            className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700 flex-shrink-0"
+                          >
+                            <Copy size={12} />
+                          </button>
+                        </div>
+                      </div>
+                    </td>
                     <td className="px-4 py-3">
                       {t.active ? (
                         <span className="inline-flex items-center gap-1 text-xs text-emerald-700 font-medium">

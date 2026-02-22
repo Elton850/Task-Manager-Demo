@@ -50,7 +50,7 @@ function rowToUser(row: UserDbRow, tenantSlug?: string, tenantName?: string) {
 }
 
 // GET /api/users — active users (filtered by role for selection dropdowns)
-router.get("/", (req: Request, res: Response): void => {
+router.get("/", async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user!;
     const tenantId = req.tenantId!;
@@ -58,17 +58,17 @@ router.get("/", (req: Request, res: Response): void => {
     let rows: UserDbRow[];
 
     if (user.role === "ADMIN") {
-      rows = db.prepare("SELECT * FROM users WHERE tenant_id = ? AND active = 1 ORDER BY nome ASC")
+      rows = await db.prepare("SELECT * FROM users WHERE tenant_id = ? AND active = 1 ORDER BY nome ASC")
         .all(tenantId) as UserDbRow[];
     } else if (user.role === "LEADER") {
-      rows = db.prepare("SELECT * FROM users WHERE tenant_id = ? AND active = 1 AND area = ? ORDER BY nome ASC")
+      rows = await db.prepare("SELECT * FROM users WHERE tenant_id = ? AND active = 1 AND area = ? ORDER BY nome ASC")
         .all(tenantId, user.area) as UserDbRow[];
     } else {
-      rows = db.prepare("SELECT * FROM users WHERE tenant_id = ? AND email = ?")
+      rows = await db.prepare("SELECT * FROM users WHERE tenant_id = ? AND email = ?")
         .all(tenantId, user.email) as UserDbRow[];
     }
 
-    res.json({ users: rows.map(rowToUser) });
+    res.json({ users: rows.map((r) => rowToUser(r)) });
   } catch {
     res.status(500).json({ error: "Erro ao buscar usuários.", code: "INTERNAL" });
   }
@@ -77,7 +77,7 @@ router.get("/", (req: Request, res: Response): void => {
 const WITHOUT_PASSWORD_CONDITION = "(u.must_change_password = 1 OR TRIM(COALESCE(u.password_hash, '')) = '')";
 
 // GET /api/users/all — Admin Mestre: ?tenant=slug ou todos; ?withoutPassword=1 só usuários sem senha (mestre)
-router.get("/all", requireRole("ADMIN", "LEADER"), (req: Request, res: Response): void => {
+router.get("/all", requireRole("ADMIN", "LEADER"), async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user!;
     const tenantId = req.tenantId!;
@@ -87,7 +87,7 @@ router.get("/all", requireRole("ADMIN", "LEADER"), (req: Request, res: Response)
     if (isMasterAdmin(req)) {
       // Admin Mestre: listar todos ou filtrar por tenant e opcionalmente só sem senha
       if (filterTenantSlug) {
-        const t = db.prepare("SELECT id, slug, name FROM tenants WHERE slug = ?").get(filterTenantSlug) as { id: string; slug: string; name: string } | undefined;
+        const t = await db.prepare("SELECT id, slug, name FROM tenants WHERE slug = ?").get(filterTenantSlug) as { id: string; slug: string; name: string } | undefined;
         if (!t) {
           res.status(404).json({ error: "Empresa não encontrada.", code: "NOT_FOUND" });
           return;
@@ -95,13 +95,13 @@ router.get("/all", requireRole("ADMIN", "LEADER"), (req: Request, res: Response)
         const sql = onlyWithoutPassword
           ? "SELECT * FROM users u WHERE u.tenant_id = ? AND (u.must_change_password = 1 OR TRIM(COALESCE(u.password_hash, '')) = '') ORDER BY u.nome ASC"
           : "SELECT * FROM users WHERE tenant_id = ? ORDER BY nome ASC";
-        const rows = db.prepare(sql).all(t.id) as UserDbRow[];
+        const rows = await db.prepare(sql).all(t.id) as UserDbRow[];
         res.json({ users: rows.map((r) => rowToUser(r, t.slug, t.name)) });
       } else {
         const whereClause = onlyWithoutPassword
           ? `WHERE t.slug != ? AND ${WITHOUT_PASSWORD_CONDITION}`
           : "WHERE t.slug != ?";
-        const rows = db.prepare(`
+        const rows = await db.prepare(`
           SELECT u.*, t.slug AS tenant_slug, t.name AS tenant_name
           FROM users u
           INNER JOIN tenants t ON u.tenant_id = t.id
@@ -119,9 +119,9 @@ router.get("/all", requireRole("ADMIN", "LEADER"), (req: Request, res: Response)
 
     let rows: UserDbRow[];
     if (user.role === "ADMIN") {
-      rows = db.prepare("SELECT * FROM users WHERE tenant_id = ? ORDER BY nome ASC").all(tenantId) as UserDbRow[];
+      rows = await db.prepare("SELECT * FROM users WHERE tenant_id = ? ORDER BY nome ASC").all(tenantId) as UserDbRow[];
     } else {
-      rows = db.prepare("SELECT * FROM users WHERE tenant_id = ? AND area = ? ORDER BY nome ASC").all(tenantId, user.area) as UserDbRow[];
+      rows = await db.prepare("SELECT * FROM users WHERE tenant_id = ? AND area = ? ORDER BY nome ASC").all(tenantId, user.area) as UserDbRow[];
     }
     res.json({ users: rows.map((r) => rowToUser(r)) });
   } catch {
@@ -136,7 +136,7 @@ router.post("/", requireRole("ADMIN"), async (req: Request, res: Response): Prom
     const { nome, email: emailRaw, role, area, canDelete, tenantSlug: bodyTenantSlug } = req.body;
 
     if (isMasterAdmin(req) && bodyTenantSlug) {
-      const t = db.prepare("SELECT id FROM tenants WHERE slug = ? AND slug != ?").get(bodyTenantSlug, SYSTEM_TENANT_SLUG);
+      const t = await db.prepare("SELECT id FROM tenants WHERE slug = ? AND slug != ?").get(bodyTenantSlug, SYSTEM_TENANT_SLUG);
       if (!t) {
         res.status(404).json({ error: "Empresa não encontrada.", code: "NOT_FOUND" });
         return;
@@ -152,7 +152,7 @@ router.post("/", requireRole("ADMIN"), async (req: Request, res: Response): Prom
     const email = safeLowerEmail(emailRaw);
     const isTargetSystem = targetTenantId === SYSTEM_TENANT_ID;
 
-    const existing = db.prepare("SELECT id FROM users WHERE tenant_id = ? AND email = ?").get(targetTenantId, email);
+    const existing = await db.prepare("SELECT id FROM users WHERE tenant_id = ? AND email = ?").get(targetTenantId, email);
     if (existing) {
       res.status(409).json({ error: "Email já cadastrado nesta empresa.", code: "DUPLICATE_EMAIL" });
       return;
@@ -168,12 +168,12 @@ router.post("/", requireRole("ADMIN"), async (req: Request, res: Response): Prom
     const id = uuidv4();
     const now = nowIso();
 
-    db.prepare(`
+    await db.prepare(`
       INSERT INTO users (id, tenant_id, email, nome, role, area, active, can_delete, password_hash, must_change_password, created_at)
       VALUES (?, ?, ?, ?, ?, ?, 1, ?, '', 1, ?)
     `).run(id, targetTenantId, email, String(nome).trim(), role, String(area).trim(), canDelete ? 1 : 0, now);
 
-    const created = db.prepare("SELECT * FROM users WHERE id = ?").get(id) as UserDbRow;
+    const created = await db.prepare("SELECT * FROM users WHERE id = ?").get(id) as UserDbRow;
     res.status(201).json({ user: rowToUser(created) });
   } catch {
     res.status(500).json({ error: "Erro ao criar usuário.", code: "INTERNAL" });
@@ -181,12 +181,12 @@ router.post("/", requireRole("ADMIN"), async (req: Request, res: Response): Prom
 });
 
 // PUT /api/users/:id — Admin Mestre: qualquer tenant; senão mesmo tenant
-router.put("/:id", requireRole("ADMIN"), (req: Request, res: Response): void => {
+router.put("/:id", requireRole("ADMIN"), async (req: Request, res: Response): Promise<void> => {
   try {
     const tenantId = req.tenantId!;
     const { id } = req.params;
 
-    const existing = db.prepare("SELECT * FROM users WHERE id = ?").get(id) as UserDbRow | undefined;
+    const existing = await db.prepare("SELECT * FROM users WHERE id = ?").get(id) as UserDbRow | undefined;
     if (!existing) {
       res.status(404).json({ error: "Usuário não encontrado.", code: "NOT_FOUND" });
       return;
@@ -204,7 +204,7 @@ router.put("/:id", requireRole("ADMIN"), (req: Request, res: Response): void => 
       return;
     }
 
-    db.prepare(`
+    await db.prepare(`
       UPDATE users SET
         nome = ?, role = ?, area = ?, can_delete = ?
       WHERE id = ?
@@ -216,7 +216,7 @@ router.put("/:id", requireRole("ADMIN"), (req: Request, res: Response): void => 
       id
     );
 
-    const updated = db.prepare("SELECT * FROM users WHERE id = ?").get(id) as UserDbRow;
+    const updated = await db.prepare("SELECT * FROM users WHERE id = ?").get(id) as UserDbRow;
     res.json({ user: rowToUser(updated) });
   } catch {
     res.status(500).json({ error: "Erro ao atualizar usuário.", code: "INTERNAL" });
@@ -224,7 +224,7 @@ router.put("/:id", requireRole("ADMIN"), (req: Request, res: Response): void => 
 });
 
 // GET /api/users/login-counts — logins per user in period (from/to as YYYY-MM). Admin mestre pode passar ?tenant=slug para escopar por empresa.
-router.get("/login-counts", requireRole("ADMIN", "LEADER"), (req: Request, res: Response): void => {
+router.get("/login-counts", requireRole("ADMIN", "LEADER"), async (req: Request, res: Response): Promise<void> => {
   try {
     let tenantId = req.tenantId!;
     const fromYm = (req.query.from as string) || "";
@@ -238,7 +238,7 @@ router.get("/login-counts", requireRole("ADMIN", "LEADER"), (req: Request, res: 
 
     // Admin mestre: escopar por empresa (senão req.tenantId é "system" e login_events das empresas não entram)
     if (isMasterAdmin(req) && tenantSlug && tenantSlug !== SYSTEM_TENANT_SLUG) {
-      const t = db.prepare("SELECT id FROM tenants WHERE slug = ?").get(tenantSlug) as { id: string } | undefined;
+      const t = await db.prepare("SELECT id FROM tenants WHERE slug = ?").get(tenantSlug) as { id: string } | undefined;
       if (t) tenantId = t.id;
     } else if (isMasterAdmin(req) && !tenantSlug) {
       // Admin mestre sem filtro de empresa: contar logins de todos os tenants (não filtrar por tenant_id)
@@ -246,7 +246,7 @@ router.get("/login-counts", requireRole("ADMIN", "LEADER"), (req: Request, res: 
       const [y, m] = toYm.split("-").map(Number);
       const lastDay = new Date(Date.UTC(y, m, 0));
       const toDate = `${toYm}-${String(lastDay.getUTCDate()).padStart(2, "0")}T23:59:59.999Z`;
-      const rows = db.prepare(`
+      const rows = await db.prepare(`
         SELECT user_id, COUNT(*) as cnt
         FROM login_events
         WHERE logged_at >= ? AND logged_at <= ?
@@ -264,7 +264,7 @@ router.get("/login-counts", requireRole("ADMIN", "LEADER"), (req: Request, res: 
     const lastDay = new Date(Date.UTC(y, m, 0));
     const toDate = `${toYm}-${String(lastDay.getUTCDate()).padStart(2, "0")}T23:59:59.999Z`;
 
-    const rows = db.prepare(`
+    const rows = await db.prepare(`
       SELECT user_id, COUNT(*) as cnt
       FROM login_events
       WHERE tenant_id = ? AND logged_at >= ? AND logged_at <= ?
@@ -280,7 +280,7 @@ router.get("/login-counts", requireRole("ADMIN", "LEADER"), (req: Request, res: 
 });
 
 // PATCH /api/users/bulk-toggle-active — Admin Mestre: qualquer tenant; senão mesmo tenant
-router.patch("/bulk-toggle-active", requireRole("ADMIN"), (req: Request, res: Response): void => {
+router.patch("/bulk-toggle-active", requireRole("ADMIN"), async (req: Request, res: Response): Promise<void> => {
   try {
     const tenantId = req.tenantId!;
     const currentUserId = req.user!.id;
@@ -291,25 +291,40 @@ router.patch("/bulk-toggle-active", requireRole("ADMIN"), (req: Request, res: Re
       return;
     }
 
-    const value = active ? 1 : 0;
-    let updated = 0;
-    for (const id of ids) {
-      if (id === currentUserId) continue;
-      const row = db.prepare("SELECT tenant_id FROM users WHERE id = ?").get(id) as { tenant_id: string } | undefined;
-      if (!row) continue;
-      if (!isMasterAdmin(req) && row.tenant_id !== tenantId) continue;
-      const result = db.prepare("UPDATE users SET active = ? WHERE id = ?").run(value, id);
-      if (result.changes) updated++;
+    const uniqueIds = [...new Set(ids)].filter((id) => id !== currentUserId);
+    if (uniqueIds.length === 0) {
+      res.json({ updated: 0 });
+      return;
     }
 
-    res.json({ updated });
+    const placeholders = uniqueIds.map(() => "?").join(",");
+    const rows = await db.prepare(
+      `SELECT id, tenant_id FROM users WHERE id IN (${placeholders})`
+    ).all(...uniqueIds) as { id: string; tenant_id: string }[];
+
+    const allowedIds: string[] = [];
+    for (const row of rows) {
+      if (isMasterAdmin(req) || row.tenant_id === tenantId) allowedIds.push(row.id);
+    }
+    if (allowedIds.length === 0) {
+      res.json({ updated: 0 });
+      return;
+    }
+
+    const value = active ? 1 : 0;
+    const updatePlaceholders = allowedIds.map(() => "?").join(",");
+    const result = await db.prepare(
+      `UPDATE users SET active = ? WHERE id IN (${updatePlaceholders})`
+    ).run(value, ...allowedIds);
+
+    res.json({ updated: result.changes });
   } catch {
     res.status(500).json({ error: "Erro ao atualizar usuários.", code: "INTERNAL" });
   }
 });
 
 // PATCH /api/users/:id/toggle-active — Admin Mestre: qualquer tenant; senão mesmo tenant
-router.patch("/:id/toggle-active", requireRole("ADMIN"), (req: Request, res: Response): void => {
+router.patch("/:id/toggle-active", requireRole("ADMIN"), async (req: Request, res: Response): Promise<void> => {
   try {
     const tenantId = req.tenantId!;
     const { id } = req.params;
@@ -319,7 +334,7 @@ router.patch("/:id/toggle-active", requireRole("ADMIN"), (req: Request, res: Res
       return;
     }
 
-    const existing = db.prepare("SELECT * FROM users WHERE id = ?").get(id) as UserDbRow | undefined;
+    const existing = await db.prepare("SELECT * FROM users WHERE id = ?").get(id) as UserDbRow | undefined;
     if (!existing) {
       res.status(404).json({ error: "Usuário não encontrado.", code: "NOT_FOUND" });
       return;
@@ -330,9 +345,9 @@ router.patch("/:id/toggle-active", requireRole("ADMIN"), (req: Request, res: Res
     }
 
     const newActive = existing.active === 1 ? 0 : 1;
-    db.prepare("UPDATE users SET active = ? WHERE id = ?").run(newActive, id);
+    await db.prepare("UPDATE users SET active = ? WHERE id = ?").run(newActive, id);
 
-    const updated = db.prepare("SELECT * FROM users WHERE id = ?").get(id) as UserDbRow;
+    const updated = await db.prepare("SELECT * FROM users WHERE id = ?").get(id) as UserDbRow;
     res.json({ user: rowToUser(updated) });
   } catch {
     res.status(500).json({ error: "Erro ao atualizar usuário.", code: "INTERNAL" });

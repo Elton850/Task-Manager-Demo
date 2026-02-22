@@ -57,7 +57,7 @@ router.post("/login", async (req: Request, res: Response): Promise<void> => {
     const email = safeLowerEmail(emailRaw);
     const tenantId = req.tenantId!;
 
-    const row = db.prepare("SELECT * FROM users WHERE tenant_id = ? AND email = ?")
+    const row = await db.prepare("SELECT * FROM users WHERE tenant_id = ? AND email = ?")
       .get(tenantId, email) as UserDbRow | undefined;
 
     if (!row) throw new AuthError("NO_USER", "Usuário não cadastrado.");
@@ -71,7 +71,8 @@ router.post("/login", async (req: Request, res: Response): Promise<void> => {
       });
     }
 
-    const ok = await bcrypt.compare(String(password), row.password_hash);
+    const passwordNorm = String(password ?? "").trim();
+    const ok = await bcrypt.compare(passwordNorm, row.password_hash);
     if (!ok) throw new AuthError("BAD_CREDENTIALS", "Credenciais inválidas.");
 
     const user = rowToAuthUser(row);
@@ -81,10 +82,10 @@ router.post("/login", async (req: Request, res: Response): Promise<void> => {
     const nowIsoStr = nowIso();
     try {
       const eventId = uuidv4();
-      db.prepare(
+      await db.prepare(
         "INSERT INTO login_events (id, tenant_id, user_id, logged_at) VALUES (?, ?, ?, ?)"
       ).run(eventId, tenantId, row.id, nowIsoStr);
-      db.prepare("UPDATE users SET last_login_at = ? WHERE id = ?").run(nowIsoStr, row.id);
+      await db.prepare("UPDATE users SET last_login_at = ? WHERE id = ?").run(nowIsoStr, row.id);
     } catch {
       // Não falhar o login se o registro falhar
     }
@@ -119,26 +120,29 @@ router.post("/request-reset", async (req: Request, res: Response): Promise<void>
     const email = safeLowerEmail(emailRaw);
     const tenantId = req.tenantId!;
 
-    const row = db.prepare("SELECT id, nome, active FROM users WHERE tenant_id = ? AND email = ?")
+    const row = await db.prepare("SELECT id, nome, active FROM users WHERE tenant_id = ? AND email = ?")
       .get(tenantId, email) as { id: string; nome: string; active: number } | undefined;
 
     if (row && row.active === 1) {
       const code = genResetCode();
       const resetCodeHash = await bcrypt.hash(code, 12);
       const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
-      db.prepare(`
+      await db.prepare(`
         UPDATE users SET must_change_password = 1, reset_code_hash = ?, reset_code_expires_at = ?
         WHERE id = ?
       `).run(resetCodeHash, expiresAt, row.id);
 
-      const tenantRow = db.prepare("SELECT name FROM tenants WHERE id = ?").get(tenantId) as { name: string } | undefined;
-      await sendResetCodeEmail({
+      const tenantRow = await db.prepare("SELECT name FROM tenants WHERE id = ?").get(tenantId) as { name: string } | undefined;
+      const emailResult = await sendResetCodeEmail({
         to: email,
         userName: row.nome,
         code,
         expiresAt,
         tenantName: tenantRow?.name,
       });
+      if (!emailResult.sent) {
+        console.warn("[auth] request-reset: e-mail não enviado.", emailResult.error);
+      }
     }
 
     res.json({
@@ -162,7 +166,7 @@ router.post("/reset", async (req: Request, res: Response): Promise<void> => {
     const code = String(codeRaw).trim();
     const tenantId = req.tenantId!;
 
-    const row = db.prepare("SELECT * FROM users WHERE tenant_id = ? AND email = ?")
+    const row = await db.prepare("SELECT * FROM users WHERE tenant_id = ? AND email = ?")
       .get(tenantId, email) as UserDbRow | undefined;
 
     if (!row) throw new AuthError("NO_USER", "Usuário não cadastrado.");
@@ -187,14 +191,19 @@ router.post("/reset", async (req: Request, res: Response): Promise<void> => {
 
     const passwordHash = await bcrypt.hash(newPassword, 12);
 
-    db.prepare(`
+    await db.prepare(`
       UPDATE users SET password_hash = ?, must_change_password = 0,
         reset_code_hash = NULL, reset_code_expires_at = NULL
       WHERE tenant_id = ? AND email = ?
     `).run(passwordHash, tenantId, email);
 
-    const updatedRow = db.prepare("SELECT * FROM users WHERE tenant_id = ? AND email = ?")
-      .get(tenantId, email) as UserDbRow;
+    const updatedRow = await db.prepare("SELECT * FROM users WHERE tenant_id = ? AND email = ?")
+      .get(tenantId, email) as UserDbRow | undefined;
+
+    if (!updatedRow) {
+      res.status(500).json({ error: "Erro ao atualizar senha.", code: "UPDATE_FAILED" });
+      return;
+    }
 
     const user = rowToAuthUser(updatedRow);
     const token = signToken(user);
@@ -203,10 +212,10 @@ router.post("/reset", async (req: Request, res: Response): Promise<void> => {
     const nowIsoReset = nowIso();
     try {
       const eventId = uuidv4();
-      db.prepare(
+      await db.prepare(
         "INSERT INTO login_events (id, tenant_id, user_id, logged_at) VALUES (?, ?, ?, ?)"
       ).run(eventId, tenantId, updatedRow.id, nowIsoReset);
-      db.prepare("UPDATE users SET last_login_at = ? WHERE id = ?").run(nowIsoReset, updatedRow.id);
+      await db.prepare("UPDATE users SET last_login_at = ? WHERE id = ?").run(nowIsoReset, updatedRow.id);
     } catch {
       // Não falhar se o registro falhar
     }
@@ -229,10 +238,10 @@ router.post("/reset", async (req: Request, res: Response): Promise<void> => {
 });
 
 // POST /api/auth/logout — req.user preenchido por apiAuthContext quando o token é válido
-router.post("/logout", (req: Request, res: Response): void => {
+router.post("/logout", async (req: Request, res: Response): Promise<void> => {
   if (req.user?.id) {
     try {
-      db.prepare("UPDATE users SET last_logout_at = ? WHERE id = ?").run(nowIso(), req.user.id);
+      await db.prepare("UPDATE users SET last_logout_at = ? WHERE id = ?").run(nowIso(), req.user.id);
     } catch {
       // Não falhar o logout se o registro falhar
     }
@@ -243,11 +252,11 @@ router.post("/logout", (req: Request, res: Response): void => {
 });
 
 // GET /api/auth/me — inclui último login e logout para exibição na área do usuário
-router.get("/me", requireAuth, (req: Request, res: Response): void => {
+router.get("/me", requireAuth, async (req: Request, res: Response): Promise<void> => {
   let lastLoginAt: string | null = null;
   let lastLogoutAt: string | null = null;
   try {
-    const row = db.prepare("SELECT last_login_at, last_logout_at FROM users WHERE id = ?")
+    const row = await db.prepare("SELECT last_login_at, last_logout_at FROM users WHERE id = ?")
       .get(req.user!.id) as { last_login_at: string | null; last_logout_at: string | null } | undefined;
     if (row) {
       lastLoginAt = row.last_login_at ?? null;
@@ -284,12 +293,12 @@ router.post("/impersonate", requireAuth, (req: Request, res: Response): Promise<
       res.status(400).json({ error: "userId é obrigatório.", code: "MISSING_USER_ID" });
       return;
     }
-    const systemTenant = db.prepare("SELECT id FROM tenants WHERE slug = 'system'").get() as { id: string } | undefined;
+    const systemTenant = await db.prepare("SELECT id FROM tenants WHERE slug = 'system'").get() as { id: string } | undefined;
     if (!systemTenant) {
       res.status(500).json({ error: "Configuração do sistema inválida.", code: "INTERNAL" });
       return;
     }
-    const targetRow = db.prepare(
+    const targetRow = await db.prepare(
       "SELECT id, tenant_id, email, nome, role, area, can_delete FROM users WHERE id = ? AND active = 1"
     ).get(userId) as (UserDbRow & { can_delete: number }) | undefined;
     if (!targetRow) {
@@ -300,7 +309,7 @@ router.post("/impersonate", requireAuth, (req: Request, res: Response): Promise<
       res.status(400).json({ error: "Não é possível visualizar como outro administrador do sistema.", code: "INVALID_TARGET" });
       return;
     }
-    const tenantRow = db.prepare("SELECT id, slug, name, active, created_at FROM tenants WHERE id = ? AND active = 1")
+    const tenantRow = await db.prepare("SELECT id, slug, name, active, created_at FROM tenants WHERE id = ? AND active = 1")
       .get(targetRow.tenant_id) as { id: string; slug: string; name: string; active: number; created_at: string } | undefined;
     if (!tenantRow) {
       res.status(404).json({ error: "Empresa do usuário não encontrada ou inativa.", code: "TENANT_NOT_FOUND" });
@@ -321,7 +330,7 @@ router.post("/impersonate", requireAuth, (req: Request, res: Response): Promise<
 });
 
 // POST /api/auth/impersonate/stop — Voltar à conta do administrador mestre
-router.post("/impersonate/stop", requireAuth, (req: Request, res: Response): void => {
+router.post("/impersonate/stop", requireAuth, async (req: Request, res: Response): Promise<void> => {
   const realToken = req.cookies?.["auth_real_token"];
   if (!realToken) {
     res.status(400).json({ error: "Não está visualizando como outro usuário.", code: "NOT_IMPERSONATING" });
@@ -331,7 +340,7 @@ router.post("/impersonate/stop", requireAuth, (req: Request, res: Response): voi
     const payload = require("../middleware/auth").verifyToken(realToken);
     res.cookie("auth_token", realToken, COOKIE_OPTIONS);
     res.clearCookie("auth_real_token", { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production" });
-    const tenantRow = db.prepare("SELECT id, slug, name FROM tenants WHERE id = ?")
+    const tenantRow = await db.prepare("SELECT id, slug, name FROM tenants WHERE id = ?")
       .get(payload.tenantId) as { id: string; slug: string; name: string } | undefined;
     res.json({
       user: payload,
@@ -360,11 +369,11 @@ router.post("/generate-reset", requireAuth, async (req: Request, res: Response):
     const email = safeLowerEmail(emailRaw);
     let tenantId = req.tenantId!;
     if (req.tenant?.slug === "system" && bodyTenantSlug) {
-      const t = db.prepare("SELECT id FROM tenants WHERE slug = ?").get(bodyTenantSlug) as { id: string } | undefined;
+      const t = await db.prepare("SELECT id FROM tenants WHERE slug = ?").get(bodyTenantSlug) as { id: string } | undefined;
       if (t) tenantId = t.id;
     }
 
-    const row = db.prepare("SELECT * FROM users WHERE tenant_id = ? AND email = ?")
+    const row = await db.prepare("SELECT * FROM users WHERE tenant_id = ? AND email = ?")
       .get(tenantId, email) as UserDbRow | undefined;
 
     if (!row) {
@@ -380,12 +389,12 @@ router.post("/generate-reset", requireAuth, async (req: Request, res: Response):
     const resetCodeHash = await bcrypt.hash(code, 12);
     const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
 
-    db.prepare(`
+    await db.prepare(`
       UPDATE users SET must_change_password = 1, reset_code_hash = ?, reset_code_expires_at = ?
       WHERE tenant_id = ? AND email = ?
     `).run(resetCodeHash, expiresAt, tenantId, email);
 
-    const tenantRow = db.prepare("SELECT name FROM tenants WHERE id = ?").get(tenantId) as { name: string } | undefined;
+    const tenantRow = await db.prepare("SELECT name FROM tenants WHERE id = ?").get(tenantId) as { name: string } | undefined;
     const tenantName = tenantRow?.name;
 
     const emailResult = await sendResetCodeEmail({
@@ -434,7 +443,7 @@ router.post("/generate-reset-bulk", requireAuth, async (req: Request, res: Respo
       return;
     }
 
-    const systemTenant = db.prepare("SELECT id FROM tenants WHERE slug = 'system'").get() as { id: string } | undefined;
+    const systemTenant = await db.prepare("SELECT id FROM tenants WHERE slug = 'system'").get() as { id: string } | undefined;
     if (!systemTenant) {
       res.status(500).json({ error: "Configuração do sistema inválida.", code: "INTERNAL" });
       return;
@@ -451,7 +460,7 @@ router.post("/generate-reset-bulk", requireAuth, async (req: Request, res: Respo
         continue;
       }
 
-      const row = db.prepare(
+      const row = await db.prepare(
         "SELECT id, tenant_id, email, nome, active FROM users WHERE id = ?"
       ).get(userId.trim()) as (UserDbRow & { active: number }) | undefined;
 
@@ -475,12 +484,12 @@ router.post("/generate-reset-bulk", requireAuth, async (req: Request, res: Respo
       const resetCodeHash = await bcrypt.hash(code, 12);
       const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
 
-      db.prepare(`
+      await db.prepare(`
         UPDATE users SET must_change_password = 1, reset_code_hash = ?, reset_code_expires_at = ?
         WHERE id = ?
       `).run(resetCodeHash, expiresAt, row.id);
 
-      const tenantRow = db.prepare("SELECT name FROM tenants WHERE id = ?").get(row.tenant_id) as { name: string } | undefined;
+      const tenantRow = await db.prepare("SELECT name FROM tenants WHERE id = ?").get(row.tenant_id) as { name: string } | undefined;
       const emailResult = await sendResetCodeEmail({
         to: row.email,
         userName: row.nome,

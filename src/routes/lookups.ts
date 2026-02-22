@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from "uuid";
 import db from "../db";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { nowIso } from "../utils";
+import { getDefaultTiposList } from "../constants/defaultTipos";
 
 const router = Router();
 router.use(requireAuth);
@@ -13,8 +14,8 @@ function isSystemAdmin(req: Request): boolean {
   return !!(req.user && req.tenant?.slug === SYSTEM_TENANT_SLUG && req.user.role === "ADMIN");
 }
 
-function getTenantIdBySlug(slug: string): string | null {
-  const row = db.prepare("SELECT id FROM tenants WHERE slug = ? AND active = 1").get(slug) as { id: string } | undefined;
+async function getTenantIdBySlug(slug: string): Promise<string | null> {
+  const row = await db.prepare("SELECT id FROM tenants WHERE slug = ? AND active = 1").get(slug) as { id: string } | undefined;
   return row?.id ?? null;
 }
 
@@ -30,18 +31,18 @@ interface LookupDbRow {
 // ——— Admin Mestre: gerenciar lookups de qualquer empresa ———
 
 // GET /api/lookups/by-tenant/:tenantSlug — lookups agrupados (só Admin Mestre)
-router.get("/by-tenant/:tenantSlug", requireRole("ADMIN"), (req: Request, res: Response): void => {
+router.get("/by-tenant/:tenantSlug", requireRole("ADMIN"), async (req: Request, res: Response): Promise<void> => {
   if (!isSystemAdmin(req)) {
     res.status(403).json({ error: "Apenas o Administrador Mestre pode ver listas de outra empresa.", code: "FORBIDDEN" });
     return;
   }
   try {
-    const tenantId = getTenantIdBySlug(req.params.tenantSlug);
+    const tenantId = await getTenantIdBySlug(req.params.tenantSlug);
     if (!tenantId) {
       res.status(404).json({ error: "Empresa não encontrada.", code: "NOT_FOUND" });
       return;
     }
-    const rows = db.prepare(`
+    const rows = await db.prepare(`
       SELECT * FROM lookups WHERE tenant_id = ?
       ORDER BY category ASC, order_index ASC, value ASC
     `).all(tenantId) as LookupDbRow[];
@@ -58,18 +59,18 @@ router.get("/by-tenant/:tenantSlug", requireRole("ADMIN"), (req: Request, res: R
 });
 
 // GET /api/lookups/by-tenant/:tenantSlug/all — com metadata (só Admin Mestre)
-router.get("/by-tenant/:tenantSlug/all", requireRole("ADMIN"), (req: Request, res: Response): void => {
+router.get("/by-tenant/:tenantSlug/all", requireRole("ADMIN"), async (req: Request, res: Response): Promise<void> => {
   if (!isSystemAdmin(req)) {
     res.status(403).json({ error: "Apenas o Administrador Mestre pode ver listas de outra empresa.", code: "FORBIDDEN" });
     return;
   }
   try {
-    const tenantId = getTenantIdBySlug(req.params.tenantSlug);
+    const tenantId = await getTenantIdBySlug(req.params.tenantSlug);
     if (!tenantId) {
       res.status(404).json({ error: "Empresa não encontrada.", code: "NOT_FOUND" });
       return;
     }
-    const rows = db.prepare(`
+    const rows = await db.prepare(`
       SELECT * FROM lookups WHERE tenant_id = ?
       ORDER BY category ASC, order_index ASC
     `).all(tenantId) as LookupDbRow[];
@@ -88,7 +89,7 @@ router.get("/by-tenant/:tenantSlug/all", requireRole("ADMIN"), (req: Request, re
 });
 
 // POST /api/lookups/for-tenant — adicionar valor em uma empresa (só Admin Mestre)
-router.post("/for-tenant", requireRole("ADMIN"), (req: Request, res: Response): void => {
+router.post("/for-tenant", requireRole("ADMIN"), async (req: Request, res: Response): Promise<void> => {
   if (!isSystemAdmin(req)) {
     res.status(403).json({ error: "Apenas o Administrador Mestre pode editar listas de outra empresa.", code: "FORBIDDEN" });
     return;
@@ -99,7 +100,7 @@ router.post("/for-tenant", requireRole("ADMIN"), (req: Request, res: Response): 
       res.status(400).json({ error: "tenantSlug, categoria e valor são obrigatórios.", code: "MISSING_FIELDS" });
       return;
     }
-    const tenantId = getTenantIdBySlug(String(tenantSlug).trim().toLowerCase());
+    const tenantId = await getTenantIdBySlug(String(tenantSlug).trim().toLowerCase());
     if (!tenantId) {
       res.status(404).json({ error: "Empresa não encontrada.", code: "NOT_FOUND" });
       return;
@@ -108,18 +109,31 @@ router.post("/for-tenant", requireRole("ADMIN"), (req: Request, res: Response): 
     const cat = String(category).trim().toUpperCase();
     const val = String(value).trim();
 
-    const existing = db.prepare("SELECT id FROM lookups WHERE tenant_id = ? AND category = ? AND value = ?")
+    const existing = await db.prepare("SELECT id FROM lookups WHERE tenant_id = ? AND category = ? AND value = ?")
       .get(tenantId, cat, val);
     if (existing) {
       res.status(409).json({ error: "Valor já existe nesta categoria.", code: "DUPLICATE" });
       return;
     }
 
-    const maxOrder = db.prepare("SELECT MAX(order_index) as max FROM lookups WHERE tenant_id = ? AND category = ?")
+    const maxOrder = await db.prepare("SELECT MAX(order_index) as max FROM lookups WHERE tenant_id = ? AND category = ?")
       .get(tenantId, cat) as { max: number | null };
     const id = uuidv4();
-    db.prepare("INSERT INTO lookups (id, tenant_id, category, value, order_index, created_at) VALUES (?, ?, ?, ?, ?, ?)")
+    await db.prepare("INSERT INTO lookups (id, tenant_id, category, value, order_index, created_at) VALUES (?, ?, ?, ?, ?, ?)")
       .run(id, tenantId, cat, val, (maxOrder.max ?? -1) + 1, nowIso());
+
+    if (cat === "AREA") {
+      const defaultTipos = getDefaultTiposList();
+      const defaultTiposJson = JSON.stringify(defaultTipos);
+      const existingRule = await db.prepare("SELECT id FROM rules WHERE tenant_id = ? AND area = ?").get(tenantId, val);
+      if (!existingRule) {
+        await db.prepare(`
+          INSERT INTO rules (id, tenant_id, area, allowed_recorrencias, allowed_tipos, custom_tipos, default_tipos, updated_at, updated_by)
+          VALUES (?, ?, ?, '[]', NULL, ?, ?, ?, ?)
+        `).run(uuidv4(), tenantId, val, defaultTiposJson, defaultTiposJson, nowIso(), req.user!.email);
+      }
+    }
+
     res.status(201).json({ id, category: cat, value: val });
   } catch {
     res.status(500).json({ error: "Erro ao adicionar lookup.", code: "INTERNAL" });
@@ -127,7 +141,7 @@ router.post("/for-tenant", requireRole("ADMIN"), (req: Request, res: Response): 
 });
 
 // PUT /api/lookups/for-tenant/:id — renomear valor (só Admin Mestre)
-router.put("/for-tenant/:id", requireRole("ADMIN"), (req: Request, res: Response): void => {
+router.put("/for-tenant/:id", requireRole("ADMIN"), async (req: Request, res: Response): Promise<void> => {
   if (!isSystemAdmin(req)) {
     res.status(403).json({ error: "Apenas o Administrador Mestre pode editar listas de outra empresa.", code: "FORBIDDEN" });
     return;
@@ -139,13 +153,13 @@ router.put("/for-tenant/:id", requireRole("ADMIN"), (req: Request, res: Response
       res.status(400).json({ error: "tenantSlug e value são obrigatórios.", code: "MISSING_FIELDS" });
       return;
     }
-    const tenantId = getTenantIdBySlug(String(tenantSlug).trim().toLowerCase());
+    const tenantId = await getTenantIdBySlug(String(tenantSlug).trim().toLowerCase());
     if (!tenantId) {
       res.status(404).json({ error: "Empresa não encontrada.", code: "NOT_FOUND" });
       return;
     }
 
-    const existing = db.prepare("SELECT * FROM lookups WHERE id = ? AND tenant_id = ?")
+    const existing = await db.prepare("SELECT * FROM lookups WHERE id = ? AND tenant_id = ?")
       .get(id, tenantId) as LookupDbRow | undefined;
     if (!existing) {
       res.status(404).json({ error: "Item não encontrado.", code: "NOT_FOUND" });
@@ -153,14 +167,14 @@ router.put("/for-tenant/:id", requireRole("ADMIN"), (req: Request, res: Response
     }
 
     const newValue = String(value).trim();
-    db.prepare("UPDATE lookups SET value = ? WHERE id = ? AND tenant_id = ?").run(newValue, id, tenantId);
+    await db.prepare("UPDATE lookups SET value = ? WHERE id = ? AND tenant_id = ?").run(newValue, id, tenantId);
     if (existing.category === "AREA") {
-      db.prepare("UPDATE tasks SET area = ? WHERE tenant_id = ? AND area = ?").run(newValue, tenantId, existing.value);
-      db.prepare("UPDATE users SET area = ? WHERE tenant_id = ? AND area = ?").run(newValue, tenantId, existing.value);
+      await db.prepare("UPDATE tasks SET area = ? WHERE tenant_id = ? AND area = ?").run(newValue, tenantId, existing.value);
+      await db.prepare("UPDATE users SET area = ? WHERE tenant_id = ? AND area = ?").run(newValue, tenantId, existing.value);
     } else if (existing.category === "RECORRENCIA") {
-      db.prepare("UPDATE tasks SET recorrencia = ? WHERE tenant_id = ? AND recorrencia = ?").run(newValue, tenantId, existing.value);
+      await db.prepare("UPDATE tasks SET recorrencia = ? WHERE tenant_id = ? AND recorrencia = ?").run(newValue, tenantId, existing.value);
     } else if (existing.category === "TIPO") {
-      db.prepare("UPDATE tasks SET tipo = ? WHERE tenant_id = ? AND tipo = ?").run(newValue, tenantId, existing.value);
+      await db.prepare("UPDATE tasks SET tipo = ? WHERE tenant_id = ? AND tipo = ?").run(newValue, tenantId, existing.value);
     }
     res.json({ ok: true, id, value: newValue });
   } catch {
@@ -169,7 +183,7 @@ router.put("/for-tenant/:id", requireRole("ADMIN"), (req: Request, res: Response
 });
 
 // DELETE /api/lookups/for-tenant/:id?tenantSlug= — remover (só Admin Mestre)
-router.delete("/for-tenant/:id", requireRole("ADMIN"), (req: Request, res: Response): void => {
+router.delete("/for-tenant/:id", requireRole("ADMIN"), async (req: Request, res: Response): Promise<void> => {
   if (!isSystemAdmin(req)) {
     res.status(403).json({ error: "Apenas o Administrador Mestre pode editar listas de outra empresa.", code: "FORBIDDEN" });
     return;
@@ -181,17 +195,17 @@ router.delete("/for-tenant/:id", requireRole("ADMIN"), (req: Request, res: Respo
       res.status(400).json({ error: "tenantSlug é obrigatório.", code: "MISSING_FIELDS" });
       return;
     }
-    const tenantId = getTenantIdBySlug(String(tenantSlug).trim().toLowerCase());
+    const tenantId = await getTenantIdBySlug(String(tenantSlug).trim().toLowerCase());
     if (!tenantId) {
       res.status(404).json({ error: "Empresa não encontrada.", code: "NOT_FOUND" });
       return;
     }
-    const existing = db.prepare("SELECT * FROM lookups WHERE id = ? AND tenant_id = ?").get(id, tenantId);
+    const existing = await db.prepare("SELECT * FROM lookups WHERE id = ? AND tenant_id = ?").get(id, tenantId);
     if (!existing) {
       res.status(404).json({ error: "Item não encontrado.", code: "NOT_FOUND" });
       return;
     }
-    db.prepare("DELETE FROM lookups WHERE id = ? AND tenant_id = ?").run(id, tenantId);
+    await db.prepare("DELETE FROM lookups WHERE id = ? AND tenant_id = ?").run(id, tenantId);
     res.json({ ok: true });
   } catch {
     res.status(500).json({ error: "Erro ao remover lookup.", code: "INTERNAL" });
@@ -199,7 +213,7 @@ router.delete("/for-tenant/:id", requireRole("ADMIN"), (req: Request, res: Respo
 });
 
 // POST /api/lookups/copy — copiar listas de uma empresa para outra (substitui destino) (só Admin Mestre)
-router.post("/copy", requireRole("ADMIN"), (req: Request, res: Response): void => {
+router.post("/copy", requireRole("ADMIN"), async (req: Request, res: Response): Promise<void> => {
   if (!isSystemAdmin(req)) {
     res.status(403).json({ error: "Apenas o Administrador Mestre pode copiar listas entre empresas.", code: "FORBIDDEN" });
     return;
@@ -210,8 +224,8 @@ router.post("/copy", requireRole("ADMIN"), (req: Request, res: Response): void =
       res.status(400).json({ error: "sourceTenantSlug e targetTenantSlug são obrigatórios.", code: "MISSING_FIELDS" });
       return;
     }
-    const sourceId = getTenantIdBySlug(String(sourceTenantSlug).trim().toLowerCase());
-    const targetId = getTenantIdBySlug(String(targetTenantSlug).trim().toLowerCase());
+    const sourceId = await getTenantIdBySlug(String(sourceTenantSlug).trim().toLowerCase());
+    const targetId = await getTenantIdBySlug(String(targetTenantSlug).trim().toLowerCase());
     if (!sourceId || !targetId) {
       res.status(404).json({ error: "Empresa de origem ou destino não encontrada.", code: "NOT_FOUND" });
       return;
@@ -222,20 +236,20 @@ router.post("/copy", requireRole("ADMIN"), (req: Request, res: Response): void =
     }
 
     const now = nowIso();
-    const rows = db.prepare("SELECT * FROM lookups WHERE tenant_id = ? ORDER BY category ASC, order_index ASC, value ASC")
+    const rows = await db.prepare("SELECT * FROM lookups WHERE tenant_id = ? ORDER BY category ASC, order_index ASC, value ASC")
       .all(sourceId) as LookupDbRow[];
 
-    db.exec("BEGIN");
+    await db.exec("BEGIN");
     try {
-      db.prepare("DELETE FROM lookups WHERE tenant_id = ?").run(targetId);
+      await db.prepare("DELETE FROM lookups WHERE tenant_id = ?").run(targetId);
       let order = 0;
       for (const r of rows) {
-        db.prepare("INSERT INTO lookups (id, tenant_id, category, value, order_index, created_at) VALUES (?, ?, ?, ?, ?, ?)")
+        await db.prepare("INSERT INTO lookups (id, tenant_id, category, value, order_index, created_at) VALUES (?, ?, ?, ?, ?, ?)")
           .run(uuidv4(), targetId, r.category, r.value, order++, now);
       }
-      db.exec("COMMIT");
+      await db.exec("COMMIT");
     } catch (e) {
-      db.exec("ROLLBACK");
+      await db.exec("ROLLBACK");
       throw e;
     }
 
@@ -246,9 +260,9 @@ router.post("/copy", requireRole("ADMIN"), (req: Request, res: Response): void =
 });
 
 // GET /api/lookups — all lookups grouped by category
-router.get("/", (req: Request, res: Response): void => {
+router.get("/", async (req: Request, res: Response): Promise<void> => {
   try {
-    const rows = db.prepare(`
+    const rows = await db.prepare(`
       SELECT * FROM lookups WHERE tenant_id = ?
       ORDER BY category ASC, order_index ASC, value ASC
     `).all(req.tenantId!) as LookupDbRow[];
@@ -266,9 +280,9 @@ router.get("/", (req: Request, res: Response): void => {
 });
 
 // GET /api/lookups/all — with metadata (ADMIN)
-router.get("/all", requireRole("ADMIN"), (req: Request, res: Response): void => {
+router.get("/all", requireRole("ADMIN"), async (req: Request, res: Response): Promise<void> => {
   try {
-    const rows = db.prepare(`
+    const rows = await db.prepare(`
       SELECT * FROM lookups WHERE tenant_id = ?
       ORDER BY category ASC, order_index ASC
     `).all(req.tenantId!) as LookupDbRow[];
@@ -287,7 +301,7 @@ router.get("/all", requireRole("ADMIN"), (req: Request, res: Response): void => 
 });
 
 // POST /api/lookups — add new value (ADMIN)
-router.post("/", requireRole("ADMIN"), (req: Request, res: Response): void => {
+router.post("/", requireRole("ADMIN"), async (req: Request, res: Response): Promise<void> => {
   try {
     const tenantId = req.tenantId!;
     const { category, value } = req.body;
@@ -300,7 +314,7 @@ router.post("/", requireRole("ADMIN"), (req: Request, res: Response): void => {
     const cat = String(category).trim().toUpperCase();
     const val = String(value).trim();
 
-    const existing = db.prepare("SELECT id FROM lookups WHERE tenant_id = ? AND category = ? AND value = ?")
+    const existing = await db.prepare("SELECT id FROM lookups WHERE tenant_id = ? AND category = ? AND value = ?")
       .get(tenantId, cat, val);
 
     if (existing) {
@@ -308,12 +322,24 @@ router.post("/", requireRole("ADMIN"), (req: Request, res: Response): void => {
       return;
     }
 
-    const maxOrder = db.prepare("SELECT MAX(order_index) as max FROM lookups WHERE tenant_id = ? AND category = ?")
+    const maxOrder = await db.prepare("SELECT MAX(order_index) as max FROM lookups WHERE tenant_id = ? AND category = ?")
       .get(tenantId, cat) as { max: number | null };
 
     const id = uuidv4();
-    db.prepare("INSERT INTO lookups (id, tenant_id, category, value, order_index, created_at) VALUES (?, ?, ?, ?, ?, ?)")
+    await db.prepare("INSERT INTO lookups (id, tenant_id, category, value, order_index, created_at) VALUES (?, ?, ?, ?, ?, ?)")
       .run(id, tenantId, cat, val, (maxOrder.max ?? -1) + 1, nowIso());
+
+    if (cat === "AREA") {
+      const defaultTipos = getDefaultTiposList();
+      const defaultTiposJson = JSON.stringify(defaultTipos);
+      const existingRule = await db.prepare("SELECT id FROM rules WHERE tenant_id = ? AND area = ?").get(tenantId, val);
+      if (!existingRule) {
+        await db.prepare(`
+          INSERT INTO rules (id, tenant_id, area, allowed_recorrencias, allowed_tipos, custom_tipos, default_tipos, updated_at, updated_by)
+          VALUES (?, ?, ?, '[]', NULL, ?, ?, ?, ?)
+        `).run(uuidv4(), tenantId, val, defaultTiposJson, defaultTiposJson, nowIso(), req.user!.email);
+      }
+    }
 
     res.status(201).json({ id, category: cat, value: val });
   } catch {
@@ -322,7 +348,7 @@ router.post("/", requireRole("ADMIN"), (req: Request, res: Response): void => {
 });
 
 // PUT /api/lookups/:id — rename value (ADMIN)
-router.put("/:id", requireRole("ADMIN"), (req: Request, res: Response): void => {
+router.put("/:id", requireRole("ADMIN"), async (req: Request, res: Response): Promise<void> => {
   try {
     const tenantId = req.tenantId!;
     const { id } = req.params;
@@ -333,7 +359,7 @@ router.put("/:id", requireRole("ADMIN"), (req: Request, res: Response): void => 
       return;
     }
 
-    const existing = db.prepare("SELECT * FROM lookups WHERE id = ? AND tenant_id = ?")
+    const existing = await db.prepare("SELECT * FROM lookups WHERE id = ? AND tenant_id = ?")
       .get(id, tenantId) as LookupDbRow | undefined;
 
     if (!existing) {
@@ -344,16 +370,16 @@ router.put("/:id", requireRole("ADMIN"), (req: Request, res: Response): void => 
     const newValue = String(value).trim();
 
     // Update lookup value
-    db.prepare("UPDATE lookups SET value = ? WHERE id = ? AND tenant_id = ?").run(newValue, id, tenantId);
+    await db.prepare("UPDATE lookups SET value = ? WHERE id = ? AND tenant_id = ?").run(newValue, id, tenantId);
 
     // Cascade rename: atualiza tasks e users que referenciam o valor antigo
     if (existing.category === "AREA") {
-      db.prepare("UPDATE tasks SET area = ? WHERE tenant_id = ? AND area = ?").run(newValue, tenantId, existing.value);
-      db.prepare("UPDATE users SET area = ? WHERE tenant_id = ? AND area = ?").run(newValue, tenantId, existing.value);
+      await db.prepare("UPDATE tasks SET area = ? WHERE tenant_id = ? AND area = ?").run(newValue, tenantId, existing.value);
+      await db.prepare("UPDATE users SET area = ? WHERE tenant_id = ? AND area = ?").run(newValue, tenantId, existing.value);
     } else if (existing.category === "RECORRENCIA") {
-      db.prepare("UPDATE tasks SET recorrencia = ? WHERE tenant_id = ? AND recorrencia = ?").run(newValue, tenantId, existing.value);
+      await db.prepare("UPDATE tasks SET recorrencia = ? WHERE tenant_id = ? AND recorrencia = ?").run(newValue, tenantId, existing.value);
     } else if (existing.category === "TIPO") {
-      db.prepare("UPDATE tasks SET tipo = ? WHERE tenant_id = ? AND tipo = ?").run(newValue, tenantId, existing.value);
+      await db.prepare("UPDATE tasks SET tipo = ? WHERE tenant_id = ? AND tipo = ?").run(newValue, tenantId, existing.value);
     }
 
     res.json({ ok: true, id, value: newValue });
@@ -363,12 +389,12 @@ router.put("/:id", requireRole("ADMIN"), (req: Request, res: Response): void => 
 });
 
 // DELETE /api/lookups/:id (ADMIN)
-router.delete("/:id", requireRole("ADMIN"), (req: Request, res: Response): void => {
+router.delete("/:id", requireRole("ADMIN"), async (req: Request, res: Response): Promise<void> => {
   try {
     const tenantId = req.tenantId!;
     const { id } = req.params;
 
-    const existing = db.prepare("SELECT * FROM lookups WHERE id = ? AND tenant_id = ?")
+    const existing = await db.prepare("SELECT * FROM lookups WHERE id = ? AND tenant_id = ?")
       .get(id, tenantId);
 
     if (!existing) {
@@ -376,7 +402,7 @@ router.delete("/:id", requireRole("ADMIN"), (req: Request, res: Response): void 
       return;
     }
 
-    db.prepare("DELETE FROM lookups WHERE id = ? AND tenant_id = ?").run(id, tenantId);
+    await db.prepare("DELETE FROM lookups WHERE id = ? AND tenant_id = ?").run(id, tenantId);
     res.json({ ok: true });
   } catch {
     res.status(500).json({ error: "Erro ao remover lookup.", code: "INTERNAL" });

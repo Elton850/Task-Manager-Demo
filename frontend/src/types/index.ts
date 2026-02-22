@@ -131,6 +131,12 @@ export interface Rule {
   tenantId: string;
   area: string;
   allowedRecorrencias: string[];
+  /** Tipos de tarefa permitidos para a área (filtro dos globais). Ausente/null = todos; [] = nenhum; [...] = só esses. Apenas ADMIN altera. */
+  allowedTipos?: string[] | null;
+  /** Tipos de tarefa criados somente para esta área (Leader cria para sua área; não afeta outras). */
+  customTipos?: string[];
+  /** Subconjunto de customTipos que são "tipos padrão" (carregados pelo botão); usado para "Excluir apenas tipos padrão". */
+  defaultTipos?: string[];
   updatedAt: string;
   updatedBy: string;
 }

@@ -28,26 +28,34 @@ export function clearCsrfToken(): void {
 const RESERVED_SEGMENTS = new Set(["login", "calendar", "tasks", "performance", "users", "admin", "empresa", "empresas", "justificativas", "sistema", "logs-acesso"]);
 
 /**
- * Tenant no path tem prioridade: /empresax/login -> empresax.
- * Path de sistema (/, /login, /empresas, etc.) -> sempre "system"; não usa localStorage.
- * Senão: subdomínio, query ?tenant=, ou localStorage (para dev).
+ * True quando estamos em produção/staging com hostname real (ex.: empresa.fluxiva.com.br).
+ * False em desenvolvimento (localhost / 127.0.0.1).
+ */
+function isSubdomainMode(): boolean {
+  if (typeof window === "undefined") return false;
+  const h = window.location.hostname;
+  return h !== "" && h !== "localhost" && h !== "127.0.0.1" && h.split(".").length >= 3;
+}
+
+/**
+ * Retorna o slug do tenant atual.
+ * Em produção/staging: usa o subdomínio do hostname (empresa.fluxiva.com.br → "empresa").
+ *   "sistema.fluxiva.com.br" → "system" (admin do sistema).
+ * Em desenvolvimento (localhost): usa o path (/empresax/login → "empresax").
  */
 export function getTenantSlugFromUrl(): string {
-  if (typeof window !== "undefined" && window.location.pathname) {
-    const parts = window.location.pathname.split("/").filter(Boolean);
-    const seg = (parts[0] || "").toLowerCase();
-    // Path com tenant: /acme ou /acme/login -> primeiro segmento é o slug da empresa
-    if (seg && !RESERVED_SEGMENTS.has(seg)) return seg;
-    // Path de sistema: /, /login, /calendar, /empresas, etc. -> sempre "system"
-    return "system";
+  // 1. Subdomínio tem prioridade em produção/staging
+  if (isSubdomainMode()) {
+    const sub = window.location.hostname.split(".")[0].toLowerCase();
+    return sub === "sistema" ? "system" : sub;
   }
 
-  const hostname = window.location.hostname;
-  if (hostname && hostname !== "localhost" && hostname !== "127.0.0.1") {
-    const parts = hostname.split(".");
-    if (parts.length >= 3) return parts[0].toLowerCase();
-  }
+  // 2. Path-based (localhost — desenvolvimento)
+  const parts = window.location.pathname.split("/").filter(Boolean);
+  const seg = (parts[0] || "").toLowerCase();
+  if (seg && !RESERVED_SEGMENTS.has(seg)) return seg;
 
+  // 3. Query param (ex.: links de download com ?tenant=x)
   const params = new URLSearchParams(window.location.search);
   const tenantParam = params.get("tenant");
   if (tenantParam) {
@@ -98,9 +106,12 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
         loginError.meta = payload.meta;
         throw loginError;
       }
-      // Redirecionar para a página de login do tenant atual (ex.: /empresax/login), não sempre /login
+      // Em modo subdomínio, o slug está no hostname — o path de login é sempre /login.
+      // Em dev (localhost), inclui o slug no path: /empresax/login.
       const currentTenant = getTenantSlugFromUrl();
-      const loginPath = currentTenant === "system" ? "/login" : `/${currentTenant}/login`;
+      const loginPath = isSubdomainMode() || currentTenant === "system"
+        ? "/login"
+        : `/${currentTenant}/login`;
       if (window.location.pathname !== loginPath) {
         window.location.replace(loginPath);
       }
@@ -170,6 +181,10 @@ export const authApi = {
 };
 
 export const tasksApi = {
+  /** Contagens para notificações (atraso, vencem hoje, vencem amanhã) — considera todas as competências. */
+  notificationCounts: () =>
+    get<{ overdue: number; dueToday: number; dueTomorrow: number }>("/tasks/notification-counts"),
+
   list: (filters?: Partial<TaskFilters>) => {
     const params = new URLSearchParams();
     if (filters?.search) params.set("search", filters.search);
@@ -305,6 +320,16 @@ export const lookupsApi = {
     post<{ ok: boolean; copied: number }>("/lookups/copy", { sourceTenantSlug, targetTenantSlug }),
 };
 
+export type RulesSavePayload = {
+  allowedRecorrencias: string[];
+  /** Apenas ADMIN: restringe quais tipos globais a área pode usar. */
+  allowedTipos?: string[] | null;
+  /** Tipos criados só para esta área (Leader ou Admin). */
+  customTipos?: string[];
+  /** Tipos que são "padrão" (para permitir excluir só esses). */
+  defaultTipos?: string[];
+};
+
 export const rulesApi = {
   list: () => get<{ rules: Rule[] }>("/rules"),
 
@@ -313,16 +338,16 @@ export const rulesApi = {
     return get<{ rule: Rule | null }>(`/rules/by-area?${params}`);
   },
 
-  save: (area: string, allowedRecorrencias: string[]) =>
-    put<{ rule: Rule }>("/rules", { area, allowedRecorrencias }),
+  save: (area: string, payload: RulesSavePayload) =>
+    put<{ rule: Rule }>("/rules", { area, ...payload }),
 
   /** Admin Mestre: regras de uma empresa */
   listByTenant: (tenantSlug: string) =>
     get<{ rules: Rule[] }>(`/rules/by-tenant/${encodeURIComponent(tenantSlug)}`),
 
   /** Admin Mestre: salvar regra de uma área para uma empresa */
-  saveForTenant: (tenantSlug: string, area: string, allowedRecorrencias: string[]) =>
-    put<{ rule: Rule }>("/rules/for-tenant", { tenantSlug, area, allowedRecorrencias }),
+  saveForTenant: (tenantSlug: string, area: string, payload: RulesSavePayload) =>
+    put<{ rule: Rule }>("/rules/for-tenant", { tenantSlug, area, ...payload }),
 };
 
 export const tenantApi = {

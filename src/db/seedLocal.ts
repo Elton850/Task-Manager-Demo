@@ -1,20 +1,25 @@
 /**
- * Seed única para banco LOCAL: limpa todos os dados e recria dados fictícios.
- * Uso: npm run seed:local          → limpa tudo e insere dados
+ * Seed LOCAL: limpa e repovoa SEMPRE o SQLite em data/taskmanager.db.
+ *
+ * Uso: npm run seed:local       → limpa tudo e insere dados completos
  *      npm run seed:local -- --clean → só limpa (e recria tenant system)
  *
- * SEGURANÇA: Só permite limpeza total quando NODE_ENV !== 'production' ou com --local.
- * Destinado apenas ao banco local (data/taskmanager.db em desenvolvimento).
+ * O script npm usa scripts/force-local-db.js para garantir que o path
+ * seja data/taskmanager.db (para migração Supabase ler os mesmos dados).
+ *
+ * Conteúdo: tenant system + demo (com evidências e justificativas) + empresa-alpha + empresa-beta.
  */
 import "dotenv/config";
 import path from "path";
 import fs from "fs";
-import db, { SYSTEM_TENANT_ID } from "./index";
+import db, { SYSTEM_TENANT_ID } from "./sqlite";
 import bcrypt from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
 import { seedSystemAdminIfNeeded } from "./seedSystemAdmin";
+import { getDefaultTiposList } from "../constants/defaultTipos";
 
-const LOCAL_DB_DIR = path.resolve(process.cwd(), "data");
+const DATA_DIR = path.resolve(process.cwd(), "data");
+const DB_PATH = path.join(DATA_DIR, "taskmanager.db");
 const MOCK_PASSWORD = "123456";
 
 const DEFAULT_LOOKUPS: Record<string, string[]> = {
@@ -66,27 +71,24 @@ const TENANTS_SPEC: TenantSpec[] = [
 
 function isLocalAllowed(): boolean {
   if (process.env.NODE_ENV === "production" && !process.argv.includes("--local")) {
-    return false;
+    const resolved = path.resolve(process.cwd(), process.env.SQLITE_DB_PATH || "");
+    if (resolved !== path.resolve(process.cwd(), "data", "taskmanager.db")) return false;
   }
   return true;
 }
 
-/**
- * Apaga todos os dados do banco na ordem correta (respeitando FK).
- * Em seguida recria o tenant "system".
- */
+/** Ordem respeita FKs. */
 function cleanAll(): void {
   if (!isLocalAllowed()) {
     console.error("❌ Limpeza total só é permitida em ambiente local (NODE_ENV !== 'production' ou use --local).");
     process.exit(1);
   }
-  const dbPath = path.join(LOCAL_DB_DIR, "taskmanager.db");
-  if (!fs.existsSync(dbPath)) {
-    console.error("❌ Banco local não encontrado em data/taskmanager.db. Abortando.");
+  if (!fs.existsSync(DB_PATH)) {
+    console.error("❌ Banco não encontrado em data/taskmanager.db. Abortando.");
     process.exit(1);
   }
 
-  console.log("🧹 Limpando todo o banco de dados (apenas local)...\n");
+  console.log("🧹 Limpando banco em", DB_PATH, "\n");
   db.exec("BEGIN TRANSACTION");
   try {
     db.prepare("DELETE FROM justification_evidences").run();
@@ -99,16 +101,41 @@ function cleanAll(): void {
     db.prepare("DELETE FROM users").run();
     db.prepare("DELETE FROM tenants").run();
     db.exec("COMMIT");
-    console.log("   Tabelas esvaziadas.");
-
     const now = new Date().toISOString();
-    db.prepare(
-      "INSERT INTO tenants (id, slug, name, active, created_at) VALUES (?, 'system', 'Sistema', 1, ?)"
-    ).run(SYSTEM_TENANT_ID, now);
-    console.log("   Tenant 'system' recriado.\n✅ Limpeza concluída.");
+    db.prepare("INSERT INTO tenants (id, slug, name, active, created_at) VALUES (?, 'system', 'Sistema', 1, ?)").run(SYSTEM_TENANT_ID, now);
+    console.log("   Tabelas esvaziadas. Tenant 'system' recriado.\n✅ Limpeza concluída.");
   } catch (err) {
     db.exec("ROLLBACK");
     throw err;
+  }
+}
+
+function insertLookups(tenantId: string, now: string): void {
+  let order = 0;
+  for (const [category, values] of Object.entries(DEFAULT_LOOKUPS)) {
+    for (const value of values) {
+      db.prepare("INSERT INTO lookups (id, tenant_id, category, value, order_index, created_at) VALUES (?, ?, ?, ?, ?, ?)")
+        .run(uuidv4(), tenantId, category, value, order++, now);
+    }
+  }
+}
+
+function insertRulesForArea(tenantId: string, area: string, now: string): void {
+  const allowedJson = JSON.stringify(DEFAULT_LOOKUPS.RECORRENCIA);
+  const defaultTiposJson = JSON.stringify(getDefaultTiposList());
+  db.prepare(
+    "INSERT INTO rules (id, tenant_id, area, allowed_recorrencias, allowed_tipos, custom_tipos, default_tipos, updated_at, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+  ).run(uuidv4(), tenantId, area, allowedJson, null, defaultTiposJson, defaultTiposJson, now, "seed");
+}
+
+function insertRulesForSpec(tenantId: string, spec: TenantSpec, now: string): void {
+  const areas = [...new Set(spec.leaders.map(l => l.area))];
+  const allowedJson = JSON.stringify(DEFAULT_LOOKUPS.RECORRENCIA);
+  const defaultTiposJson = JSON.stringify(getDefaultTiposList());
+  for (const area of areas) {
+    db.prepare(
+      "INSERT INTO rules (id, tenant_id, area, allowed_recorrencias, allowed_tipos, custom_tipos, default_tipos, updated_at, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+    ).run(uuidv4(), tenantId, area, allowedJson, null, defaultTiposJson, defaultTiposJson, now, "seed");
   }
 }
 
@@ -121,26 +148,6 @@ function getAllPeopleFromSpec(spec: TenantSpec): Array<{ email: string; nome: st
     }
   }
   return people;
-}
-
-function insertLookups(tenantId: string, now: string): void {
-  let order = 0;
-  for (const [category, values] of Object.entries(DEFAULT_LOOKUPS)) {
-    for (const value of values) {
-      db.prepare("INSERT OR IGNORE INTO lookups (id, tenant_id, category, value, order_index, created_at) VALUES (?, ?, ?, ?, ?, ?)")
-        .run(uuidv4(), tenantId, category, value, order++, now);
-    }
-  }
-}
-
-function insertRulesForSpec(tenantId: string, spec: TenantSpec, now: string): void {
-  const areas = [...new Set(spec.leaders.map(l => l.area))];
-  const allowedJson = JSON.stringify(DEFAULT_LOOKUPS.RECORRENCIA);
-  for (const area of areas) {
-    db.prepare(
-      "INSERT INTO rules (id, tenant_id, area, allowed_recorrencias, updated_at, updated_by) VALUES (?, ?, ?, ?, ?, ?)"
-    ).run(uuidv4(), tenantId, area, allowedJson, now, "seed");
-  }
 }
 
 function insertTasksForTenant(tenantId: string, spec: TenantSpec, now: string): number {
@@ -172,48 +179,122 @@ function insertTasksForTenant(tenantId: string, spec: TenantSpec, now: string): 
   return inserted;
 }
 
-async function seedData(): Promise<void> {
-  const passwordHash = await bcrypt.hash(MOCK_PASSWORD, 12);
-  const now = new Date().toISOString();
+/** Insere tenant demo com tarefas, evidências, justificativas e login_events em uma transação. */
+async function seedDemo(passwordHash: string, now: string): Promise<void> {
+  const demoTenantId = uuidv4();
+  const adminId = uuidv4();
 
-  // 1) Demo (tenant simples com 1 admin e poucas tarefas)
-  const demoSlug = "demo";
-  if (!db.prepare("SELECT id FROM tenants WHERE slug = ?").get(demoSlug)) {
-    const demoTenantId = uuidv4();
-    const adminId = uuidv4();
-    db.exec("BEGIN TRANSACTION");
-    try {
-      db.prepare("INSERT INTO tenants (id, slug, name, active, created_at) VALUES (?, ?, ?, 1, ?)")
-        .run(demoTenantId, demoSlug, "Empresa Demo", now);
+  db.exec("BEGIN TRANSACTION");
+  try {
+    db.prepare("INSERT INTO tenants (id, slug, name, active, created_at) VALUES (?, 'demo', 'Empresa Demo', 1, ?)")
+      .run(demoTenantId, now);
+    db.prepare(`
+      INSERT INTO users (id, tenant_id, email, nome, role, area, active, can_delete, password_hash, must_change_password, created_at)
+      VALUES (?, ?, ?, ?, 'ADMIN', 'TI', 1, 1, ?, 0, ?)
+    `).run(adminId, demoTenantId, "admin@demo.com", "Administrador", passwordHash, now);
+    insertLookups(demoTenantId, now);
+    insertRulesForArea(demoTenantId, "TI", now);
+
+    const sampleTasks = [
+      { competenciaYm: "2026-02", recorrencia: "Mensal", tipo: "Rotina", atividade: "Relatório mensal de TI", prazo: "2026-02-28", realizado: null, status: "Em Andamento", observacoes: "Relatório de infraestrutura" },
+      { competenciaYm: "2026-02", recorrencia: "Pontual", tipo: "Projeto", atividade: "Migração para novo servidor", prazo: "2026-02-15", realizado: null, status: "Em Atraso", observacoes: null },
+      { competenciaYm: "2026-01", recorrencia: "Mensal", tipo: "Reunião", atividade: "Reunião de alinhamento", prazo: "2026-01-31", realizado: "2026-01-30", status: "Concluído", observacoes: null },
+      { competenciaYm: "2026-01", recorrencia: "Mensal", tipo: "Rotina", atividade: "Entrega em atraso (justificativa)", prazo: "2026-01-10", realizado: "2026-01-18", status: "Concluído em Atraso", observacoes: "Justificativa cadastrada" },
+    ];
+
+    let parentTaskId: string | null = null;
+    let concluidoEmAtrasoTaskId: string | null = null;
+    for (let i = 0; i < sampleTasks.length; i++) {
+      const t = sampleTasks[i];
+      const taskId = uuidv4();
+      if (i === 0) parentTaskId = taskId;
+      if (t.status === "Concluído em Atraso") concluidoEmAtrasoTaskId = taskId;
       db.prepare(`
-        INSERT INTO users (id, tenant_id, email, nome, role, area, active, can_delete, password_hash, must_change_password, created_at)
-        VALUES (?, ?, ?, ?, 'ADMIN', 'TI', 1, 1, ?, 0, ?)
-      `).run(adminId, demoTenantId, "admin@demo.com", "Administrador", passwordHash, now);
-      insertLookups(demoTenantId, now);
-      const sampleTasks = [
-        { competenciaYm: "2026-02", recorrencia: "Mensal", tipo: "Rotina", atividade: "Relatório mensal de TI", prazo: "2026-02-28", realizado: null, status: "Em Andamento", observacoes: "Relatório de infraestrutura" },
-        { competenciaYm: "2026-02", recorrencia: "Pontual", tipo: "Projeto", atividade: "Migração para novo servidor", prazo: "2026-02-15", realizado: null, status: "Em Atraso", observacoes: null },
-        { competenciaYm: "2026-01", recorrencia: "Mensal", tipo: "Reunião", atividade: "Reunião de alinhamento", prazo: "2026-01-31", realizado: "2026-01-30", status: "Concluído", observacoes: null },
-      ];
-      for (const t of sampleTasks) {
-        db.prepare(`
-          INSERT INTO tasks (id, tenant_id, competencia_ym, recorrencia, tipo, atividade,
-            responsavel_email, responsavel_nome, area, prazo, realizado, status, observacoes,
-            created_at, created_by, updated_at, updated_by)
-          VALUES (?, ?, ?, ?, ?, ?, 'admin@demo.com', 'Administrador', 'TI', ?, ?, ?, ?, ?, 'admin@demo.com', ?, 'admin@demo.com')
-        `).run(uuidv4(), demoTenantId, t.competenciaYm, t.recorrencia, t.tipo, t.atividade, t.prazo, t.realizado, t.status, t.observacoes, now, now);
-      }
-      db.exec("COMMIT");
-      console.log("✅ Demo: admin@demo.com / " + MOCK_PASSWORD);
-    } catch (e) {
-      db.exec("ROLLBACK");
-      throw e;
+        INSERT INTO tasks (id, tenant_id, competencia_ym, recorrencia, tipo, atividade,
+          responsavel_email, responsavel_nome, area, prazo, realizado, status, observacoes,
+          created_at, created_by, updated_at, updated_by)
+        VALUES (?, ?, ?, ?, ?, ?, 'admin@demo.com', 'Administrador', 'TI', ?, ?, ?, ?, ?, 'admin@demo.com', ?, 'admin@demo.com')
+      `).run(taskId, demoTenantId, t.competenciaYm, t.recorrencia, t.tipo, t.atividade, t.prazo, t.realizado, t.status, t.observacoes, now, now);
     }
-  }
 
-  // 2) Empresa Alpha e Beta (líderes, colaboradores, tarefas)
+    // Justificativas (tarefa "Concluído em Atraso")
+    const justifIds: string[] = [];
+    if (concluidoEmAtrasoTaskId) {
+      const j1 = uuidv4(), j2 = uuidv4(), j3 = uuidv4();
+      justifIds.push(j1, j2, j3);
+      db.prepare(`
+        INSERT INTO task_justifications (id, tenant_id, task_id, description, status, created_at, created_by, reviewed_at, reviewed_by, review_comment)
+        VALUES (?, ?, ?, ?, 'pending', ?, 'admin@demo.com', NULL, NULL, NULL)
+      `).run(j1, demoTenantId, concluidoEmAtrasoTaskId, "Impedimento de fornecedor atrasou a entrega.", now);
+      db.prepare(`
+        INSERT INTO task_justifications (id, tenant_id, task_id, description, status, created_at, created_by, reviewed_at, reviewed_by, review_comment)
+        VALUES (?, ?, ?, ?, 'approved', ?, 'admin@demo.com', ?, 'admin@demo.com', 'Aprovado.')
+      `).run(j2, demoTenantId, concluidoEmAtrasoTaskId, "Segunda justificativa aprovada.", now, now);
+      db.prepare(`
+        INSERT INTO task_justifications (id, tenant_id, task_id, description, status, created_at, created_by, reviewed_at, reviewed_by, review_comment)
+        VALUES (?, ?, ?, ?, 'refused', ?, 'admin@demo.com', ?, 'admin@demo.com', 'Documentação insuficiente.')
+      `).run(j3, demoTenantId, concluidoEmAtrasoTaskId, "Terceira justificativa recusada.", now, now);
+
+      for (let ji = 0; ji < justifIds.length; ji++) {
+        db.prepare(`
+          INSERT INTO justification_evidences (id, tenant_id, justification_id, file_name, file_path, mime_type, file_size, uploaded_at, uploaded_by)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(
+          uuidv4(), demoTenantId, justifIds[ji],
+          ji === 0 ? "comprovante-atraso.pdf" : ji === 1 ? "anexo-aprovacao.pdf" : "doc-recusado.pdf",
+          `evidences/justifications/${justifIds[ji]}/doc-${ji + 1}.pdf`,
+          "application/pdf", 15000 + ji * 1000, now, "admin@demo.com"
+        );
+      }
+    }
+
+    // Subtarefas (primeira tarefa como pai)
+    if (parentTaskId) {
+      const sub1 = uuidv4(), sub2 = uuidv4();
+      db.prepare(`
+        INSERT INTO tasks (id, tenant_id, competencia_ym, recorrencia, tipo, atividade,
+          responsavel_email, responsavel_nome, area, prazo, realizado, status, observacoes,
+          created_at, created_by, updated_at, updated_by, parent_task_id)
+        VALUES (?, ?, '2026-02', 'Mensal', 'Rotina', 'Subtarefa 1: Coletar dados', 'admin@demo.com', 'Administrador', 'TI', '2026-02-20', NULL, 'Em Andamento', NULL, ?, 'admin@demo.com', ?, 'admin@demo.com', ?)
+      `).run(sub1, demoTenantId, now, now, parentTaskId);
+      db.prepare(`
+        INSERT INTO tasks (id, tenant_id, competencia_ym, recorrencia, tipo, atividade,
+          responsavel_email, responsavel_nome, area, prazo, realizado, status, observacoes,
+          created_at, created_by, updated_at, updated_by, parent_task_id)
+        VALUES (?, ?, '2026-02', 'Mensal', 'Rotina', 'Subtarefa 2: Consolidar relatório', 'admin@demo.com', 'Administrador', 'TI', '2026-02-25', NULL, 'Em Andamento', NULL, ?, 'admin@demo.com', ?, 'admin@demo.com', ?)
+      `).run(sub2, demoTenantId, now, now, parentTaskId);
+
+      db.prepare(`
+        INSERT INTO task_evidences (id, tenant_id, task_id, file_name, file_path, mime_type, file_size, uploaded_at, uploaded_by)
+        VALUES (?, ?, ?, 'relatorio-parcial.pdf', ?, 'application/pdf', 45000, ?, 'admin@demo.com')
+      `).run(uuidv4(), demoTenantId, parentTaskId, `evidences/tasks/${parentTaskId}/relatorio-parcial.pdf`, now);
+      db.prepare(`
+        INSERT INTO task_evidences (id, tenant_id, task_id, file_name, file_path, mime_type, file_size, uploaded_at, uploaded_by)
+        VALUES (?, ?, ?, 'anexo-dados.xlsx', ?, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 12000, ?, 'admin@demo.com')
+      `).run(uuidv4(), demoTenantId, parentTaskId, `evidences/tasks/${parentTaskId}/anexo-dados.xlsx`, now);
+    }
+    if (concluidoEmAtrasoTaskId) {
+      db.prepare(`
+        INSERT INTO task_evidences (id, tenant_id, task_id, file_name, file_path, mime_type, file_size, uploaded_at, uploaded_by)
+        VALUES (?, ?, ?, 'comprovante-entrega-atraso.pdf', ?, 'application/pdf', 28000, ?, 'admin@demo.com')
+      `).run(uuidv4(), demoTenantId, concluidoEmAtrasoTaskId, `evidences/tasks/${concluidoEmAtrasoTaskId}/comprovante-entrega-atraso.pdf`, now);
+    }
+
+    const loginPast = new Date(Date.now() - 86400 * 2).toISOString();
+    db.prepare("INSERT INTO login_events (id, tenant_id, user_id, logged_at) VALUES (?, ?, ?, ?)").run(uuidv4(), demoTenantId, adminId, loginPast);
+    db.prepare("INSERT INTO login_events (id, tenant_id, user_id, logged_at) VALUES (?, ?, ?, ?)").run(uuidv4(), demoTenantId, adminId, now);
+
+    db.exec("COMMIT");
+    console.log("✅ Demo: admin@demo.com / " + MOCK_PASSWORD + " (tarefas, task_evidences, task_justifications, justification_evidences, subtarefas, login_events)");
+  } catch (e) {
+    db.exec("ROLLBACK");
+    throw e;
+  }
+}
+
+/** Insere empresa-alpha e empresa-beta. */
+async function seedEmpresas(passwordHash: string, now: string): Promise<void> {
   for (const spec of TENANTS_SPEC) {
-    if (db.prepare("SELECT id FROM tenants WHERE slug = ?").get(spec.slug)) continue;
     const tenantId = uuidv4();
     db.exec("BEGIN TRANSACTION");
     try {
@@ -221,11 +302,14 @@ async function seedData(): Promise<void> {
         .run(tenantId, spec.slug, spec.name, now);
       insertLookups(tenantId, now);
       insertRulesForSpec(tenantId, spec, now);
+      let firstLeaderId: string | null = null;
       for (const leader of spec.leaders) {
+        const leaderId = uuidv4();
+        if (!firstLeaderId) firstLeaderId = leaderId;
         db.prepare(`
           INSERT INTO users (id, tenant_id, email, nome, role, area, active, can_delete, password_hash, must_change_password, created_at)
           VALUES (?, ?, ?, ?, 'LEADER', ?, 1, 1, ?, 0, ?)
-        `).run(uuidv4(), tenantId, leader.email, leader.nome, leader.area, passwordHash, now);
+        `).run(leaderId, tenantId, leader.email, leader.nome, leader.area, passwordHash, now);
         for (const col of leader.collaborators) {
           db.prepare(`
             INSERT INTO users (id, tenant_id, email, nome, role, area, active, can_delete, password_hash, must_change_password, created_at)
@@ -234,15 +318,29 @@ async function seedData(): Promise<void> {
         }
       }
       const n = insertTasksForTenant(tenantId, spec, now);
+      if (firstLeaderId) {
+        const loginPast = new Date(Date.now() - 86400 * 5).toISOString();
+        db.prepare("INSERT INTO login_events (id, tenant_id, user_id, logged_at) VALUES (?, ?, ?, ?)").run(uuidv4(), tenantId, firstLeaderId, loginPast);
+        db.prepare("INSERT INTO login_events (id, tenant_id, user_id, logged_at) VALUES (?, ?, ?, ?)").run(uuidv4(), tenantId, firstLeaderId, now);
+      }
       db.exec("COMMIT");
-      console.log(`✅ ${spec.name} (${spec.slug}): ${n} tarefas, líderes e colaboradores`);
+      console.log("✅ " + spec.name + " (" + spec.slug + "): " + n + " tarefas");
     } catch (e) {
       db.exec("ROLLBACK");
       throw e;
     }
   }
+}
 
-  seedSystemAdminIfNeeded();
+function logVerification(): void {
+  const ev = Number((db.prepare("SELECT COUNT(*) as c FROM task_evidences").get() as { c: unknown }).c);
+  const j = Number((db.prepare("SELECT COUNT(*) as c FROM task_justifications").get() as { c: unknown }).c);
+  const je = Number((db.prepare("SELECT COUNT(*) as c FROM justification_evidences").get() as { c: unknown }).c);
+  console.log("\n📊 Verificação no SQLite:");
+  console.log("   task_evidences: " + ev + " | task_justifications: " + j + " | justification_evidences: " + je);
+  if (ev === 0 || j === 0 || je === 0) {
+    console.log("   ⚠️  Se algum valor for 0, a migração Supabase não terá esses dados. Confira erros acima.");
+  }
 }
 
 async function main(): Promise<void> {
@@ -252,14 +350,18 @@ async function main(): Promise<void> {
     return;
   }
   cleanAll();
-  console.log("\n🌱 Inserindo dados fictícios...\n");
-  await seedData();
-  console.log("\n🎉 Seed local concluído!");
-  console.log("\n📋 Acesso (senha padrão: " + MOCK_PASSWORD + "):");
-  console.log("   Demo:        ?tenant=demo          → admin@demo.com");
-  console.log("   Empresa Alpha: ?tenant=empresa-alpha → lider.ti@empresa-alpha.com, etc.");
-  console.log("   Empresa Beta:  ?tenant=empresa-beta  → lider.rh@empresa-beta.com, etc.");
-  console.log("   Sistema (admin): tenant system + SYSTEM_ADMIN_EMAIL no .env");
+  console.log("\n🌱 Inserindo dados...\n");
+  const passwordHash = await bcrypt.hash(MOCK_PASSWORD, 12);
+  const now = new Date().toISOString();
+
+  await seedDemo(passwordHash, now);
+  await seedEmpresas(passwordHash, now);
+  await seedSystemAdminIfNeeded();
+
+  logVerification();
+  console.log("\n🎉 Seed local concluído! Banco: " + DB_PATH);
+  console.log("\n📋 Para migrar para o Supabase: npm run migrate:supabase");
+  console.log("   Acesso demo: ?tenant=demo → admin@demo.com / " + MOCK_PASSWORD);
 }
 
 main().catch((err) => {

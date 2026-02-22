@@ -10,7 +10,7 @@ import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
 import { tasksApi } from "@/services/api";
-import type { Task, Lookups, User, TaskEvidence } from "@/types";
+import type { Task, Lookups, User, TaskEvidence, Rule } from "@/types";
 
 interface TaskModalProps {
   open: boolean;
@@ -18,10 +18,13 @@ interface TaskModalProps {
   initialData?: Partial<Task>;
   lookups: Lookups;
   users: User[];
+  /** Regras por área (para tipos customizados da área do Leader) */
+  rules?: Rule[];
   /** Quando definido (ex: USER), apenas essas recorrências são oferecidas na criação */
   allowedRecorrencias?: string[];
   onClose: () => void;
-  onSave: (data: Partial<Task>) => Promise<Task | void>;
+  /** options.pendingSubtasks: ao criar tarefa, subtarefas a criar logo após a principal (apenas LEADER/ADMIN) */
+  onSave: (data: Partial<Task>, options?: { pendingSubtasks?: { atividade: string; responsavelEmail: string }[] }) => Promise<Task | void>;
   onTaskChange?: (task: Task) => void;
   /** Ao editar uma subtask, o parent pode trocar a tarefa em edição para a subtask */
   onEditSubtask?: (task: Task) => void;
@@ -56,6 +59,7 @@ export default function TaskModal({
   initialData,
   lookups,
   users,
+  rules,
   allowedRecorrencias,
   onClose,
   onSave,
@@ -71,6 +75,7 @@ export default function TaskModal({
   const isMainTask = isEdit && task && !task.parentTaskId;
   const canViewSubtasks = isMainTask && (user?.role === "LEADER" || user?.role === "ADMIN" || (user?.role === "USER" && task?.responsavelEmail === user?.email));
   const canEditSubtasks = isMainTask && (user?.role === "LEADER" || user?.role === "ADMIN");
+  const canAddSubtask = canEditSubtasks && !taskConcluida;
   const isSubtask = isEdit && !!task?.parentTaskId;
   const isReadOnlyTask = isEdit && !!task && user?.role === "USER" && task.responsavelEmail !== user?.email;
   const evidenceInputRef = useRef<HTMLInputElement | null>(null);
@@ -99,6 +104,8 @@ export default function TaskModal({
   const [addingSubtask, setAddingSubtask] = useState(false);
   const [deleteSubtaskTarget, setDeleteSubtaskTarget] = useState<Task | null>(null);
   const [deletingSubtask, setDeletingSubtask] = useState(false);
+  /** Subtarefas a criar junto com a tarefa (apenas em modo criação para LEADER/ADMIN) */
+  const [pendingSubtasksToCreate, setPendingSubtasksToCreate] = useState<{ atividade: string; responsavelEmail: string }[]>([]);
 
   const hasPendingSubtasks = subtasks.length > 0 && subtasks.some(s => s.status !== "Concluído" && s.status !== "Concluído em Atraso");
 
@@ -121,6 +128,7 @@ export default function TaskModal({
       setErrors({});
       setSelectedEvidence(null);
       setEvidences(task?.evidences || []);
+      if (!task) setPendingSubtasksToCreate([]);
     }
   }, [open, task, user, initialData]);
 
@@ -197,7 +205,10 @@ export default function TaskModal({
       return;
     }
 
-    const saved = await onSave(payload);
+    const validPending = !isEdit && pendingSubtasksToCreate.length > 0
+      ? pendingSubtasksToCreate.filter(s => s.atividade.trim() && s.responsavelEmail)
+      : undefined;
+    const saved = await onSave(payload, validPending?.length ? { pendingSubtasks: validPending } : undefined);
     if (saved?.evidences) {
       setEvidences(saved.evidences);
       onTaskChange?.(saved);
@@ -318,7 +329,21 @@ export default function TaskModal({
     ? allRecorrencias.filter(r => allowedRecorrencias.includes(r))
     : allRecorrencias
   ).map(v => ({ value: v, label: v }));
-  const tipoOptions = (lookups.TIPO || []).map(v => ({ value: v, label: v }));
+
+  // Tipos globais + tipos criados pelo Leader para a área (só para a área efetiva da tarefa)
+  const effectiveArea =
+    task?.area ??
+    users.find(u => u.email === form.responsavelEmail)?.area ??
+    (user?.role === "LEADER" ? user.area : undefined);
+  const ruleForArea = effectiveArea && rules?.length ? rules.find(r => r.area === effectiveArea) : undefined;
+  const customTipos = ruleForArea?.customTipos || [];
+  let allTipos = Array.from(new Set([...(lookups.TIPO || []), ...customTipos]));
+  // Integridade: ao editar, se a tarefa tem um tipo que não está mais na lista (ex.: foi excluído pelo Leader), mantê-lo nas opções para exibir e permitir salvar
+  if (task?.tipo && !allTipos.includes(task.tipo)) {
+    allTipos = [task.tipo, ...allTipos];
+  }
+  const tipoOptions = allTipos.map(v => ({ value: v, label: v }));
+
   const userOptions = selectableUsers.map(u => ({ value: u.email, label: `${u.nome} (${u.area})` }));
 
   const ymOptions = Array.from({ length: 13 }, (_, i) => {
@@ -466,6 +491,65 @@ export default function TaskModal({
           disabled={isReadOnlyTask}
         />
 
+        {!isEdit && (user?.role === "LEADER" || user?.role === "ADMIN") && (
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                <Layers size={16} />
+                Subtarefas (opcional)
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                icon={<Plus size={14} />}
+                onClick={() => setPendingSubtasksToCreate(prev => [...prev, { atividade: "", responsavelEmail: "" }])}
+              >
+                Adicionar subtarefa
+              </Button>
+            </div>
+            <p className="text-xs text-slate-500">
+              Você pode definir subtarefas já na criação. Cada uma terá o mesmo prazo da tarefa principal.
+            </p>
+            {pendingSubtasksToCreate.length > 0 && (
+              <div className="space-y-3">
+                {pendingSubtasksToCreate.map((row, idx) => (
+                  <div key={idx} className="rounded-lg border border-slate-200 bg-white p-3 flex flex-col sm:flex-row gap-3 flex-wrap">
+                    <Input
+                      label="Atividade"
+                      value={row.atividade}
+                      onChange={e => setPendingSubtasksToCreate(prev => prev.map((r, i) => i === idx ? { ...r, atividade: e.target.value } : r))}
+                      placeholder="Descrição da subtarefa..."
+                      maxLength={200}
+                      className="flex-1 min-w-0"
+                    />
+                    <Select
+                      label="Responsável"
+                      value={row.responsavelEmail}
+                      onChange={e => setPendingSubtasksToCreate(prev => prev.map((r, i) => i === idx ? { ...r, responsavelEmail: e.target.value } : r))}
+                      options={userOptions}
+                      placeholder="Selecione..."
+                      className="sm:w-48"
+                    />
+                    <div className="flex items-end">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setPendingSubtasksToCreate(prev => prev.filter((_, i) => i !== idx))}
+                        className="hover:text-rose-600 hover:bg-rose-50"
+                        aria-label="Remover esta subtarefa"
+                      >
+                        <Trash2 size={14} />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-3">
           <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
             <Paperclip size={16} />
@@ -581,7 +665,7 @@ export default function TaskModal({
                 <Layers size={16} />
                 Subtarefas
               </div>
-              {canEditSubtasks && (
+              {canAddSubtask && (
                 <Button
                   type="button"
                   variant="ghost"
@@ -598,7 +682,7 @@ export default function TaskModal({
                 ? "A tarefa principal só será concluída quando você e todos os envolvidos concluírem suas partes. O prazo das subtarefas é o mesmo da tarefa."
                 : "Subtarefas vinculadas a esta tarefa. O prazo é o mesmo da tarefa principal."}
             </p>
-            {canEditSubtasks && showAddSubtask && (
+            {canAddSubtask && showAddSubtask && (
               <div className="rounded-lg border border-slate-200 bg-white p-3 space-y-3">
                 <Input
                   label="Atividade da subtarefa"

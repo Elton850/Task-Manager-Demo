@@ -150,13 +150,23 @@ describe("Segurança - Tenant isolation (IDOR)", () => {
         INSERT INTO tasks (id, tenant_id, competencia_ym, recorrencia, tipo, atividade,
           responsavel_email, responsavel_nome, area, created_at, created_by, updated_at, updated_by)
         VALUES (?, ?, ?, 'Mensal', 'Rotina', 'Task outro tenant', ?, 'Admin', 'TI', datetime('now'), ?, datetime('now'), ?)
-      `).run(taskId, otherTenantId, adminEmail, adminEmail);
+      `).run(taskId, otherTenantId, "2024-01", adminEmail, adminEmail, adminEmail);
       taskIdOther = taskId;
     } else {
       otherTenantId = other.id;
-      const row = db.prepare("SELECT id FROM tasks WHERE tenant_id = ? LIMIT 1").get(otherTenantId) as { id: string } | undefined;
-      if (!row) throw new Error("Nenhuma task no tenant other");
-      taskIdOther = row.id;
+      let row = db.prepare("SELECT id FROM tasks WHERE tenant_id = ? LIMIT 1").get(otherTenantId) as { id: string } | undefined;
+      if (!row) {
+        const taskId = uuidv4();
+        const adminEmail = "admin@demo.com";
+        db.prepare(`
+          INSERT INTO tasks (id, tenant_id, competencia_ym, recorrencia, tipo, atividade,
+            responsavel_email, responsavel_nome, area, created_at, created_by, updated_at, updated_by)
+          VALUES (?, ?, ?, 'Mensal', 'Rotina', 'Task outro tenant', ?, 'Admin', 'TI', datetime('now'), ?, datetime('now'), ?)
+        `).run(taskId, otherTenantId, "2024-01", adminEmail, adminEmail, adminEmail);
+        taskIdOther = taskId;
+      } else {
+        taskIdOther = row.id;
+      }
     }
 
     demoToken = signToken({

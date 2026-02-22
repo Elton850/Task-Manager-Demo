@@ -5,7 +5,7 @@ import cookieParser from "cookie-parser";
 import rateLimit from "express-rate-limit";
 import path from "path";
 
-import { tenantMiddleware } from "./middleware/tenant";
+import { tenantMiddleware, rejectInvalidHost } from "./middleware/tenant";
 import { verifyCsrf, csrfToken } from "./middleware/csrf";
 import { apiAuthContext, blockWritesWhenImpersonating } from "./middleware/auth";
 
@@ -18,11 +18,27 @@ import ruleRoutes from "./routes/rules";
 import tenantRoutes from "./routes/tenants";
 import systemRoutes from "./routes/system";
 
-// Initialize DB schema on startup
+// Initialize DB schema on startup (SQLite: schema criado aqui; Supabase: schema já criado via supabase-schema.sql)
 import "./db";
+import { withDbContext } from "./db";
 import { seedSystemAdminIfNeeded } from "./db/seedSystemAdmin";
 
-seedSystemAdminIfNeeded();
+const DB_PROVIDER = (process.env.DB_PROVIDER || "sqlite").toLowerCase().trim();
+
+// ── Validação de variáveis Supabase ao arranque ───────────────────────────────
+if (DB_PROVIDER === "supabase") {
+  const missingVars: string[] = [];
+  if (!process.env.SUPABASE_URL?.trim()) missingVars.push("SUPABASE_URL");
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()) missingVars.push("SUPABASE_SERVICE_ROLE_KEY");
+  if (!process.env.SUPABASE_DB_URL?.trim()) missingVars.push("SUPABASE_DB_URL");
+  if (missingVars.length > 0) {
+    console.error(
+      `[startup] DB_PROVIDER=supabase mas as seguintes variáveis estão ausentes: ${missingVars.join(", ")}.\n` +
+      "Veja docs/ENV-REQUISITOS.md para instruções."
+    );
+    process.exit(1);
+  }
+}
 
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
@@ -57,13 +73,30 @@ app.use(cookieParser());
 app.use(express.json({ limit: "15mb" }));
 app.use(express.urlencoded({ extended: false }));
 
-// ── CORS (whitelist; nunca * com credentials) ───────────────────────────────────
+// ── CORS (whitelist + domínio base dinâmico; nunca * com credentials) ───────────
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || "").split(",").map((o) => o.trim()).filter(Boolean);
+const APP_DOMAIN = (process.env.APP_DOMAIN || "").trim();
 const devOrigins = ["http://localhost:5173", "http://localhost:5174", "http://127.0.0.1:5173", "http://127.0.0.1:5174"];
+
+/**
+ * Verifica se a origem da requisição é permitida.
+ * Dev: apenas localhost. Prod/staging: ALLOWED_ORIGINS (lista fixa) + qualquer
+ * subdomínio de APP_DOMAIN (ex.: APP_DOMAIN=fluxiva.com.br aceita https://empresa.fluxiva.com.br).
+ */
+function isOriginAllowed(origin: string): boolean {
+  const list = IS_PROD ? ALLOWED_ORIGINS : devOrigins;
+  if (list.some((o) => origin === o)) return true;
+  if (APP_DOMAIN) {
+    // Aceita https://APP_DOMAIN e https://qualquer-subdominio.APP_DOMAIN
+    const escaped = APP_DOMAIN.replace(/\./g, "\\.");
+    return new RegExp(`^https://([a-z0-9-]+\\.)?${escaped}$`).test(origin);
+  }
+  return false;
+}
+
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  const allowed = IS_PROD ? ALLOWED_ORIGINS : devOrigins;
-  if (origin && allowed.some((o) => origin === o)) {
+  if (origin && isOriginAllowed(origin)) {
     res.setHeader("Access-Control-Allow-Origin", origin);
     res.setHeader("Access-Control-Allow-Credentials", "true");
     res.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,PATCH,OPTIONS");
@@ -98,6 +131,13 @@ const apiLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
+
+// ── DB Context (por request — necessário para transações com Supabase) ─────────
+// Para SQLite: no-op. Para Supabase: inicializa AsyncLocalStorage por request.
+app.use("/api", withDbContext);
+
+// ── Host válido para toda /api (inclui /api/csrf e /api/health) ─────────────────
+app.use("/api", rejectInvalidHost);
 
 // ── Public endpoints ──────────────────────────────────────────────────────────
 app.get("/api/health", (_req, res) => res.json({ status: "ok", version: "2.0.0" }));
@@ -150,14 +190,29 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
   res.status(500).json({ error: "Erro interno do servidor.", code: "INTERNAL" });
 });
 
+// ── Startup: seed admin + listen ──────────────────────────────────────────────
+// seedSystemAdminIfNeeded é async para suportar Supabase.
+// Para SQLite, todas as chamadas await resolvem imediatamente (valores síncronos).
 if (process.env.NODE_ENV !== "test") {
-  app.listen(PORT, () => {
-    console.log(`\n🚀 Task Manager v2.0 rodando em http://localhost:${PORT}`);
-    console.log(`   Modo: ${IS_PROD ? "produção" : "desenvolvimento"}`);
-    console.log(`   DB:   ${process.cwd()}/data/taskmanager.db`);
-    if (!IS_PROD) {
-      console.log(`   Frontend: http://localhost:5173`);
-    }
+  seedSystemAdminIfNeeded()
+    .then(() => {
+      app.listen(PORT, () => {
+        console.log(`\n Task Manager v2.0 rodando em http://localhost:${PORT}`);
+        console.log(`   Modo: ${IS_PROD ? "produção" : "desenvolvimento"}`);
+        console.log(`   DB:   ${DB_PROVIDER === "supabase" ? "Supabase (PostgreSQL)" : `${process.cwd()}/data/taskmanager.db`}`);
+        if (!IS_PROD) {
+          console.log(`   Frontend: http://localhost:5173`);
+        }
+      });
+    })
+    .catch((err) => {
+      console.error("[startup] Erro ao inicializar servidor:", err);
+      process.exit(1);
+    });
+} else {
+  // Em testes: seed síncrono (SQLite), sem listen
+  seedSystemAdminIfNeeded().catch((err) => {
+    console.error("[test startup] seedSystemAdmin falhou:", err);
   });
 }
 

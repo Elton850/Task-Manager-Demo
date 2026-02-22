@@ -77,21 +77,29 @@ export default function AdminPage() {
     load();
   }, [load]);
 
-  /** Atualiza só a lista de lookups (sem loading da página) para refletir rename/add/delete na hora. */
+  /** Atualiza lookups e rules (sem loading da página) para refletir alterações na hora.
+   * Inclui rules para que, ao criar uma nova área, a rule com tipos padrão já apareça em Regras por Área. */
   const refreshLookups = useCallback(async () => {
     if (user?.role !== "ADMIN") return;
     try {
       if (masterAdmin && selectedTenantSlug) {
-        const [itemsRes, lookupsRes] = await Promise.all([
+        const [itemsRes, lookupsRes, rulesRes] = await Promise.all([
           lookupsApi.listAllByTenant(selectedTenantSlug),
           lookupsApi.listByTenant(selectedTenantSlug),
+          rulesApi.listByTenant(selectedTenantSlug),
         ]);
         setLookupItems(itemsRes.lookups);
         setLookups(lookupsRes.lookups);
+        setRules(rulesRes.rules);
       } else {
-        const [itemsRes, lookupsRes] = await Promise.all([lookupsApi.listAll(), lookupsApi.list()]);
+        const [itemsRes, lookupsRes, rulesRes] = await Promise.all([
+          lookupsApi.listAll(),
+          lookupsApi.list(),
+          rulesApi.list(),
+        ]);
         setLookupItems(itemsRes.lookups);
         setLookups(lookupsRes.lookups);
+        setRules(rulesRes.rules);
       }
     } catch (err) {
       toast(err instanceof Error ? err.message : "Erro ao atualizar listas", "error");

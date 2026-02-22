@@ -8,10 +8,8 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
     "seed": "ts-node src/db/seed.ts",
-    "seed:usability": "ts-node src/db/seedUsability.ts",
-    "seed:usability:clean": "ts-node src/db/seedUsability.ts --clean",
-    "seed:local": "ts-node src/db/seedLocal.ts",
-    "seed:local:clean": "ts-node src/db/seedLocal.ts --clean",
+    "seed:local": "ts-node -r dotenv/config -r ./scripts/force-local-db.js src/db/seedLocal.ts",
+    "seed:local:clean": "ts-node -r dotenv/config -r ./scripts/force-local-db.js src/db/seedLocal.ts --clean",
     "frontend:install": "cd frontend && npm install",
     "frontend:dev": "cd frontend && npm run dev",
     "frontend:build": "cd frontend && npm run build",
@@ -20,7 +18,12 @@
     "env:prod": "node -e \"require('fs').copyFileSync('.env.production', '.env')\"",
     "dev:all": "concurrently \"npm run dev\" \"npm run frontend:dev\"",
     "test": "jest",
-    "test:security": "jest --testPathPattern=security"
+    "test:security": "jest --testPathPattern=security",
+    "validate:supabase": "node -r dotenv/config scripts/validate-env-supabase.js",
+    "sync:system-admin": "ts-node -r dotenv/config scripts/sync-system-admin.ts",
+    "migrate:supabase": "ts-node -r dotenv/config scripts/migrate-sqlite-to-supabase.ts",
+    "staging:clean": "ts-node -r dotenv/config scripts/clean-supabase.ts",
+    "copy:prod-to-staging": "ts-node -r dotenv/config scripts/copy-prod-to-staging.ts"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -30,6 +33,7 @@
     "express-rate-limit": "^6.11.2",
     "helmet": "^7.1.0",
     "jsonwebtoken": "^9.0.2",
+    "pg": "^8.18.0",
     "resend": "^4.0.0",
     "uuid": "^9.0.1"
   },
@@ -37,18 +41,18 @@
     "@types/bcryptjs": "^2.4.6",
     "@types/cookie-parser": "^1.4.10",
     "@types/express": "^4.17.21",
-    "@types/jsonwebtoken": "^9.0.6",
     "@types/jest": "^29.5.12",
+    "@types/jsonwebtoken": "^9.0.6",
     "@types/node": "^22.5.0",
+    "@types/pg": "^8.16.0",
     "@types/supertest": "^6.0.2",
     "@types/uuid": "^9.0.8",
     "concurrently": "^8.2.2",
     "jest": "^29.7.0",
+    "supertest": "^7.0.0",
     "ts-jest": "^29.2.5",
     "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
-    "supertest": "^7.0.0",
     "typescript": "^5.5.4"
   }
 }
-

@@ -64,3 +64,13 @@
     text-wrap: balance;
   }
 }
+
+/* Barra de contagem para notificações flutuantes (diminui em 6s) */
+@keyframes notification-countdown {
+  from {
+    width: 100%;
+  }
+  to {
+    width: 0%;
+  }
+}

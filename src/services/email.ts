@@ -1,10 +1,14 @@
 /**
  * Serviço de e-mail via Resend (plano gratuito: 3.000/mês, 100/dia).
  * Template em formato de card para código de redefinição de senha.
+ *
+ * Para o envio funcionar, configure no .env:
+ *   RESEND_API_KEY=re_xxxx...  (chave em https://resend.com/api-keys)
+ *   EMAIL_FROM=Task Manager <noreply@seudominio.com>  (ou onboarding@resend.dev para testes)
  */
 
-const RESEND_API_KEY = process.env.RESEND_API_KEY || "";
-const EMAIL_FROM = process.env.EMAIL_FROM || "Task Manager <onboarding@resend.dev>";
+const RESEND_API_KEY = (process.env.RESEND_API_KEY || "").trim();
+const EMAIL_FROM = (process.env.EMAIL_FROM || "Task Manager <onboarding@resend.dev>").trim();
 
 export interface SendResetCodeOptions {
   to: string;
@@ -91,7 +95,10 @@ function escapeHtml(text: string): string {
  */
 export async function sendResetCodeEmail(options: SendResetCodeOptions): Promise<{ sent: boolean; error?: string }> {
   if (!RESEND_API_KEY || !RESEND_API_KEY.startsWith("re_")) {
-    return { sent: false, error: "RESEND_API_KEY não configurada." };
+    return { sent: false, error: "RESEND_API_KEY não configurada ou inválida (deve começar com re_). Configure no .env." };
+  }
+  if (!options.to || !String(options.to).trim()) {
+    return { sent: false, error: "Destinatário do e-mail não informado." };
   }
 
   try {

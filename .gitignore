@@ -11,6 +11,16 @@ frontend/dist/
 .env.local
 .env.*.local
 !.env.example
+!.env.development.example
+!.env.staging.example
+!.env.production.example
+
+# Frontend env (Vite) — não versionar os preenchidos; só os .example
+frontend/.env
+frontend/.env.local
+frontend/.env.*
+!frontend/.env.production.example
+!frontend/.env.staging.example
 
 # Banco de dados e uploads (dados locais)
 data/*.db
