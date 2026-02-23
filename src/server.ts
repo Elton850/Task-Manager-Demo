@@ -1,16 +1,21 @@
-// Carrega .env; em produção/staging carrega o .env do ambiente para deploy na VPS
+// Staging: só .env.staging (evita usar qualquer variável de produção). Prod: .env + .env.production. Dev: .env
 import dotenv from "dotenv";
 import path from "path";
 
-dotenv.config();
 const cwd = process.cwd();
-if (process.env.NODE_ENV === "production") {
-  dotenv.config({ path: path.resolve(cwd, ".env.production"), override: true });
-} else if (process.env.NODE_ENV === "staging") {
+if (process.env.NODE_ENV === "staging") {
   const stagingPath = path.resolve(cwd, ".env.staging");
-  const r = dotenv.config({ path: stagingPath, override: true });
-  if (r.error) console.warn("[startup] .env.staging não encontrado em", stagingPath, "- confira se o arquivo existe na VPS.");
-  else console.log("[startup] Loaded .env.staging");
+  const r = dotenv.config({ path: stagingPath });
+  if (r.error) {
+    console.error("[startup] .env.staging obrigatório em staging. Não encontrado em", stagingPath);
+    process.exit(1);
+  }
+  console.log("[startup] Credenciais e env carregados somente de .env.staging");
+} else {
+  dotenv.config();
+  if (process.env.NODE_ENV === "production") {
+    dotenv.config({ path: path.resolve(cwd, ".env.production"), override: true });
+  }
 }
 import express from "express";
 import helmet from "helmet";
