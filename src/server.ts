@@ -1,16 +1,21 @@
 // Carrega .env; em produção/staging carrega o .env do ambiente para deploy na VPS
 import dotenv from "dotenv";
+import path from "path";
+
 dotenv.config();
+const cwd = process.cwd();
 if (process.env.NODE_ENV === "production") {
-  dotenv.config({ path: ".env.production", override: true });
+  dotenv.config({ path: path.resolve(cwd, ".env.production"), override: true });
 } else if (process.env.NODE_ENV === "staging") {
-  dotenv.config({ path: ".env.staging", override: true });
+  const stagingPath = path.resolve(cwd, ".env.staging");
+  const r = dotenv.config({ path: stagingPath, override: true });
+  if (r.error) console.warn("[startup] .env.staging não encontrado em", stagingPath, "- confira se o arquivo existe na VPS.");
+  else console.log("[startup] Loaded .env.staging");
 }
 import express from "express";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
 import rateLimit from "express-rate-limit";
-import path from "path";
 
 import { tenantMiddleware, rejectInvalidHost } from "./middleware/tenant";
 import { verifyCsrf, csrfToken } from "./middleware/csrf";
