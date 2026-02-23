@@ -32,12 +32,18 @@ interface TenantDbRow {
   logo_updated_at?: string | null;
 }
 
-/** Valida Host header para mitigar Host Header Attack. localhost/127.0.0.1 sempre válidos (testes locais). Em prod, se ALLOWED_HOST_PATTERN estiver definido, exige match para outros hosts. */
+/** Verifica se o host (sem porta) é um IPv4 (ex.: 129.121.44.34). */
+function isIPv4(hostWithoutPort: string): boolean {
+  return /^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/.test(hostWithoutPort);
+}
+
+/** Valida Host header para mitigar Host Header Attack. localhost/127.0.0.1 sempre válidos (testes locais). Em prod, IPv4 é aceito (acesso por IP → tenant system). Se ALLOWED_HOST_PATTERN estiver definido, exige match para hosts que não sejam IP. */
 function validateHost(host: string): boolean {
   if (!host || typeof host !== "string") return false;
   const h = host.split(":")[0].toLowerCase().trim();
   if (h.length > 253 || /[^a-z0-9.-]/.test(h)) return false; // caracteres inválidos
   if (h === "localhost" || h === "127.0.0.1") return true; // sempre aceitar para testes locais (staging/prod no PC)
+  if (isIPv4(h)) return true; // acesso por IP (ex.: antes do DNS) → tratado como tenant system
   if (process.env.NODE_ENV === "test") return false; // em teste só localhost/127.0.0.1 são válidos (já aceitos acima)
   if (IS_PROD && ALLOWED_HOST_PATTERN) {
     try {
@@ -52,6 +58,10 @@ function validateHost(host: string): boolean {
 function resolveTenantSlug(req: Request): { slug: string | null; hostInvalid: boolean } {
   const host = (req.headers["host"] || "").trim();
   if (!validateHost(host)) return { slug: null, hostInvalid: true };
+
+  const hostWithoutPort = host.split(":")[0].toLowerCase().trim();
+  // Acesso por IP → tenant "system" (área do admin), sem interpretar número como subdomínio
+  if (isIPv4(hostWithoutPort)) return { slug: null, hostInvalid: false };
 
   // 1. Custom header (used by frontend SPA)
   const header = req.headers["x-tenant-slug"];
