@@ -24,6 +24,15 @@ Ou, se a produção já estiver rodando e você só quer adicionar o staging:
 pm2 start ecosystem.config.js --only task-manager-staging
 ```
 
+**Importante:** o staging **precisa** ser iniciado pelo `ecosystem.config.js` para que o PM2 injete `NODE_ENV=staging`. Se o processo foi iniciado com `npm run dev` ou sem o ecosystem, ele usará `.env` (ou modo desenvolvimento) em vez de `.env.staging`. Após um `pull` e `build`, reinicie com o ecosystem para aplicar o env:
+
+```bash
+pm2 delete task-manager-staging
+pm2 start ecosystem.config.js --only task-manager-staging
+```
+
+Nos logs deve aparecer **Modo: staging** e **\[startup] Loaded .env.staging**. Se aparecer "Modo: desenvolvimento", o NODE_ENV não está staging — inicie de novo com o comando acima.
+
 Confira: `pm2 list` (os dois devem aparecer como **online**).
 
 ## 3. Nginx: site para staging (igual à produção, na porta 3001)

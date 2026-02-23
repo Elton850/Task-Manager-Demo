@@ -223,7 +223,8 @@ if (process.env.NODE_ENV !== "test") {
     .then(() => {
       app.listen(PORT, () => {
         console.log(`\n Task Manager v2.0 rodando em http://localhost:${PORT}`);
-        console.log(`   Modo: ${IS_PROD ? "produção" : "desenvolvimento"}`);
+        const modeLabel = process.env.NODE_ENV === "production" ? "produção" : process.env.NODE_ENV === "staging" ? "staging" : "desenvolvimento";
+        console.log(`   Modo: ${modeLabel}`);
         console.log(`   DB:   ${DB_PROVIDER === "supabase" ? "Supabase (PostgreSQL)" : `${process.cwd()}/data/taskmanager.db`}`);
         if (!IS_PROD) {
           console.log(`   Frontend: http://localhost:5173`);
