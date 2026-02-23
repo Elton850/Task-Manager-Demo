@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from "uuid";
 import crypto from "crypto";
 import db from "../db";
 import { signToken, requireAuth, AuthError } from "../middleware/auth";
-import { safeLowerEmail, toBool, nowIso } from "../utils";
+import { safeLowerEmail, toBool, nowIso, isSecureRequest } from "../utils";
 import { sendResetCodeEmail } from "../services/email";
 import type { AuthUser } from "../types";
 
@@ -93,7 +93,7 @@ router.post("/login", async (req: Request, res: Response): Promise<void> => {
     res.cookie("auth_token", token, {
       httpOnly: true,
       sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
+      secure: process.env.NODE_ENV === "production" && isSecureRequest(req),
       maxAge: 12 * 60 * 60 * 1000,
     });
 
@@ -223,7 +223,7 @@ router.post("/reset", async (req: Request, res: Response): Promise<void> => {
     res.cookie("auth_token", token, {
       httpOnly: true,
       sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
+      secure: process.env.NODE_ENV === "production" && isSecureRequest(req),
       maxAge: 12 * 60 * 60 * 1000,
     });
 
@@ -246,8 +246,9 @@ router.post("/logout", async (req: Request, res: Response): Promise<void> => {
       // Não falhar o logout se o registro falhar
     }
   }
-  res.clearCookie("auth_token");
-  res.clearCookie("csrf_token");
+  const clearOpts = { httpOnly: true, sameSite: "lax" as const, secure: process.env.NODE_ENV === "production" && isSecureRequest(req) };
+  res.clearCookie("auth_token", clearOpts);
+  res.clearCookie("csrf_token", { ...clearOpts, httpOnly: false });
   res.json({ ok: true });
 });
 
@@ -274,12 +275,14 @@ router.get("/me", requireAuth, async (req: Request, res: Response): Promise<void
   });
 });
 
-const COOKIE_OPTIONS = {
-  httpOnly: true,
-  sameSite: "lax" as const,
-  secure: process.env.NODE_ENV === "production",
-  maxAge: 12 * 60 * 60 * 1000,
-};
+function cookieOptions(req: Request) {
+  return {
+    httpOnly: true,
+    sameSite: "lax" as const,
+    secure: process.env.NODE_ENV === "production" && isSecureRequest(req),
+    maxAge: 12 * 60 * 60 * 1000,
+  };
+}
 
 // POST /api/auth/impersonate — Admin mestre: visualizar como outro usuário (somente leitura)
 router.post("/impersonate", requireAuth, (req: Request, res: Response): Promise<void> => {
@@ -318,10 +321,11 @@ router.post("/impersonate", requireAuth, (req: Request, res: Response): Promise<
     const targetUser = rowToAuthUser(targetRow as UserDbRow);
     const newToken = signToken(targetUser);
     const currentToken = req.cookies?.["auth_token"];
+    const opts = cookieOptions(req);
     if (currentToken) {
-      res.cookie("auth_real_token", currentToken, { ...COOKIE_OPTIONS, maxAge: 12 * 60 * 60 * 1000 });
+      res.cookie("auth_real_token", currentToken, { ...opts, maxAge: 12 * 60 * 60 * 1000 });
     }
-    res.cookie("auth_token", newToken, COOKIE_OPTIONS);
+    res.cookie("auth_token", newToken, opts);
     res.json({
       user: targetUser,
       tenant: { id: tenantRow.id, slug: tenantRow.slug, name: tenantRow.name },
@@ -338,8 +342,8 @@ router.post("/impersonate/stop", requireAuth, async (req: Request, res: Response
   }
   try {
     const payload = require("../middleware/auth").verifyToken(realToken);
-    res.cookie("auth_token", realToken, COOKIE_OPTIONS);
-    res.clearCookie("auth_real_token", { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production" });
+    res.cookie("auth_token", realToken, cookieOptions(req));
+    res.clearCookie("auth_real_token", { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production" && isSecureRequest(req) });
     const tenantRow = await db.prepare("SELECT id, slug, name FROM tenants WHERE id = ?")
       .get(payload.tenantId) as { id: string; slug: string; name: string } | undefined;
     res.json({
@@ -347,7 +351,7 @@ router.post("/impersonate/stop", requireAuth, async (req: Request, res: Response
       tenant: tenantRow ? { id: tenantRow.id, slug: tenantRow.slug, name: tenantRow.name } : req.tenant,
     });
   } catch {
-    res.clearCookie("auth_real_token", { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production" });
+    res.clearCookie("auth_real_token", { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production" && isSecureRequest(req) });
     res.status(401).json({ error: "Sessão original expirada. Faça login novamente.", code: "TOKEN_EXPIRED" });
   }
 });

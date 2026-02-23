@@ -1,3 +1,11 @@
+import type { Request } from "express";
+
+/** True quando a requisição do usuário veio por HTTPS (direto ou via proxy). Usado para cookies Secure. */
+export function isSecureRequest(req: Request): boolean {
+  const proto = (req.get("X-Forwarded-Proto") || "").toLowerCase().split(",")[0].trim();
+  return req.secure || proto === "https";
+}
+
 export function mustString(v: unknown, label: string): string {
   const s = String(v ?? "").trim();
   if (!s) throw new Error(`${label} é obrigatório.`);

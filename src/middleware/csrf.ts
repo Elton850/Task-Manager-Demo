@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import crypto from "crypto";
+import { isSecureRequest } from "../utils";
 
 const CSRF_COOKIE = "csrf_token";
 const CSRF_HEADER = "x-csrf-token";
@@ -9,7 +10,7 @@ export function csrfToken(req: Request, res: Response): void {
   res.cookie(CSRF_COOKIE, token, {
     httpOnly: false, // Must be readable by JS
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: process.env.NODE_ENV === "production" && isSecureRequest(req), // Secure só sobre HTTPS (evita cookie não gravado em http://IP)
     maxAge: 12 * 60 * 60 * 1000, // 12h
   });
   res.json({ csrfToken: token });
