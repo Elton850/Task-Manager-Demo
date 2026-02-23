@@ -26,21 +26,21 @@ pm2 start ecosystem.config.js --only task-manager-staging
 
 Confira: `pm2 list` (os dois devem aparecer como **online**).
 
-## 3. Nginx: site para staging.fluxiva.com.br
+## 3. Nginx: site para staging (igual à produção, na porta 3001)
 
-Crie um novo site que aponta a **staging.fluxiva.com.br** para a porta **3001**:
+Staging usa a **mesma estrutura de URLs** que produção: **staging.fluxiva.com.br** = área do sistema (admin) e **demo.staging.fluxiva.com.br** = empresa demo (e assim por diante). O Nginx deve enviar **todos** esses hosts para a porta **3001**:
 
 ```bash
 sudo nano /etc/nginx/sites-available/staging-fluxiva
 ```
 
-Cole (ajuste o **root** se sua pasta for diferente, ex.: **task-manager** em minúsculo):
+Cole (ajuste o **root** se sua pasta for diferente). Use **server_name** com curinga para aceitar qualquer subdomínio de staging:
 
 ```nginx
 server {
     listen 80;
     listen [::]:80;
-    server_name staging.fluxiva.com.br;
+    server_name staging.fluxiva.com.br *.staging.fluxiva.com.br;
 
     root /home/deploy/Task-Manager/frontend/dist;
     index index.html;
@@ -60,6 +60,8 @@ server {
     }
 }
 ```
+
+Se já tiver SSL (certificado com \*.fluxiva.com.br cobre \*.staging.fluxiva.com.br), inclua o bloco `listen 443 ssl` com os mesmos `ssl_certificate` da produção (fluxiva.com.br).
 
 Ative e teste:
 
@@ -84,9 +86,11 @@ O curinga **\*.fluxiva.com.br** já aponta para a VPS, então **staging.fluxiva.
 
 **Resumo**
 
-| Ambiente | URL principal      | Porta | Arquivo env        | PM2 app               |
-|----------|--------------------|------|--------------------|------------------------|
-| Produção | fluxiva.com.br, …   | 3000 | .env.production    | task-manager           |
-| Staging  | staging.fluxiva.com.br | 3001 | .env.staging       | task-manager-staging   |
+| Ambiente | URLs (mesma lógica da produção) | Porta | Arquivo env     | PM2 app               |
+|----------|----------------------------------|------|-----------------|------------------------|
+| Produção | fluxiva.com.br, sistema.fluxiva.com.br, demo.fluxiva.com.br, … | 3000 | .env.production | task-manager           |
+| Staging  | staging.fluxiva.com.br (system), demo.staging.fluxiva.com.br, … | 3001 | .env.staging    | task-manager-staging   |
 
-O mesmo **frontend** (frontend/dist) é servido pelos dois; a diferença é o **Host**: Nginx envia produção para 3000 e staging para 3001.
+- **staging.fluxiva.com.br** = área do sistema (admin) em staging.
+- **demo.staging.fluxiva.com.br** = tenant "demo" em staging (base populada).
+- O mesmo **frontend** (frontend/dist) é servido; Nginx envia pelo **Host** para 3000 (produção) ou 3001 (staging).

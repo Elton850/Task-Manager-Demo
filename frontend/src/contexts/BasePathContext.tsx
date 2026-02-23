@@ -11,10 +11,9 @@ export function useBasePath(): string {
 }
 
 /**
- * Detecta se estamos em modo subdomínio (produção/staging com hostname real).
- * Retorna o slug do tenant derivado do subdomínio, ou null se for localhost.
- * Domínio raiz (ex.: fluxiva.com.br = 3 partes) → "system" (área do desenvolvedor).
- * Subdomínio (ex.: demo.fluxiva.com.br = 4 partes) → "demo" ou "system" se for "sistema".
+ * Detecta se estamos em modo subdomínio (produção ou staging com hostname real).
+ * Produção: fluxiva.com.br (raiz) → system; demo.fluxiva.com.br → demo; sistema.fluxiva.com.br → system.
+ * Staging: staging.fluxiva.com.br → system; demo.staging.fluxiva.com.br → demo; sistema.staging.fluxiva.com.br → system.
  */
 function getSubdomainSlug(): string | null {
   if (typeof window === "undefined") return null;
@@ -23,7 +22,10 @@ function getSubdomainSlug(): string | null {
   const parts = h.split(".");
   if (parts.length < 3) return null;
   const sub = parts[0].toLowerCase();
-  // Domínio raiz (ex.: fluxiva.com.br) = 3 partes → área do sistema (desenvolvedor)
+  // Staging: demo.staging.fluxiva.com.br (5 partes) ou staging.fluxiva.com.br (4 partes)
+  if (parts.length >= 5 && parts[1] === "staging") return sub === "sistema" ? "system" : sub;
+  if (parts.length === 4 && parts[0] === "staging") return "system";
+  // Produção: domínio raiz (3 partes) → system
   if (parts.length === 3) return "system";
   return sub === "sistema" ? "system" : sub;
 }

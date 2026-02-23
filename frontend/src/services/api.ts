@@ -39,17 +39,17 @@ function isSubdomainMode(): boolean {
 
 /**
  * Retorna o slug do tenant atual.
- * Em produção/staging: usa o hostname.
- *   fluxiva.com.br (raiz, 3 partes) → "system" (área do desenvolvedor).
- *   sistema.fluxiva.com.br → "system".
- *   demo.fluxiva.com.br → "demo" (empresa).
- * Em desenvolvimento (localhost): usa o path (/empresax/login → "empresax").
+ * Produção: fluxiva.com.br → system; demo.fluxiva.com.br → demo; sistema.fluxiva.com.br → system.
+ * Staging: staging.fluxiva.com.br → system; demo.staging.fluxiva.com.br → demo.
+ * Desenvolvimento (localhost): path /empresax/login → "empresax".
  */
 export function getTenantSlugFromUrl(): string {
   // 1. Subdomínio tem prioridade em produção/staging
   if (isSubdomainMode()) {
     const parts = window.location.hostname.split(".");
     const sub = parts[0].toLowerCase();
+    if (parts.length >= 5 && parts[1] === "staging") return sub === "sistema" ? "system" : sub;
+    if (parts.length === 4 && parts[0] === "staging") return "system";
     if (parts.length === 3) return "system"; // domínio raiz
     return sub === "sistema" ? "system" : sub;
   }

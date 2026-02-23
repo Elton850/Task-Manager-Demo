@@ -45,6 +45,8 @@ function validateHost(host: string): boolean {
   if (h === "localhost" || h === "127.0.0.1") return true; // sempre aceitar para testes locais (staging/prod no PC)
   if (isIPv4(h)) return true; // acesso por IP (ex.: antes do DNS) → tratado como tenant system
   if (process.env.NODE_ENV === "test") return false; // em teste só localhost/127.0.0.1 são válidos (já aceitos acima)
+  // Staging: *.staging.fluxiva.com.br e staging.fluxiva.com.br (mesmo que ALLOWED_HOST_PATTERN exista)
+  if (h === "staging.fluxiva.com.br" || h.endsWith(".staging.fluxiva.com.br")) return true;
   if (IS_PROD && ALLOWED_HOST_PATTERN) {
     try {
       return new RegExp(ALLOWED_HOST_PATTERN).test(h);
@@ -70,18 +72,30 @@ function resolveTenantSlug(req: Request): { slug: string | null; hostInvalid: bo
     if (slug) return { slug, hostInvalid: false };
   }
 
-  // 2. Subdomain from Host header (production: empresaX.fluxiva.com.br)
+  // 2. Staging: demo.staging.fluxiva.com.br → "demo"; staging.fluxiva.com.br → "system"
   const parts = host.split(".");
+  if (parts.length >= 5 && parts[1] === "staging") {
+    const sub = parts[0].toLowerCase().replace(/[^a-z0-9-]/g, "");
+    if (sub) {
+      const slug = sub === "sistema" ? "system" : sub;
+      return { slug, hostInvalid: false };
+    }
+  }
+  if (parts.length === 4 && parts[0] === "staging") {
+    return { slug: "system", hostInvalid: false };
+  }
+
+  // 3. Produção: empresaX.fluxiva.com.br ou fluxiva.com.br (raiz)
   if (parts.length >= 3 && !host.includes("localhost")) {
     const sub = parts[0].toLowerCase().replace(/[^a-z0-9-]/g, "");
     if (sub) {
-      // "sistema" é o subdomínio do admin do sistema; mapeia para o slug interno "system"
+      if (parts.length === 3) return { slug: "system", hostInvalid: false }; // domínio raiz
       const slug = sub === "sistema" ? "system" : sub;
       return { slug, hostInvalid: false };
     }
   }
 
-  // 3. Query param (permite links "abrir em nova guia" / download enviarem o tenant; auth continua validando JWT)
+  // 4. Query param (permite links "abrir em nova guia" / download enviarem o tenant; auth continua validando JWT)
   const qParam = req.query["tenant"];
   if (qParam && typeof qParam === "string") {
     const slug = qParam.trim().toLowerCase().replace(/[^a-z0-9-]/g, "");
