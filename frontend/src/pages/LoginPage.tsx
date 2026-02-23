@@ -6,7 +6,7 @@ import Input from "@/components/ui/Input";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
 import { useBasePath } from "@/contexts/BasePathContext";
-import { authApi, tenantApi } from "@/services/api";
+import { authApi, tenantApi, getTenantSlugFromUrl } from "@/services/api";
 import TenantLogo from "@/components/ui/TenantLogo";
 
 type Mode = "login" | "requestReset" | "reset";
@@ -16,7 +16,8 @@ export default function LoginPage() {
   const { toast } = useToast();
   const basePath = useBasePath();
   const [currentTenant, setCurrentTenant] = useState<{ name: string; logoUpdatedAt?: string | null } | null>(null);
-  const isSystemContext = basePath === "";
+  // Em modo subdomínio, basePath é sempre "" — usar o tenant da URL para distinguir sistema vs empresa
+  const isSystemContext = getTenantSlugFromUrl() === "system";
 
   useEffect(() => {
     tenantApi.current().then((r) => setCurrentTenant({ name: r.tenant.name, logoUpdatedAt: r.tenant.logoUpdatedAt })).catch(() => setCurrentTenant(null));
@@ -126,7 +127,7 @@ export default function LoginPage() {
           <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center mb-4">
               <TenantLogo
-                tenantSlug={basePath ? basePath.replace(/^\//, "") : null}
+                tenantSlug={getTenantSlugFromUrl()}
                 logoVersion={currentTenant?.logoUpdatedAt}
                 alt="Task Manager"
                 size="h-16 w-16"
