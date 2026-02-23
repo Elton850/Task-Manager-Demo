@@ -19,6 +19,8 @@
     "dev:all": "concurrently \"npm run dev\" \"npm run frontend:dev\"",
     "test": "jest",
     "test:security": "jest --testPathPattern=security",
+    "check:env": "ts-node -r dotenv/config scripts/check-env.ts",
+    "check:env:prod": "npm run env:prod && ts-node -r dotenv/config scripts/check-env.ts",
     "validate:supabase": "node -r dotenv/config scripts/validate-env-supabase.js",
     "sync:system-admin": "ts-node -r dotenv/config scripts/sync-system-admin.ts",
     "migrate:supabase": "ts-node -r dotenv/config scripts/migrate-sqlite-to-supabase.ts",

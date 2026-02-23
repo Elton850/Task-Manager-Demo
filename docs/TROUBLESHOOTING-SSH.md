@@ -119,3 +119,92 @@ Isso **não é erro do comando** que você rodou (ex.: `nginx`). O **sudo** tent
    ```
 
 Se você **não conseguir usar sudo** por causa desse erro, entre como **root** (`su -` com a senha de root, ou SSH como root) e edite `/etc/hosts` direto; depois o sudo volta a funcionar.
+
+---
+
+## GitHub: login com Google — como clonar no VPS (Ubuntu)
+
+Se você entra no GitHub **com a conta do Google**, não existe “senha do GitHub” para usar no terminal. O Git no VPS precisa de outra forma de autenticação. Duas opções:
+
+### Opção A: Token de acesso pessoal (PAT) — mais rápido
+
+1. No seu **PC**, abra o navegador, entre no GitHub (pode ser pelo Google).
+2. GitHub → canto superior direito (foto) → **Settings**.
+3. No menu da esquerda, no final: **Developer settings**.
+4. **Personal access tokens** → **Tokens (classic)** → **Generate new token (classic)**.
+5. Dê um nome (ex.: `VPS deploy`), marque o escopo **repo** (acesso a repositórios privados). Gere o token.
+6. **Copie o token** e guarde em lugar seguro (ele não aparece de novo).
+
+No **VPS**, ao clonar por HTTPS:
+
+```bash
+git clone https://github.com/SEU_USUARIO/SEU_REPOSITORIO.git
+```
+
+Quando pedir:
+- **Username:** seu usuário do GitHub (ex.: `eltonalves`).
+- **Password:** **cole o token** (não a senha do Google).
+
+Para não digitar toda vez, pode gravar a credencial (no VPS):
+
+```bash
+git config --global credential.helper store
+```
+
+Na próxima vez que o Git pedir usuário/senha, use o token como senha; depois disso ele fica salvo (em texto no home do usuário — só use em VPS que você controla).
+
+---
+
+### Opção B: Chave SSH — sem senha depois de configurar
+
+1. **No VPS**, gere uma chave SSH (se ainda não tiver):
+
+   ```bash
+   ssh-keygen -t ed25519 -C "vps-deploy" -f ~/.ssh/id_ed25519_github -N ""
+   ```
+
+2. Mostre a **chave pública**:
+
+   ```bash
+   cat ~/.ssh/id_ed25519_github.pub
+   ```
+
+   Copie toda a linha (começa com `ssh-ed25519`).
+
+3. No **PC**, no navegador: GitHub → **Settings** → **SSH and GPG keys** → **New SSH key**. Cole a chave, dê um nome (ex.: `VPS`) e salve.
+
+4. **No VPS**, use a chave para o GitHub:
+
+   ```bash
+   eval "$(ssh-agent -s)"
+   ssh-add ~/.ssh/id_ed25519_github
+   ```
+
+   Crie ou edite `~/.ssh/config`:
+
+   ```bash
+   nano ~/.ssh/config
+   ```
+
+   Conteúdo:
+
+   ```
+   Host github.com
+     HostName github.com
+     User git
+     IdentityFile ~/.ssh/id_ed25519_github
+   ```
+
+   Salve (Ctrl+O, Enter, Ctrl+X).
+
+5. Clone pelo **endereço SSH** (não HTTPS):
+
+   ```bash
+   git clone git@github.com:SEU_USUARIO/SEU_REPOSITORIO.git
+   ```
+
+   Na primeira vez pode pedir para confirmar o host (digite `yes`). Depois disso não pede mais senha.
+
+---
+
+**Resumo:** com login Google no GitHub você não tem senha para o Git. Use **token (PAT)** como “senha” no clone HTTPS, ou configure **chave SSH** e clone com `git@github.com:...`.

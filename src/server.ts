@@ -1,4 +1,9 @@
-import "dotenv/config";
+// Carrega .env; em produção carrega também .env.production (override) para deploy na VPS
+import dotenv from "dotenv";
+dotenv.config();
+if (process.env.NODE_ENV === "production") {
+  dotenv.config({ path: ".env.production", override: true });
+}
 import express from "express";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
@@ -30,13 +35,26 @@ if (DB_PROVIDER === "supabase") {
   const missingVars: string[] = [];
   if (!process.env.SUPABASE_URL?.trim()) missingVars.push("SUPABASE_URL");
   if (!process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()) missingVars.push("SUPABASE_SERVICE_ROLE_KEY");
-  if (!process.env.SUPABASE_DB_URL?.trim()) missingVars.push("SUPABASE_DB_URL");
+  const dbUrl = process.env.SUPABASE_DB_URL?.trim() ?? "";
+  if (!dbUrl) missingVars.push("SUPABASE_DB_URL");
   if (missingVars.length > 0) {
     console.error(
       `[startup] DB_PROVIDER=supabase mas as seguintes variáveis estão ausentes: ${missingVars.join(", ")}.\n` +
       "Veja docs/ENV-REQUISITOS.md para instruções."
     );
     process.exit(1);
+  }
+  // Diagnóstico seguro em produção (sem expor a URL): confirma que a variável foi carregada
+  if (process.env.NODE_ENV === "production") {
+    const ok = dbUrl.startsWith("postgresql://") || dbUrl.startsWith("postgres://");
+    console.log(
+      "[startup] SUPABASE_DB_URL:",
+      ok ? `${dbUrl.length} chars, prefix OK` : `inválida (${dbUrl.length} chars, começa com "${dbUrl.slice(0, 24)}..."). Use postgresql://... sem aspas.`
+    );
+    if (!ok) {
+      console.error("[startup] Corrija SUPABASE_DB_URL em .env.production na VPS e reinicie o PM2.");
+      process.exit(1);
+    }
   }
 }
 
