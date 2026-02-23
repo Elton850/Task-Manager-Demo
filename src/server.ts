@@ -1,8 +1,10 @@
-// Carrega .env; em produção carrega também .env.production (override) para deploy na VPS
+// Carrega .env; em produção/staging carrega o .env do ambiente para deploy na VPS
 import dotenv from "dotenv";
 dotenv.config();
 if (process.env.NODE_ENV === "production") {
   dotenv.config({ path: ".env.production", override: true });
+} else if (process.env.NODE_ENV === "staging") {
+  dotenv.config({ path: ".env.staging", override: true });
 }
 import express from "express";
 import helmet from "helmet";
