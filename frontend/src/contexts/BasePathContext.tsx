@@ -13,12 +13,18 @@ export function useBasePath(): string {
 /**
  * Detecta se estamos em modo subdomínio (produção/staging com hostname real).
  * Retorna o slug do tenant derivado do subdomínio, ou null se for localhost.
+ * Domínio raiz (ex.: fluxiva.com.br = 3 partes) → "system" (área do desenvolvedor).
+ * Subdomínio (ex.: demo.fluxiva.com.br = 4 partes) → "demo" ou "system" se for "sistema".
  */
 function getSubdomainSlug(): string | null {
   if (typeof window === "undefined") return null;
   const h = window.location.hostname;
-  if (!h || h === "localhost" || h === "127.0.0.1" || h.split(".").length < 3) return null;
-  const sub = h.split(".")[0].toLowerCase();
+  if (!h || h === "localhost" || h === "127.0.0.1") return null;
+  const parts = h.split(".");
+  if (parts.length < 3) return null;
+  const sub = parts[0].toLowerCase();
+  // Domínio raiz (ex.: fluxiva.com.br) = 3 partes → área do sistema (desenvolvedor)
+  if (parts.length === 3) return "system";
   return sub === "sistema" ? "system" : sub;
 }
 
