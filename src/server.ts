@@ -68,6 +68,7 @@ if (DB_PROVIDER === "supabase") {
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 const IS_PROD = process.env.NODE_ENV === "production";
+const IS_STAGING = process.env.NODE_ENV === "staging";
 
 // Validação de secrets em produção
 if (IS_PROD) {
@@ -109,12 +110,16 @@ const devOrigins = ["http://localhost:5173", "http://localhost:5174", "http://12
  * subdomínio de APP_DOMAIN (ex.: APP_DOMAIN=fluxiva.com.br aceita https://empresa.fluxiva.com.br).
  */
 function isOriginAllowed(origin: string): boolean {
-  const list = IS_PROD ? ALLOWED_ORIGINS : devOrigins;
+  const useDeployOrigins = IS_PROD || IS_STAGING;
+  const list = useDeployOrigins ? ALLOWED_ORIGINS : devOrigins;
   if (list.some((o) => origin === o)) return true;
-  if (APP_DOMAIN) {
-    // Aceita https://APP_DOMAIN e https://qualquer-subdominio.APP_DOMAIN
+  if (APP_DOMAIN && useDeployOrigins) {
+    // Aceita https (e http em staging) para APP_DOMAIN e subdomínios
     const escaped = APP_DOMAIN.replace(/\./g, "\\.");
-    return new RegExp(`^https://([a-z0-9-]+\\.)?${escaped}$`).test(origin);
+    const re = IS_STAGING
+      ? new RegExp(`^https?://([a-z0-9-]+\\.)?${escaped}$`)
+      : new RegExp(`^https://([a-z0-9-]+\\.)?${escaped}$`);
+    if (re.test(origin)) return true;
   }
   return false;
 }
