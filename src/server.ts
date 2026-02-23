@@ -1,22 +1,6 @@
-// Staging: só .env.staging (evita usar qualquer variável de produção). Prod: .env + .env.production. Dev: .env
-import dotenv from "dotenv";
+// Carregamento de env DEVE ser o primeiro import — load-env.ts garante staging só .env.staging
+import "./load-env";
 import path from "path";
-
-const cwd = process.cwd();
-if (process.env.NODE_ENV === "staging") {
-  const stagingPath = path.resolve(cwd, ".env.staging");
-  const r = dotenv.config({ path: stagingPath });
-  if (r.error) {
-    console.error("[startup] .env.staging obrigatório em staging. Não encontrado em", stagingPath);
-    process.exit(1);
-  }
-  console.log("[startup] Credenciais e env carregados somente de .env.staging");
-} else {
-  dotenv.config();
-  if (process.env.NODE_ENV === "production") {
-    dotenv.config({ path: path.resolve(cwd, ".env.production"), override: true });
-  }
-}
 import express from "express";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
@@ -41,6 +25,12 @@ import { withDbContext } from "./db";
 import { seedSystemAdminIfNeeded } from "./db/seedSystemAdmin";
 
 const DB_PROVIDER = (process.env.DB_PROVIDER || "sqlite").toLowerCase().trim();
+
+// Confirmação explícita em staging: DB e credenciais vêm só de .env.staging
+if (process.env.NODE_ENV === "staging" && DB_PROVIDER === "supabase") {
+  const u = process.env.SUPABASE_DB_URL ?? "";
+  console.log("[startup] Staging ativo: DB e admin vêm de .env.staging. SUPABASE_DB_URL:", u ? `${u.length} chars` : "ausente");
+}
 
 // ── Validação de variáveis Supabase ao arranque ───────────────────────────────
 if (DB_PROVIDER === "supabase") {

@@ -20,14 +20,18 @@ export async function seedSystemAdminIfNeeded(): Promise<void> {
   const nome = process.env.SYSTEM_ADMIN_NOME?.trim() || "Administrador do Sistema";
 
   if (existing) {
-    // Sincroniza senha e estado de reset com o .env (em dev sempre; em prod só se SYNC_SYSTEM_ADMIN_PASSWORD=1)
+    // Sincroniza senha e estado de reset com o arquivo do ambiente (staging → .env.staging, prod → .env.production)
     const syncFromEnv = process.env.NODE_ENV !== "production" || process.env.SYNC_SYSTEM_ADMIN_PASSWORD === "1";
     if (syncFromEnv) {
       await db.prepare(`
         UPDATE users SET password_hash = ?, must_change_password = 0, reset_code_hash = NULL, reset_code_expires_at = NULL WHERE id = ?
       `).run(passwordHash, existing.id);
-      if (process.env.NODE_ENV !== "production") {
-        console.log("[seed] Senha do administrador do sistema sincronizada com .env");
+      if (process.env.NODE_ENV === "staging") {
+        console.log("[seed] Senha do administrador do sistema sincronizada com .env.staging");
+      } else if (process.env.NODE_ENV === "production") {
+        console.log("[seed] Senha do administrador do sistema sincronizada com .env.production");
+      } else {
+        console.log("[seed] Senha do administrador do sistema sincronizada com o ambiente");
       }
     }
     return;
