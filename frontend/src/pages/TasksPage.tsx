@@ -306,7 +306,6 @@ export default function TasksPage() {
         task={editTask}
         lookups={lookups}
         users={users}
-        rules={rules}
         allowedRecorrencias={user?.role === "USER" ? allowedRecorrencias : undefined}
         onClose={() => {
           setModalOpen(false);
