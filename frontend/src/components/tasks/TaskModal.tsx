@@ -321,7 +321,7 @@ export default function TaskModal({
     || (user?.role === "LEADER" ? user.area : undefined)
     || users.find(u => u.email === form.responsavelEmail)?.area;
   const fromRules = areaForRecorrencia && rules?.find(r => r.area === areaForRecorrencia)?.customRecorrencias;
-  const recorrenciaList = (fromRules?.length ? fromRules : allowedRecorrencias) ?? [];
+  const recorrenciaList = (Array.isArray(fromRules) && fromRules.length ? fromRules : allowedRecorrencias) ?? [];
   const recorrenciaOptions = recorrenciaList.map(v => ({ value: v, label: v }));
   const tipoOptions = (lookups.TIPO || []).map(v => ({ value: v, label: v }));
   const userOptions = selectableUsers.map(u => ({ value: u.email, label: `${u.nome} (${u.area})` }));
