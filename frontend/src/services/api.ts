@@ -68,17 +68,19 @@ export function getTenantSlugFromUrl(): string {
   // 2. Path-based (localhost e staging path-based — staging.fluxiva.com.br/empresa1/...)
   const parts = window.location.pathname.split("/").filter(Boolean);
   const seg = (parts[0] || "").toLowerCase();
-  if (seg && !RESERVED_SEGMENTS.has(seg)) return seg;
-
-  // 3. Query param (ex.: links de download com ?tenant=x)
+  // Query param override (ex.: link com ?tenant=empresa)
   const params = new URLSearchParams(window.location.search);
   const tenantParam = params.get("tenant");
   if (tenantParam) {
-    localStorage.setItem("tenantSlug", tenantParam);
-    return tenantParam.toLowerCase();
+    const slug = tenantParam.trim().toLowerCase().replace(/[^a-z0-9-]/g, "");
+    if (slug) {
+      localStorage.setItem("tenantSlug", slug);
+      return slug;
+    }
   }
-
-  return localStorage.getItem("tenantSlug") || "system";
+  // Raiz (/) ou rota reservada (/login, /sistema) → system; não usar localStorage para não puxar tenant antigo
+  if (!seg || RESERVED_SEGMENTS.has(seg)) return "system";
+  return seg;
 }
 
 async function fetchCsrf(): Promise<void> {

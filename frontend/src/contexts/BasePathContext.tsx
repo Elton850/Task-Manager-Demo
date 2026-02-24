@@ -66,6 +66,9 @@ export function SyncTenantAndBasePath() {
     setTenantSlug(tenant);
     if (tenant !== "system") {
       localStorage.setItem("tenantSlug", tenant);
+    } else {
+      // Evitar que ao acessar a raiz do staging (staging.dominio/) o localStorage puxe tenant antigo
+      localStorage.removeItem("tenantSlug");
     }
   }, [tenant]);
 
