@@ -13,6 +13,7 @@
     "frontend:install": "cd frontend && npm install",
     "frontend:dev": "cd frontend && npm run dev",
     "frontend:build": "cd frontend && npm run build",
+    "frontend:build:staging": "cd frontend && npx tsc --noEmit && npx vite build --mode staging --outDir dist-staging",
     "env:dev": "node -e \"require('fs').copyFileSync('.env.development', '.env')\"",
     "env:staging": "node -e \"require('fs').copyFileSync('.env.staging', '.env')\"",
     "env:prod": "node -e \"require('fs').copyFileSync('.env.production', '.env')\"",
