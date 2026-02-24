@@ -182,7 +182,7 @@ describe("Segurança - Tenant isolation (IDOR)", () => {
           INSERT INTO tasks (id, tenant_id, competencia_ym, recorrencia, tipo, atividade,
             responsavel_email, responsavel_nome, area, created_at, created_by, updated_at, updated_by)
           VALUES (?, ?, ?, 'Mensal', 'Rotina', 'Task outro tenant', ?, 'Admin', 'TI', ?, ?, ?, ?)
-        `).run(taskId, otherTenantId, "2024-01", adminEmail, adminEmail, now, adminEmail, now, adminEmail)
+        `).run(taskId, otherTenantId, "2024-01", adminEmail, now, adminEmail, now, adminEmail)
       );
       taskIdOther = taskId;
     } else {
@@ -199,7 +199,7 @@ describe("Segurança - Tenant isolation (IDOR)", () => {
             INSERT INTO tasks (id, tenant_id, competencia_ym, recorrencia, tipo, atividade,
               responsavel_email, responsavel_nome, area, created_at, created_by, updated_at, updated_by)
             VALUES (?, ?, ?, 'Mensal', 'Rotina', 'Task outro tenant', ?, 'Admin', 'TI', ?, ?, ?, ?)
-          `).run(taskId, otherTenantId, "2024-01", adminEmail, adminEmail, now, adminEmail, now, adminEmail)
+          `).run(taskId, otherTenantId, "2024-01", adminEmail, now, adminEmail, now, adminEmail)
         );
         taskIdOther = taskId;
       } else {
