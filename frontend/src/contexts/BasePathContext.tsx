@@ -42,15 +42,14 @@ function getSubdomainSlug(): string | null {
 }
 
 /**
- * Sincroniza o tenant e fornece basePath para links internos.
+ * Sincroniza o tenant e fornece basePath para links e redirecionamentos.
+ * Regra: a URL atual sempre define o contexto — redirecionamentos seguem o path (empresa-alpha → /empresa-alpha/…; login/raiz → /login, /sistema, …).
  *
  * Modo subdomínio (produção): empresa1.fluxiva.com.br → tenant="empresa1", basePath=""
- *   O slug está no hostname; o path não precisa de prefixo.
  *
  * Modo path (staging e localhost):
- *   staging.fluxiva.com.br/empresa1/tasks → tenant="empresa1", basePath="/empresa1"
- *   localhost:5173/empresa1/tasks         → tenant="empresa1", basePath="/empresa1"
- *   staging.fluxiva.com.br/login          → tenant="system",   basePath=""
+ *   /empresa-alpha/login ou /empresa-alpha/… → tenant="empresa-alpha", basePath="/empresa-alpha"
+ *   /login, /, /sistema, …                   → tenant="system", basePath=""
  */
 export function SyncTenantAndBasePath() {
   const location = useLocation();

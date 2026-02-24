@@ -123,12 +123,9 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
         loginError.meta = payload.meta;
         throw loginError;
       }
-      // Em modo subdomínio, o slug está no hostname — o path de login é sempre /login.
-      // Em dev (localhost), inclui o slug no path: /empresax/login.
+      // Redirecionamento sempre conforme a URL atual: system → /login; tenant → /:tenant/login
       const currentTenant = getTenantSlugFromUrl();
-      const loginPath = isSubdomainMode() || currentTenant === "system"
-        ? "/login"
-        : `/${currentTenant}/login`;
+      const loginPath = currentTenant === "system" ? "/login" : `/${currentTenant}/login`;
       if (window.location.pathname !== loginPath) {
         window.location.replace(loginPath);
       }
