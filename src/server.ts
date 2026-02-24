@@ -61,6 +61,8 @@ if (DB_PROVIDER === "supabase") {
 }
 
 const app = express();
+// Nginx é o proxy reverso — necessário para express-rate-limit e req.ip funcionarem corretamente
+app.set("trust proxy", 1);
 const PORT = Number(process.env.PORT) || 3000;
 const IS_PROD = process.env.NODE_ENV === "production";
 const IS_STAGING = process.env.NODE_ENV === "staging";
