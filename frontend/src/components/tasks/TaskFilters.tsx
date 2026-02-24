@@ -87,7 +87,7 @@ export default function TaskFilters({ filters, lookups, users, onChange, onClear
         </Button>
 
         {hasFilters && (
-          <Button variant="ghost" onClick={onClear} icon={<X size={15} />} className="text-slate-500">
+          <Button variant="ghost" onClick={onClear} icon={<X size={15} />} className="text-slate-500 dark:text-slate-400">
             Limpar
           </Button>
         )}
@@ -95,7 +95,7 @@ export default function TaskFilters({ filters, lookups, users, onChange, onClear
 
       {/* Expanded filters */}
       {expanded && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 p-3 bg-slate-50 rounded-lg border border-slate-200">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-2 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-600/80">
           <Select
             value={filters.status}
             onChange={e => onChange({ status: e.target.value })}
@@ -124,7 +124,7 @@ export default function TaskFilters({ filters, lookups, users, onChange, onClear
 
       {/* Count */}
       {(hasFilters || totalCount > 0) && (
-        <p className="text-xs text-slate-600 font-medium">
+        <p className="text-xs text-slate-600 dark:text-slate-400 font-medium">
           {filteredCount === totalCount
             ? `${totalCount} tarefa${totalCount !== 1 ? "s" : ""}`
             : `${filteredCount} de ${totalCount} tarefa${totalCount !== 1 ? "s" : ""}`

@@ -104,18 +104,20 @@ const devOrigins = ["http://localhost:5173", "http://localhost:5174", "http://12
 
 /**
  * Verifica se a origem da requisição é permitida.
- * Dev: apenas localhost. Prod/staging: ALLOWED_ORIGINS (lista fixa) + qualquer
- * subdomínio de APP_DOMAIN (ex.: APP_DOMAIN=fluxiva.com.br aceita https://empresa.fluxiva.com.br).
+ * Dev: apenas localhost. Prod: ALLOWED_ORIGINS + subdomínios de APP_DOMAIN.
+ * Staging path-based: ALLOWED_ORIGINS + APENAS o host exato de staging (APP_DOMAIN=staging.fluxiva.com.br).
+ * Não são aceitos subdomínios de staging (ex.: empresa.staging.fluxiva.com.br) pois o esquema é path-based.
  */
 function isOriginAllowed(origin: string): boolean {
   const useDeployOrigins = IS_PROD || IS_STAGING;
   const list = useDeployOrigins ? ALLOWED_ORIGINS : devOrigins;
   if (list.some((o) => origin === o)) return true;
   if (APP_DOMAIN && useDeployOrigins) {
-    // Aceita https (e http em staging) para APP_DOMAIN e subdomínios
     const escaped = APP_DOMAIN.replace(/\./g, "\\.");
     const re = IS_STAGING
-      ? new RegExp(`^https?://([a-z0-9-]+\\.)?${escaped}$`)
+      // Staging path-based: aceita apenas o host exato (sem subdomínios), http ou https
+      ? new RegExp(`^https?://${escaped}$`)
+      // Produção: aceita https para APP_DOMAIN e todos os seus subdomínios (empresa.fluxiva.com.br)
       : new RegExp(`^https://([a-z0-9-]+\\.)?${escaped}$`);
     if (re.test(origin)) return true;
   }

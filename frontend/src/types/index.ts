@@ -137,6 +137,10 @@ export interface Rule {
   customTipos?: string[];
   /** Subconjunto de customTipos que são "tipos padrão" (carregados pelo botão); usado para "Excluir apenas tipos padrão". */
   defaultTipos?: string[];
+  /** Tipos de recorrência criados somente para esta área (Leader cria para sua área; mesmo padrão de Tipos de atividade). */
+  customRecorrencias?: string[];
+  /** Subconjunto de customRecorrencias que são "padrão" (carregados pelo botão); usado para "Excluir apenas tipos padrão". */
+  defaultRecorrencias?: string[];
   updatedAt: string;
   updatedBy: string;
 }

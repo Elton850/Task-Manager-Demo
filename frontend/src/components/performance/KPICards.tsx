@@ -71,14 +71,14 @@ export default function KPICards({ data }: KPICardsProps) {
       {cards.map(card => (
         <div
           key={card.label}
-          className={`${card.bg} border ${card.border} rounded-xl p-4`}
+          className={`${card.bg} dark:bg-slate-800/90 border ${card.border} dark:border-slate-600/80 rounded-xl p-4`}
         >
-          <div className={`${card.color} mb-2`}>{card.icon}</div>
+          <div className={`${card.color} dark:opacity-90 mb-2`}>{card.icon}</div>
           <div className={`text-2xl font-bold ${card.color}`}>{card.value}</div>
-          <div className="text-xs text-slate-600 mt-0.5 leading-tight font-medium">{card.label}</div>
+          <div className="text-xs text-slate-600 dark:text-slate-300 mt-0.5 leading-tight font-medium">{card.label}</div>
           {card.pct !== undefined && (
             <div className="mt-2">
-              <div className="h-1.5 bg-slate-200 rounded-full overflow-hidden">
+              <div className="h-1.5 bg-slate-200 dark:bg-slate-600 rounded-full overflow-hidden">
                 <div
                   className={`h-full rounded-full transition-all duration-500 ${
                     card.label === "Concluído" ? "bg-emerald-500" :
@@ -88,7 +88,7 @@ export default function KPICards({ data }: KPICardsProps) {
                   style={{ width: `${card.pct}%` }}
                 />
               </div>
-              <span className="text-[10px] text-slate-700 mt-0.5 block font-medium">{card.pct}%</span>
+              <span className="text-[10px] text-slate-700 dark:text-slate-200 mt-0.5 block font-medium">{card.pct}%</span>
             </div>
           )}
         </div>

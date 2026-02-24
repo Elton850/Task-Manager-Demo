@@ -8,13 +8,28 @@ import { useToast } from "@/contexts/ToastContext";
 import { tenantApi } from "@/services/api";
 import type { TenantListItem } from "@/types";
 
-/** Domínio base configurado no build (ex.: fluxiva.com.br). Vazio em dev local. */
+/** Domínio base configurado no build (ex.: fluxiva.com.br ou staging.fluxiva.com.br). Vazio em dev local. */
 const APP_DOMAIN = (import.meta.env.VITE_APP_DOMAIN as string | undefined) || "";
 
-/** Monta a URL de acesso completa da empresa. */
+/**
+ * Monta a URL de acesso completa da empresa de acordo com o esquema do ambiente:
+ * - Produção (subdomain-based):  https://empresa.fluxiva.com.br
+ * - Staging (path-based):        https://staging.fluxiva.com.br/empresa
+ * - Dev local:                   /empresa
+ *
+ * Detecção de staging em runtime: hostname com 4 partes iniciado por "staging."
+ */
 function getTenantAccessUrl(slug: string): string {
   if (!slug) return "";
-  return APP_DOMAIN ? `https://${slug}.${APP_DOMAIN}` : `/${slug}`;
+  if (!APP_DOMAIN) return `/${slug}`; // dev local sem APP_DOMAIN
+  const h = typeof window !== "undefined" ? window.location.hostname : "";
+  const parts = h.split(".");
+  // Staging path-based: staging.fluxiva.com.br → https://staging.fluxiva.com.br/empresa
+  if (parts.length === 4 && parts[0] === "staging") {
+    return `https://${APP_DOMAIN}/${slug}`;
+  }
+  // Produção subdomain-based: https://empresa.fluxiva.com.br
+  return `https://${slug}.${APP_DOMAIN}`;
 }
 
 function fileToBase64(file: File): Promise<string> {

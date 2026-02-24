@@ -3,6 +3,7 @@ import { Navigate } from "react-router-dom";
 import { Eye, EyeOff, ArrowLeft } from "lucide-react";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
+import ThemeSwitch from "@/components/ui/ThemeSwitch";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
 import { useBasePath } from "@/contexts/BasePathContext";
@@ -121,7 +122,10 @@ export default function LoginPage() {
   const showResetForm = mode === "reset" && !isAdminLogin;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-100 via-white to-brand-50 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-100 via-white to-brand-50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 flex items-center justify-center p-4 relative">
+      <div className="absolute top-4 right-4">
+        <ThemeSwitch />
+      </div>
       <div className="w-full max-w-sm">
         {!isAdminLogin && (
           <div className="text-center mb-8">
@@ -134,22 +138,22 @@ export default function LoginPage() {
                 className="rounded-xl shadow-sm"
               />
             </div>
-            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Task Manager</h1>
-            <p className="text-sm text-slate-500 mt-1 truncate max-w-[18rem] mx-auto">
+            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">Task Manager</h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 truncate max-w-[18rem] mx-auto">
               {currentTenant?.name ?? (tenant?.name || "Carregando…")}
             </p>
           </div>
         )}
 
-        <div className={`bg-white border border-slate-200 rounded-2xl p-6 shadow-xl shadow-brand-100/60 ${isAdminLogin ? "mt-8" : ""}`}>
+        <div className={`bg-white dark:bg-slate-800/95 border border-slate-200 dark:border-slate-600/80 rounded-2xl p-6 shadow-xl shadow-brand-100/60 dark:shadow-none ${isAdminLogin ? "mt-8" : ""}`}>
           {mode === "login" ? (
             <form onSubmit={handleLogin} className="space-y-4">
               <div className="mb-2">
-                <h2 className="text-lg font-semibold text-slate-900">
+                <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
                   {isAdminLogin ? "Acesso" : "Entrar"}
                 </h2>
                 {!isAdminLogin && (
-                  <p className="text-sm text-slate-500">Faça login na sua conta</p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">Faça login na sua conta</p>
                 )}
               </div>
 
@@ -165,7 +169,7 @@ export default function LoginPage() {
               />
 
               <div className="flex flex-col gap-1">
-                <label className="text-sm font-medium text-slate-700">
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
                   Senha <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative">
@@ -176,12 +180,12 @@ export default function LoginPage() {
                     onChange={e => set("password", e.target.value)}
                     placeholder="••••••••"
                     autoComplete="current-password"
-                    className="w-full rounded-lg bg-white border border-slate-300 text-slate-900 px-3 py-2 text-sm pr-10 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+                    className="w-full rounded-lg bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-100 px-3 py-2 text-sm pr-10 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPass(s => !s)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-800"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
                     aria-label={showPass ? "Ocultar senha" : "Mostrar senha"}
                   >
                     {showPass ? <EyeOff size={15} /> : <Eye size={15} />}
@@ -194,12 +198,12 @@ export default function LoginPage() {
               </Button>
 
               {!isAdminLogin && (
-                <p className="text-xs text-center text-slate-500">
+                <p className="text-xs text-center text-slate-500 dark:text-slate-400">
                   Esqueceu a senha?{" "}
                   <button
                     type="button"
                     onClick={() => { setMode("requestReset"); setResetEmailSent(false); }}
-                    className="text-brand-700 hover:text-brand-800 transition-colors"
+                    className="text-brand-600 dark:text-brand-400 hover:text-brand-800 dark:hover:text-brand-300 transition-colors"
                   >
                     Redefinir acesso
                   </button>
@@ -209,8 +213,8 @@ export default function LoginPage() {
           ) : showRequestResetForm ? (
             <form onSubmit={handleRequestReset} className="space-y-4">
               <div className="mb-2">
-                <h2 className="text-lg font-semibold text-slate-900">Redefinir acesso</h2>
-                <p className="text-sm text-slate-500">
+                <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Redefinir acesso</h2>
+                <p className="text-sm text-slate-500 dark:text-slate-400">
                   Informe o e-mail da conta. Enviaremos um código de verificação (válido por 30 minutos).
                 </p>
               </div>
@@ -233,7 +237,7 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={() => setMode("login")}
-                className="w-full flex items-center justify-center gap-2 py-2.5 text-sm text-slate-600 hover:text-brand-700 hover:bg-slate-50 rounded-lg transition-colors border border-transparent hover:border-slate-200"
+                className="w-full flex items-center justify-center gap-2 py-2.5 text-sm text-slate-600 dark:text-slate-400 hover:text-brand-700 dark:hover:text-brand-400 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-lg transition-colors border border-transparent hover:border-slate-200 dark:hover:border-slate-600"
               >
                 <ArrowLeft size={16} />
                 Voltar
@@ -242,10 +246,10 @@ export default function LoginPage() {
           ) : (
             <form onSubmit={handleReset} className="space-y-4">
               <div className="mb-2">
-                <h2 className="text-lg font-semibold text-slate-900">
+                <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
                   {resetInfo?.firstAccess ? "Primeiro acesso" : "Redefinir senha"}
                 </h2>
-                <p className="text-sm text-slate-500">
+                <p className="text-sm text-slate-500 dark:text-slate-400">
                   Código de verificação e nova senha
                 </p>
               </div>
@@ -288,7 +292,7 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={() => { setMode("login"); setResetEmailSent(false); }}
-                className="w-full flex items-center justify-center gap-2 py-2.5 text-sm text-slate-600 hover:text-brand-700 hover:bg-slate-50 rounded-lg transition-colors border border-transparent hover:border-slate-200"
+                className="w-full flex items-center justify-center gap-2 py-2.5 text-sm text-slate-600 dark:text-slate-400 hover:text-brand-700 dark:hover:text-brand-400 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-lg transition-colors border border-transparent hover:border-slate-200 dark:hover:border-slate-600"
               >
                 <ArrowLeft size={16} />
                 Voltar
@@ -298,7 +302,7 @@ export default function LoginPage() {
         </div>
 
         {!isAdminLogin && (
-          <p className="text-center text-xs text-slate-500 mt-6">
+          <p className="text-center text-xs text-slate-500 dark:text-slate-400 mt-6">
             Task Manager v2.0 · Multi-tenant
           </p>
         )}

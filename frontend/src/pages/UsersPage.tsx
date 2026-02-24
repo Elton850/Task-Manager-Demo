@@ -554,58 +554,58 @@ export default function UsersPage() {
 
       {/* Cards indicadores (adaptados ao período/filtro) */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-        <div className="bg-slate-100 border border-slate-300 rounded-xl p-4">
-          <div className="text-slate-700 mb-2">
+        <div className="bg-slate-100 dark:bg-slate-800/90 border border-slate-300 dark:border-slate-600/80 rounded-xl p-4">
+          <div className="text-slate-700 dark:text-slate-300 mb-2">
             <Users size={18} />
           </div>
-          <div className="text-2xl font-bold text-slate-700">{filtered.length}</div>
-          <div className="text-xs text-slate-600 mt-0.5 font-medium">
+          <div className="text-2xl font-bold text-slate-700 dark:text-slate-100">{filtered.length}</div>
+          <div className="text-xs text-slate-600 dark:text-slate-300 mt-0.5 font-medium">
             Usuários (filtro)
           </div>
         </div>
-        <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4">
-          <div className="text-emerald-600 mb-2">
+        <div className="bg-emerald-500/10 dark:bg-emerald-500/15 border border-emerald-500/20 dark:border-emerald-500/30 rounded-xl p-4">
+          <div className="text-emerald-600 dark:text-emerald-400 mb-2">
             <UserCheck size={18} />
           </div>
-          <div className="text-2xl font-bold text-emerald-700">{activeFiltered.length}</div>
-          <div className="text-xs text-slate-600 mt-0.5 font-medium">Ativos</div>
+          <div className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">{activeFiltered.length}</div>
+          <div className="text-xs text-slate-600 dark:text-slate-300 mt-0.5 font-medium">Ativos</div>
         </div>
-        <div className="bg-slate-200/80 border border-slate-400/30 rounded-xl p-4">
-          <div className="text-slate-600 mb-2">
+        <div className="bg-slate-200/80 dark:bg-slate-700/80 border border-slate-400/30 dark:border-slate-600/80 rounded-xl p-4">
+          <div className="text-slate-600 dark:text-slate-400 mb-2">
             <UserX size={18} />
           </div>
-          <div className="text-2xl font-bold text-slate-700">{inactiveFiltered.length}</div>
-          <div className="text-xs text-slate-600 mt-0.5 font-medium">Inativos</div>
+          <div className="text-2xl font-bold text-slate-700 dark:text-slate-200">{inactiveFiltered.length}</div>
+          <div className="text-xs text-slate-600 dark:text-slate-300 mt-0.5 font-medium">Inativos</div>
         </div>
-        <div className="bg-brand-500/10 border border-brand-500/20 rounded-xl p-4">
-          <div className="text-brand-600 mb-2">
+        <div className="bg-brand-500/10 dark:bg-brand-500/15 border border-brand-500/20 dark:border-brand-500/30 rounded-xl p-4">
+          <div className="text-brand-600 dark:text-brand-400 mb-2">
             <LogIn size={18} />
           </div>
-          <div className="text-2xl font-bold text-brand-700">{totalLoginsInPeriod}</div>
-          <div className="text-xs text-slate-600 mt-0.5 font-medium">
+          <div className="text-2xl font-bold text-brand-700 dark:text-brand-300">{totalLoginsInPeriod}</div>
+          <div className="text-xs text-slate-600 dark:text-slate-300 mt-0.5 font-medium">
             Logins no período
           </div>
         </div>
-        <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4">
-          <div className="text-amber-600 mb-2">
+        <div className="bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/20 dark:border-amber-500/30 rounded-xl p-4">
+          <div className="text-amber-600 dark:text-amber-400 mb-2">
             <UserCog size={18} />
           </div>
-          <div className="text-2xl font-bold text-amber-700">
+          <div className="text-2xl font-bold text-amber-700 dark:text-amber-300">
             {usersWithLoginInPeriod}
           </div>
-          <div className="text-xs text-slate-600 mt-0.5 font-medium">
+          <div className="text-xs text-slate-600 dark:text-slate-300 mt-0.5 font-medium">
             Acessaram no período
           </div>
         </div>
         {isMasterAdmin && (
-          <div className="bg-violet-500/10 border border-violet-500/20 rounded-xl p-4">
-            <div className="text-violet-600 mb-2">
+          <div className="bg-violet-500/10 dark:bg-violet-500/15 border border-violet-500/20 dark:border-violet-500/30 rounded-xl p-4">
+            <div className="text-violet-600 dark:text-violet-400 mb-2">
               <Key size={18} />
             </div>
-            <div className="text-2xl font-bold text-violet-700">
+            <div className="text-2xl font-bold text-violet-700 dark:text-violet-300">
               {withoutPasswordFiltered.length}
             </div>
-            <div className="text-xs text-slate-600 mt-0.5 font-medium">
+            <div className="text-xs text-slate-600 dark:text-slate-300 mt-0.5 font-medium">
               Sem senha definida
             </div>
           </div>
@@ -685,53 +685,53 @@ export default function UsersPage() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-slate-200">
-              <thead className="bg-slate-100">
+            <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-600/80">
+              <thead className="bg-slate-100 dark:bg-slate-700/60">
                 <tr>
                   {isAdmin && (
                     <th className="px-4 py-3 text-left w-10">
                       <span className="sr-only">Selecionar</span>
                     </th>
                   )}
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                     Empresa
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                     Usuário
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                     Email
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                     Função
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                     Área
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                     Logins (período)
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                     Último login
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                     Último logout
                   </th>
                   {isAdmin && (
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
                       Ações
                     </th>
                   )}
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200 bg-white">
+              <tbody className="divide-y divide-slate-200 dark:divide-slate-600/60 bg-white dark:bg-slate-800/30">
                 {filtered.map((u) => (
                   <tr
                     key={u.id}
-                    className={`hover:bg-slate-50 transition-colors ${
+                    className={`hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors ${
                       !u.active ? "opacity-60" : ""
                     }`}
                   >
@@ -747,22 +747,22 @@ export default function UsersPage() {
                       </td>
                     )}
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-2 text-sm text-slate-700">
-                        <Building2 size={14} className="text-slate-400 flex-shrink-0" />
+                      <div className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
+                        <Building2 size={14} className="text-slate-400 dark:text-slate-500 flex-shrink-0" />
                         {(u.tenantName ?? tenant?.name) || "—"}
                       </div>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-brand-100 border border-brand-200 flex items-center justify-center flex-shrink-0">
-                          <span className="text-xs font-bold text-brand-800">
+                        <div className="w-8 h-8 rounded-full bg-brand-100 dark:bg-brand-500/25 border border-brand-200 dark:border-brand-500/40 flex items-center justify-center flex-shrink-0">
+                          <span className="text-xs font-bold text-brand-800 dark:text-brand-200">
                             {u.nome.charAt(0).toUpperCase()}
                           </span>
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-slate-800">{u.nome}</p>
+                          <p className="text-sm font-medium text-slate-800 dark:text-slate-100">{u.nome}</p>
                           {u.canDelete && (
-                            <span className="inline-flex items-center gap-1 text-xs text-emerald-700 font-medium mt-0.5">
+                            <span className="inline-flex items-center gap-1 text-xs text-emerald-700 dark:text-emerald-400 font-medium mt-0.5">
                               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
                               Pode excluir
                             </span>
@@ -770,7 +770,7 @@ export default function UsersPage() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-sm text-slate-700">{u.email}</td>
+                    <td className="px-4 py-3 text-sm text-slate-700 dark:text-slate-200">{u.email}</td>
                     <td className="px-4 py-3">
                       <Badge variant={getRoleVariant(u.role)}>
                         {u.role === "ADMIN"
@@ -780,7 +780,7 @@ export default function UsersPage() {
                             : "Usuário"}
                       </Badge>
                     </td>
-                    <td className="px-4 py-3 text-sm text-slate-700">{u.area}</td>
+                    <td className="px-4 py-3 text-sm text-slate-700 dark:text-slate-200">{u.area}</td>
                     <td className="px-4 py-3">
                       <Badge variant={u.active ? "green" : "slate"}>
                         {u.active ? "Ativo" : "Inativo"}
@@ -792,16 +792,16 @@ export default function UsersPage() {
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <span className="text-sm font-medium text-slate-700">
+                      <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
                         {filters.from && filters.to
                           ? loginCounts[u.id] ?? 0
                           : "—"}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-sm text-slate-600" title={u.lastLoginAt ?? undefined}>
+                    <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-300" title={u.lastLoginAt ?? undefined}>
                       {formatDateTime(u.lastLoginAt)}
                     </td>
-                    <td className="px-4 py-3 text-sm text-slate-600" title={u.lastLogoutAt ?? undefined}>
+                    <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-300" title={u.lastLogoutAt ?? undefined}>
                       {formatDateTime(u.lastLogoutAt)}
                     </td>
                     {isAdmin && (
@@ -867,7 +867,7 @@ export default function UsersPage() {
               </tbody>
             </table>
             {filtered.length === 0 && (
-              <div className="text-center py-12 text-slate-500 text-sm">
+              <div className="text-center py-12 text-slate-500 dark:text-slate-400 text-sm">
                 {filters.search || filters.area || filters.role || filters.status
                   ? "Nenhum usuário encontrado com os filtros aplicados"
                   : "Nenhum usuário cadastrado"}

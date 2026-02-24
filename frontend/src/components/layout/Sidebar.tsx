@@ -71,30 +71,30 @@ export default function Sidebar({ open, onToggle }: SidebarProps) {
 
   return (
     <>
-      {open && <div className="fixed inset-0 z-20 bg-slate-900/55 lg:hidden" onClick={onToggle} />}
+      {open && <div className="fixed inset-0 z-20 bg-slate-900/55 dark:bg-black/60 lg:hidden" onClick={onToggle} />}
 
       <aside
         className={`
         fixed top-0 left-0 h-full z-30 flex flex-col
-        bg-white border-r border-slate-200
+        bg-white dark:bg-slate-900/95 border-r border-slate-200 dark:border-slate-700/80
         transition-all duration-300 ease-in-out
         ${open ? "w-64" : "w-0 lg:w-64"}
         overflow-hidden
       `}
       >
-        <div className="flex items-center justify-between px-4 py-4 border-b border-slate-200 flex-shrink-0">
+        <div className="flex items-center justify-between px-4 py-4 border-b border-slate-200 dark:border-slate-700/80 flex-shrink-0">
           <div className="flex items-center gap-3 min-w-0">
             {!isSystemAdmin && (
               <TenantLogo tenantSlug={tenant?.slug} logoVersion={tenant?.logoUpdatedAt} alt="Task Manager" size="h-9 w-9" />
             )}
             <div className="min-w-0">
-              <div className="text-sm font-semibold text-brand-900 truncate">{tenant?.name || "Task Manager"}</div>
-              <div className="text-xs text-slate-500 truncate">{tenant?.slug ? `@${tenant.slug}` : "v2.0"}</div>
+              <div className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">{tenant?.name || "Task Manager"}</div>
+              <div className="text-xs text-slate-500 dark:text-slate-400 truncate">{tenant?.slug ? `@${tenant.slug}` : "v2.0"}</div>
             </div>
           </div>
           <button 
             onClick={onToggle} 
-            className="text-slate-400 hover:text-slate-700 transition-colors lg:hidden ml-2"
+            className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 transition-colors lg:hidden ml-2"
             aria-label="Fechar menu"
             aria-expanded={open}
           >
@@ -112,8 +112,8 @@ export default function Sidebar({ open, onToggle }: SidebarProps) {
                 transition-all duration-150
                 ${
                   isActive
-                    ? "bg-brand-100 text-brand-900 border border-brand-200"
-                    : "text-slate-600 hover:text-brand-900 hover:bg-slate-50 border border-transparent"
+                    ? "bg-brand-100 dark:bg-brand-900/50 text-brand-800 dark:text-brand-100 border border-brand-200 dark:border-brand-600/80"
+                    : "text-slate-600 dark:text-slate-300 hover:text-brand-800 dark:hover:text-brand-200 hover:bg-slate-50 dark:hover:bg-slate-800/80 border border-transparent"
                 }
               `}
             >
@@ -124,21 +124,21 @@ export default function Sidebar({ open, onToggle }: SidebarProps) {
         </nav>
 
         {user && (
-          <div className="px-3 pb-4 flex-shrink-0 border-t border-slate-200 pt-3">
-            <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-slate-50 mb-2">
-              <div className="w-8 h-8 rounded-full bg-brand-100 border border-brand-200 flex items-center justify-center flex-shrink-0">
-                <span className="text-xs font-bold text-brand-800">{user.nome.charAt(0).toUpperCase()}</span>
+          <div className="px-3 pb-4 flex-shrink-0 border-t border-slate-200 dark:border-slate-700/80 pt-3 bg-slate-50/50 dark:bg-slate-800/60">
+            <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-white dark:bg-slate-800/90 border border-slate-100 dark:border-slate-600/80 mb-2">
+              <div className="w-8 h-8 rounded-full bg-brand-100 dark:bg-brand-900/60 border border-brand-200 dark:border-brand-600/80 flex items-center justify-center flex-shrink-0">
+                <span className="text-xs font-bold text-brand-800 dark:text-brand-100">{user.nome.charAt(0).toUpperCase()}</span>
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-medium text-slate-800 truncate">{user.nome}</p>
-                <p className="text-xs text-slate-500 truncate">{user.area}</p>
+                <p className="text-xs font-medium text-slate-800 dark:text-slate-100 truncate">{user.nome}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{user.area}</p>
               </div>
               <Badge variant={getRoleVariant(user.role)} size="sm">
                 {user.role}
               </Badge>
             </div>
             {(lastLoginAt || lastLogoutAt) && (
-              <div className="mt-2 px-3 py-2 rounded-lg bg-slate-100/80 text-xs text-slate-600 space-y-1">
+              <div className="mt-2 px-3 py-2 rounded-lg bg-slate-100/80 dark:bg-slate-800/70 text-xs text-slate-600 dark:text-slate-400 space-y-1">
                 <p title="Último acesso ao sistema">
                   <span className="font-medium">Último login:</span> {formatDateTime(lastLoginAt)}
                 </p>
@@ -149,7 +149,7 @@ export default function Sidebar({ open, onToggle }: SidebarProps) {
             )}
             <button
               onClick={logout}
-              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-all"
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm text-slate-500 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-all"
             >
               <LogOut size={15} />
               Sair

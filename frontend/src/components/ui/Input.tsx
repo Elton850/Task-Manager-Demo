@@ -17,7 +17,7 @@ export default function Input({ label, error, hint, leftIcon, dark, className = 
       {label && (
         <label
           htmlFor={inputId}
-          className={`text-sm font-medium ${dark ? "text-slate-300" : "text-slate-700"}`}
+          className={`text-sm font-medium ${dark ? "text-slate-300" : "text-slate-700 dark:text-slate-300"}`}
         >
           {label}
           {props.required && <span className="text-rose-400 ml-1" aria-label="obrigatório">*</span>}
@@ -25,7 +25,7 @@ export default function Input({ label, error, hint, leftIcon, dark, className = 
       )}
       <div className="relative">
         {leftIcon && (
-          <div className={`absolute left-3 top-1/2 -translate-y-1/2 ${dark ? "text-slate-500" : "text-slate-400"}`}>
+          <div className={`absolute left-3 top-1/2 -translate-y-1/2 ${dark ? "text-slate-500" : "text-slate-400 dark:text-slate-500"}`}>
             {leftIcon}
           </div>
         )}
@@ -42,14 +42,14 @@ export default function Input({ label, error, hint, leftIcon, dark, className = 
             ${leftIcon ? "pl-10" : ""}
             ${dark
               ? "bg-slate-700 border-slate-600 text-slate-100 placeholder:text-slate-500"
-              : "bg-white border-slate-300 text-slate-900 placeholder-slate-400"}
-            ${error ? "border-rose-500 focus:ring-rose-500" : dark ? "" : "hover:border-slate-400"}
+              : "bg-white dark:bg-slate-700/90 border-slate-300 dark:border-slate-500 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-400"}
+            ${error ? "border-rose-500 focus:ring-rose-500" : dark ? "" : "hover:border-slate-400 dark:hover:border-slate-400"}
             ${className}
           `}
         />
       </div>
       {error && <p id={`${inputId}-error`} className="text-xs text-rose-400" role="alert">{error}</p>}
-      {hint && !error && <p id={`${inputId}-hint`} className={`text-xs ${dark ? "text-slate-400" : "text-slate-500"}`}>{hint}</p>}
+      {hint && !error && <p id={`${inputId}-hint`} className={`text-xs ${dark ? "text-slate-400" : "text-slate-500 dark:text-slate-400"}`}>{hint}</p>}
     </div>
   );
 }

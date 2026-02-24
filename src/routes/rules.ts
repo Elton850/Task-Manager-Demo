@@ -26,6 +26,8 @@ interface RuleDbRow {
   allowed_tipos?: string | null;
   custom_tipos?: string | null;
   default_tipos?: string | null;
+  custom_recorrencias?: string | null;
+  default_recorrencias?: string | null;
   updated_at: string;
   updated_by: string;
 }
@@ -43,6 +45,14 @@ function rowToRule(row: RuleDbRow) {
     row.default_tipos == null || row.default_tipos === ""
       ? undefined
       : (JSON.parse(row.default_tipos) as string[]);
+  const customRecorrencias =
+    row.custom_recorrencias == null || row.custom_recorrencias === ""
+      ? undefined
+      : (JSON.parse(row.custom_recorrencias) as string[]);
+  const defaultRecorrencias =
+    row.default_recorrencias == null || row.default_recorrencias === ""
+      ? undefined
+      : (JSON.parse(row.default_recorrencias) as string[]);
   return {
     id: row.id,
     tenantId: row.tenant_id,
@@ -51,6 +61,8 @@ function rowToRule(row: RuleDbRow) {
     allowedTipos,
     customTipos: customTipos ?? [],
     defaultTipos: defaultTipos ?? [],
+    customRecorrencias: customRecorrencias ?? [],
+    defaultRecorrencias: defaultRecorrencias ?? [],
     updatedAt: row.updated_at,
     updatedBy: row.updated_by,
   };
@@ -82,7 +94,7 @@ router.put("/for-tenant", async (req: Request, res: Response): Promise<void> => 
     return;
   }
   try {
-    const { tenantSlug, area, allowedRecorrencias, allowedTipos, customTipos, defaultTipos } = req.body;
+    const { tenantSlug, area, allowedRecorrencias, allowedTipos, customTipos, defaultTipos, customRecorrencias, defaultRecorrencias } = req.body;
     if (!tenantSlug || !area) {
       res.status(400).json({ error: "tenantSlug e area são obrigatórios.", code: "MISSING_FIELDS" });
       return;
@@ -118,17 +130,29 @@ router.put("/for-tenant", async (req: Request, res: Response): Promise<void> => 
         : Array.isArray(defaultTipos)
           ? JSON.stringify(defaultTipos)
           : "[]";
+    const customRecorrenciasJson =
+      customRecorrencias === undefined
+        ? (existingRow?.custom_recorrencias ?? "[]")
+        : Array.isArray(customRecorrencias)
+          ? JSON.stringify(customRecorrencias)
+          : "[]";
+    const defaultRecorrenciasJson =
+      defaultRecorrencias === undefined
+        ? (existingRow?.default_recorrencias ?? "[]")
+        : Array.isArray(defaultRecorrencias)
+          ? JSON.stringify(defaultRecorrencias)
+          : "[]";
 
     if (existingRow) {
       await db.prepare(`
-        UPDATE rules SET allowed_recorrencias = ?, allowed_tipos = ?, custom_tipos = ?, default_tipos = ?, updated_at = ?, updated_by = ?
+        UPDATE rules SET allowed_recorrencias = ?, allowed_tipos = ?, custom_tipos = ?, default_tipos = ?, custom_recorrencias = ?, default_recorrencias = ?, updated_at = ?, updated_by = ?
         WHERE tenant_id = ? AND area = ?
-      `).run(allowedJson, allowedTiposJson, customTiposJson, defaultTiposJson, now, req.user!.email, tenantId, area);
+      `).run(allowedJson, allowedTiposJson, customTiposJson, defaultTiposJson, customRecorrenciasJson, defaultRecorrenciasJson, now, req.user!.email, tenantId, area);
     } else {
       await db.prepare(`
-        INSERT INTO rules (id, tenant_id, area, allowed_recorrencias, allowed_tipos, custom_tipos, default_tipos, updated_at, updated_by)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(uuidv4(), tenantId, area, allowedJson, allowedTiposJson, customTiposJson, defaultTiposJson, now, req.user!.email);
+        INSERT INTO rules (id, tenant_id, area, allowed_recorrencias, allowed_tipos, custom_tipos, default_tipos, custom_recorrencias, default_recorrencias, updated_at, updated_by)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(uuidv4(), tenantId, area, allowedJson, allowedTiposJson, customTiposJson, defaultTiposJson, customRecorrenciasJson, defaultRecorrenciasJson, now, req.user!.email);
     }
 
     const updated = await db.prepare("SELECT * FROM rules WHERE tenant_id = ? AND area = ?")
@@ -195,7 +219,7 @@ router.put("/", async (req: Request, res: Response): Promise<void> => {
   try {
     const user = req.user!;
     const tenantId = req.tenantId!;
-    const { area, allowedRecorrencias, allowedTipos, customTipos, defaultTipos } = req.body;
+    const { area, allowedRecorrencias, allowedTipos, customTipos, defaultTipos, customRecorrencias, defaultRecorrencias } = req.body;
 
     if (user.role === "USER") {
       res.status(403).json({ error: "Sem permissão.", code: "FORBIDDEN" });
@@ -241,17 +265,29 @@ router.put("/", async (req: Request, res: Response): Promise<void> => {
         : Array.isArray(defaultTipos)
           ? JSON.stringify(defaultTipos)
           : "[]";
+    const customRecorrenciasJson =
+      customRecorrencias === undefined
+        ? (existing?.custom_recorrencias ?? "[]")
+        : Array.isArray(customRecorrencias)
+          ? JSON.stringify(customRecorrencias)
+          : "[]";
+    const defaultRecorrenciasJson =
+      defaultRecorrencias === undefined
+        ? (existing?.default_recorrencias ?? "[]")
+        : Array.isArray(defaultRecorrencias)
+          ? JSON.stringify(defaultRecorrencias)
+          : "[]";
 
     if (existing) {
       await db.prepare(`
-        UPDATE rules SET allowed_recorrencias = ?, allowed_tipos = ?, custom_tipos = ?, default_tipos = ?, updated_at = ?, updated_by = ?
+        UPDATE rules SET allowed_recorrencias = ?, allowed_tipos = ?, custom_tipos = ?, default_tipos = ?, custom_recorrencias = ?, default_recorrencias = ?, updated_at = ?, updated_by = ?
         WHERE tenant_id = ? AND area = ?
-      `).run(allowedJson, allowedTiposJson, customTiposJson, defaultTiposJson, now, user.email, tenantId, area);
+      `).run(allowedJson, allowedTiposJson, customTiposJson, defaultTiposJson, customRecorrenciasJson, defaultRecorrenciasJson, now, user.email, tenantId, area);
     } else {
       await db.prepare(`
-        INSERT INTO rules (id, tenant_id, area, allowed_recorrencias, allowed_tipos, custom_tipos, default_tipos, updated_at, updated_by)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(uuidv4(), tenantId, area, allowedJson, allowedTiposJson, customTiposJson, defaultTiposJson, now, user.email);
+        INSERT INTO rules (id, tenant_id, area, allowed_recorrencias, allowed_tipos, custom_tipos, default_tipos, custom_recorrencias, default_recorrencias, updated_at, updated_by)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(uuidv4(), tenantId, area, allowedJson, allowedTiposJson, customTiposJson, defaultTiposJson, customRecorrenciasJson, defaultRecorrenciasJson, now, user.email);
     }
 
     const updated = await db.prepare("SELECT * FROM rules WHERE tenant_id = ? AND area = ?")

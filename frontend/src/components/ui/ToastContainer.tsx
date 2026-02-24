@@ -24,13 +24,13 @@ export default function ToastContainer() {
       {toasts.map(t => (
         <div
           key={t.id}
-          className={`flex items-start gap-3 p-3.5 rounded-lg border backdrop-blur-sm shadow-lg animate-slide-in ${bg[t.type]}`}
+          className={`flex items-start gap-3 p-3.5 rounded-lg border backdrop-blur-sm shadow-lg dark:shadow-none animate-slide-in ${bg[t.type]} dark:border-slate-600`}
         >
           {icons[t.type]}
-          <p className="text-sm text-slate-900 flex-1 font-medium">{t.message}</p>
+          <p className="text-sm text-slate-900 dark:text-slate-100 flex-1 font-medium">{t.message}</p>
           <button
             onClick={() => dismiss(t.id)}
-            className="text-slate-600 hover:text-slate-900 transition-colors flex-shrink-0"
+            className="text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 transition-colors flex-shrink-0"
           >
             <X size={14} />
           </button>

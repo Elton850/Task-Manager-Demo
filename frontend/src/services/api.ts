@@ -28,33 +28,44 @@ export function clearCsrfToken(): void {
 const RESERVED_SEGMENTS = new Set(["login", "calendar", "tasks", "performance", "users", "admin", "empresa", "empresas", "justificativas", "sistema", "logs-acesso"]);
 
 /**
- * True quando estamos em produção/staging com hostname real (ex.: empresa.fluxiva.com.br).
- * False em desenvolvimento (localhost / 127.0.0.1).
+ * True quando o tenant vem do hostname (modo subdomínio): produção (empresa.fluxiva.com.br)
+ * ou subdomínios locais de desenvolvimento (sistema.localhost, empresa-alpha.localhost).
+ *
+ * False em modo path: localhost, 127.0.0.1, e staging (staging.fluxiva.com.br).
+ * Em staging, o tenant vem do path da URL (/empresa1/login), igual ao comportamento de localhost.
+ *
+ * Convenção: hostname com 4 partes iniciado por "staging." → modo path (staging path-based).
  */
 function isSubdomainMode(): boolean {
   if (typeof window === "undefined") return false;
   const h = window.location.hostname;
-  return h !== "" && h !== "localhost" && h !== "127.0.0.1" && h.split(".").length >= 3;
+  if (!h || h === "localhost" || h === "127.0.0.1") return false;
+  if (h.endsWith(".localhost") || h.endsWith(".127.0.0.1")) return true;
+  // Staging path-based: staging.fluxiva.com.br (4 partes, começa com "staging") → modo path
+  const parts = h.split(".");
+  if (parts.length === 4 && parts[0] === "staging") return false;
+  return parts.length >= 3;
 }
 
 /**
  * Retorna o slug do tenant atual.
- * Produção: fluxiva.com.br → system; demo.fluxiva.com.br → demo; sistema.fluxiva.com.br → system.
- * Staging: staging.fluxiva.com.br → system; demo.staging.fluxiva.com.br → demo.
- * Desenvolvimento (localhost): path /empresax/login → "empresax".
+ * Produção (subdomínio): fluxiva.com.br → system; demo.fluxiva.com.br → demo.
+ * Staging (path-based): staging.fluxiva.com.br/empresa1/login → "empresa1".
+ * Desenvolvimento (localhost, path-based): /empresax/login → "empresax".
  */
 export function getTenantSlugFromUrl(): string {
-  // 1. Subdomínio tem prioridade em produção/staging
+  // 1. Subdomínio: produção ou desenvolvimento com *.localhost / *.127.0.0.1
+  //    (staging.fluxiva.com.br retorna false em isSubdomainMode → cai no path-based abaixo)
   if (isSubdomainMode()) {
-    const parts = window.location.hostname.split(".");
-    const sub = parts[0].toLowerCase();
-    if (parts.length >= 5 && parts[1] === "staging") return sub === "sistema" ? "system" : sub;
-    if (parts.length === 4 && parts[0] === "staging") return "system";
-    if (parts.length === 3) return "system"; // domínio raiz
-    return sub === "sistema" ? "system" : sub;
+    const h = window.location.hostname;
+    const parts = h.split(".");
+    const sub = (parts[0] || "").toLowerCase();
+    if (h.endsWith(".localhost") || h.endsWith(".127.0.0.1")) return sub === "sistema" ? "system" : sub;
+    if (parts.length === 3) return "system"; // domínio raiz (ex.: fluxiva.com.br)
+    return sub === "sistema" ? "system" : sub; // subdomínio de empresa
   }
 
-  // 2. Path-based (localhost — desenvolvimento)
+  // 2. Path-based (localhost e staging path-based — staging.fluxiva.com.br/empresa1/...)
   const parts = window.location.pathname.split("/").filter(Boolean);
   const seg = (parts[0] || "").toLowerCase();
   if (seg && !RESERVED_SEGMENTS.has(seg)) return seg;
@@ -332,6 +343,10 @@ export type RulesSavePayload = {
   customTipos?: string[];
   /** Tipos que são "padrão" (para permitir excluir só esses). */
   defaultTipos?: string[];
+  /** Tipos de recorrência criados só para esta área (Leader ou Admin). */
+  customRecorrencias?: string[];
+  /** Recorrências que são "padrão" (para permitir excluir só essas). */
+  defaultRecorrencias?: string[];
 };
 
 export const rulesApi = {

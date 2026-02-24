@@ -128,8 +128,8 @@ router.post("/for-tenant", requireRole("ADMIN"), async (req: Request, res: Respo
       const existingRule = await db.prepare("SELECT id FROM rules WHERE tenant_id = ? AND area = ?").get(tenantId, val);
       if (!existingRule) {
         await db.prepare(`
-          INSERT INTO rules (id, tenant_id, area, allowed_recorrencias, allowed_tipos, custom_tipos, default_tipos, updated_at, updated_by)
-          VALUES (?, ?, ?, '[]', NULL, ?, ?, ?, ?)
+          INSERT INTO rules (id, tenant_id, area, allowed_recorrencias, allowed_tipos, custom_tipos, default_tipos, custom_recorrencias, default_recorrencias, updated_at, updated_by)
+          VALUES (?, ?, ?, '[]', NULL, ?, ?, '[]', '[]', ?, ?)
         `).run(uuidv4(), tenantId, val, defaultTiposJson, defaultTiposJson, nowIso(), req.user!.email);
       }
     }
@@ -335,8 +335,8 @@ router.post("/", requireRole("ADMIN"), async (req: Request, res: Response): Prom
       const existingRule = await db.prepare("SELECT id FROM rules WHERE tenant_id = ? AND area = ?").get(tenantId, val);
       if (!existingRule) {
         await db.prepare(`
-          INSERT INTO rules (id, tenant_id, area, allowed_recorrencias, allowed_tipos, custom_tipos, default_tipos, updated_at, updated_by)
-          VALUES (?, ?, ?, '[]', NULL, ?, ?, ?, ?)
+          INSERT INTO rules (id, tenant_id, area, allowed_recorrencias, allowed_tipos, custom_tipos, default_tipos, custom_recorrencias, default_recorrencias, updated_at, updated_by)
+          VALUES (?, ?, ?, '[]', NULL, ?, ?, '[]', '[]', ?, ?)
         `).run(uuidv4(), tenantId, val, defaultTiposJson, defaultTiposJson, nowIso(), req.user!.email);
       }
     }

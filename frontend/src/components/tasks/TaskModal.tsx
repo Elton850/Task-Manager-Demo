@@ -10,7 +10,7 @@ import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
 import { tasksApi } from "@/services/api";
-import type { Task, Lookups, User, TaskEvidence } from "@/types";
+import type { Task, Lookups, User, TaskEvidence, Rule } from "@/types";
 
 interface TaskModalProps {
   open: boolean;
@@ -18,7 +18,9 @@ interface TaskModalProps {
   initialData?: Partial<Task>;
   lookups: Lookups;
   users: User[];
-  /** Quando definido (ex: USER), apenas essas recorrências são oferecidas na criação */
+  /** Regras por área (para ADMIN/LEADER): usadas para exibir só recorrências cadastradas da área. */
+  rules?: Rule[];
+  /** Quando definido (ex: USER/LEADER), apenas essas recorrências são oferecidas. */
   allowedRecorrencias?: string[];
   onClose: () => void;
   onSave: (data: Partial<Task>) => Promise<Task | void>;
@@ -56,6 +58,7 @@ export default function TaskModal({
   initialData,
   lookups,
   users,
+  rules,
   allowedRecorrencias,
   onClose,
   onSave,
@@ -313,11 +316,13 @@ export default function TaskModal({
 
   const selectableUsers = user?.role === "LEADER" ? users.filter(u => u.area === user.area) : users;
 
-  const allRecorrencias = lookups.RECORRENCIA || [];
-  const recorrenciaOptions = (allowedRecorrencias && allowedRecorrencias.length > 0
-    ? allRecorrencias.filter(r => allowedRecorrencias.includes(r))
-    : allRecorrencias
-  ).map(v => ({ value: v, label: v }));
+  // Área da tarefa: em edição vem da task; em criação vem do responsável selecionado ou da área do Leader
+  const areaForRecorrencia = task?.area
+    || (user?.role === "LEADER" ? user.area : undefined)
+    || users.find(u => u.email === form.responsavelEmail)?.area;
+  const fromRules = areaForRecorrencia && rules?.find(r => r.area === areaForRecorrencia)?.customRecorrencias;
+  const recorrenciaList = (fromRules?.length ? fromRules : allowedRecorrencias) ?? [];
+  const recorrenciaOptions = recorrenciaList.map(v => ({ value: v, label: v }));
   const tipoOptions = (lookups.TIPO || []).map(v => ({ value: v, label: v }));
   const userOptions = selectableUsers.map(u => ({ value: u.email, label: `${u.nome} (${u.area})` }));
 

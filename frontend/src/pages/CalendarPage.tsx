@@ -11,7 +11,7 @@ import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
 import { tasksApi, usersApi, lookupsApi, rulesApi } from "@/services/api";
-import type { Task, Lookups, User } from "@/types";
+import type { Task, Lookups, User, Rule } from "@/types";
 
 function toYmd(date: Date): string {
   return date.toISOString().slice(0, 10);
@@ -38,6 +38,8 @@ export default function CalendarPage() {
   const [saving, setSaving] = useState(false);
   const [canCreateTask, setCanCreateTask] = useState(true);
   const [createBlockedReason, setCreateBlockedReason] = useState("");
+  const [allowedRecorrencias, setAllowedRecorrencias] = useState<string[]>([]);
+  const [rules, setRules] = useState<Rule[]>([]);
   const [completeTarget, setCompleteTarget] = useState<Task | null>(null);
   const [completing, setCompleting] = useState(false);
 
@@ -56,17 +58,33 @@ export default function CalendarPage() {
         setUsers(usersRes.users);
         setLookups(lookupsRes.lookups);
 
-        const allowed = ruleRes.rule?.allowedRecorrencias || [];
+        const rule = ruleRes.rule;
+        const allowed = [...(rule?.allowedRecorrencias || []), ...(rule?.customRecorrencias || [])];
+        setAllowedRecorrencias(allowed);
+        setRules(ruleRes.rule ? [ruleRes.rule] : []);
         const canCreate = allowed.length > 0;
         setCanCreateTask(canCreate);
         setCreateBlockedReason(canCreate ? "" : "Sua área não possui recorrências permitidas para criação de tarefas.");
       } else {
-        const [tasksRes, usersRes, lookupsRes] = await Promise.all(basePromises);
+        const [tasksRes, usersRes, lookupsRes, rulesRes] = await Promise.all([
+          ...basePromises,
+          rulesApi.list(),
+        ]);
         setAllTasks(tasksRes.tasks);
         setUsers(usersRes.users);
         setLookups(lookupsRes.lookups);
-        setCanCreateTask(true);
-        setCreateBlockedReason("");
+        setRules(rulesRes.rules ?? []);
+        if (user?.role === "LEADER") {
+          const leaderRule = rulesRes.rules?.find(r => r.area === user.area);
+          const leaderRecorrencias = leaderRule?.customRecorrencias ?? [];
+          setAllowedRecorrencias(leaderRecorrencias);
+          setCanCreateTask(leaderRecorrencias.length > 0);
+          setCreateBlockedReason(leaderRecorrencias.length > 0 ? "" : "Sua área não possui tipos de recorrência cadastrados. Configure em Configurações.");
+        } else {
+          setCanCreateTask(true);
+          setCreateBlockedReason("");
+          setAllowedRecorrencias([]);
+        }
       }
     } catch (err) {
       toast(err instanceof Error ? err.message : "Erro ao carregar dados", "error");
@@ -231,28 +249,28 @@ export default function CalendarPage() {
   return (
     <div className="space-y-4">
       {!canCreateTask && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50/90 px-3 py-2 text-xs text-amber-800 inline-flex items-center gap-2 shadow-sm">
+        <div className="rounded-lg border border-amber-200 dark:border-amber-700/60 bg-amber-50/90 dark:bg-amber-900/25 px-3 py-2 text-xs text-amber-800 dark:text-amber-200 inline-flex items-center gap-2 shadow-sm">
           <Lock size={13} />
           {createBlockedReason}
         </div>
       )}
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Card className="bg-rose-50 border-rose-100 p-3">
-          <p className="text-[11px] font-medium text-rose-600">Em atraso</p>
-          <p className="text-lg font-semibold text-rose-700">{overdueTasks.length}</p>
+        <Card className="bg-rose-50 dark:bg-rose-900/25 border-rose-100 dark:border-rose-700/50 p-3">
+          <p className="text-[11px] font-medium text-rose-600 dark:text-rose-300">Em atraso</p>
+          <p className="text-lg font-semibold text-rose-700 dark:text-rose-200">{overdueTasks.length}</p>
         </Card>
-        <Card className="bg-brand-50 border-brand-100 p-3">
-          <p className="text-[11px] font-medium text-brand-700">Vencem hoje</p>
-          <p className="text-lg font-semibold text-brand-800">{dueToday.length}</p>
+        <Card className="bg-brand-50 dark:bg-brand-900/25 border-brand-100 dark:border-brand-700/50 p-3">
+          <p className="text-[11px] font-medium text-brand-700 dark:text-brand-300">Vencem hoje</p>
+          <p className="text-lg font-semibold text-brand-800 dark:text-brand-200">{dueToday.length}</p>
         </Card>
-        <Card className="bg-sky-50 border-sky-100 p-3">
-          <p className="text-[11px] font-medium text-sky-700">Amanhã</p>
-          <p className="text-lg font-semibold text-sky-800">{dueTomorrow.length}</p>
+        <Card className="bg-sky-50 dark:bg-sky-900/25 border-sky-100 dark:border-sky-700/50 p-3">
+          <p className="text-[11px] font-medium text-sky-700 dark:text-sky-300">Amanhã</p>
+          <p className="text-lg font-semibold text-sky-800 dark:text-sky-200">{dueTomorrow.length}</p>
         </Card>
-        <Card className="bg-emerald-50 border-emerald-100 p-3">
-          <p className="text-[11px] font-medium text-emerald-700">Próximos 7 dias</p>
-          <p className="text-lg font-semibold text-emerald-800">{dueNextDays.length}</p>
+        <Card className="bg-emerald-50 dark:bg-emerald-900/25 border-emerald-100 dark:border-emerald-700/50 p-3">
+          <p className="text-[11px] font-medium text-emerald-700 dark:text-emerald-300">Próximos 7 dias</p>
+          <p className="text-lg font-semibold text-emerald-800 dark:text-emerald-200">{dueNextDays.length}</p>
         </Card>
       </div>
 
@@ -274,19 +292,19 @@ export default function CalendarPage() {
         </div>
 
         <div className="space-y-3">
-          <Card className="bg-white border-slate-200">
-            <h3 className="text-sm font-semibold text-slate-800 mb-2">Tipos no mês</h3>
+          <Card className="bg-white dark:bg-slate-800/95 border-slate-200 dark:border-slate-600/80">
+            <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-2">Tipos no mês</h3>
             {monthByType.length === 0 ? (
-              <p className="text-xs text-slate-500">Sem tarefas neste mês.</p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Sem tarefas neste mês.</p>
             ) : (
               <div className="space-y-2">
                 {monthByType.map(([tipo, count]) => (
                   <div key={tipo} className="space-y-1">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-700 truncate pr-2">{tipo}</span>
-                      <span className="text-slate-500 font-medium">{count}</span>
+                      <span className="text-slate-700 dark:text-slate-200 truncate pr-2">{tipo}</span>
+                      <span className="text-slate-500 dark:text-slate-400 font-medium">{count}</span>
                     </div>
-                    <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
+                    <div className="h-1.5 rounded-full bg-slate-100 dark:bg-slate-600 overflow-hidden">
                       <div
                         className="h-full rounded-full bg-brand-500"
                         style={{ width: `${Math.max(10, (count / (monthByType[0]?.[1] || 1)) * 100)}%` }}
@@ -382,6 +400,8 @@ export default function CalendarPage() {
           }
           lookups={lookups}
           users={users}
+          rules={rules}
+          allowedRecorrencias={user?.role === "USER" || user?.role === "LEADER" ? allowedRecorrencias : undefined}
           onClose={() => {
             setEditTask(null);
             setCreateDate(null);

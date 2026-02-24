@@ -1,5 +1,6 @@
 import React, { lazy, Suspense } from "react";
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from "react-router-dom";
+import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ToastProvider } from "@/contexts/ToastContext";
 import { SyncTenantAndBasePath, useBasePath } from "@/contexts/BasePathContext";
@@ -110,9 +111,10 @@ const appRouteChildren = (
 
 export default function App() {
   return (
-    <ToastProvider>
-      <ToastContainer />
-      <AuthProvider>
+    <ThemeProvider>
+      <ToastProvider>
+        <ToastContainer />
+        <AuthProvider>
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<SyncTenantAndBasePath />}>
@@ -125,6 +127,7 @@ export default function App() {
           </Routes>
         </BrowserRouter>
       </AuthProvider>
-    </ToastProvider>
+      </ToastProvider>
+    </ThemeProvider>
   );
 }

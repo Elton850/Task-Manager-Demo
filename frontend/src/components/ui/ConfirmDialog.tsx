@@ -42,7 +42,7 @@ export default function ConfirmDialog({
             <AlertTriangle size={16} className="text-rose-400" />
           </div>
         )}
-        <p className="text-sm text-slate-800 break-words min-w-0">{message}</p>
+        <p className="text-sm text-slate-800 dark:text-slate-200 break-words min-w-0">{message}</p>
       </div>
     </Modal>
   );

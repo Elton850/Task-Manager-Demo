@@ -11,35 +11,46 @@ export function useBasePath(): string {
 }
 
 /**
- * Detecta se estamos em modo subdomínio (produção ou staging com hostname real).
- * Produção: fluxiva.com.br (raiz) → system; demo.fluxiva.com.br → demo; sistema.fluxiva.com.br → system.
- * Staging: staging.fluxiva.com.br → system; demo.staging.fluxiva.com.br → demo; sistema.staging.fluxiva.com.br → system.
+ * Detecta se estamos em modo subdomínio (produção) ou modo path (localhost / staging).
+ *
+ * Produção (subdomain-based): empresaX.fluxiva.com.br → "empresaX"; fluxiva.com.br → "system".
+ * Staging (path-based): staging.fluxiva.com.br → null → tenant e basePath vêm do path da URL.
+ * Localhost (path-based): sempre null → tenant e basePath vêm do path da URL.
+ *
+ * Convenção: hostname iniciado por "staging." com 4 partes → modo path-based (não há subdomínios de staging).
+ * Se a empresa se chamar "staging", deve usar um slug diferente (slug reservado).
  */
 function getSubdomainSlug(): string | null {
   if (typeof window === "undefined") return null;
   const h = window.location.hostname;
   if (!h || h === "localhost" || h === "127.0.0.1") return null;
+  // Desenvolvimento com subdomínios locais: sistema.localhost → system, empresa-alpha.localhost → empresa-alpha
+  if (h.endsWith(".localhost") || h.endsWith(".127.0.0.1")) {
+    const sub = h.split(".")[0]?.toLowerCase() || "";
+    return sub === "sistema" ? "system" : sub;
+  }
   const parts = h.split(".");
   if (parts.length < 3) return null;
   const sub = parts[0].toLowerCase();
-  // Staging: demo.staging.fluxiva.com.br (5 partes) ou staging.fluxiva.com.br (4 partes)
-  if (parts.length >= 5 && parts[1] === "staging") return sub === "sistema" ? "system" : sub;
-  if (parts.length === 4 && parts[0] === "staging") return "system";
+  // Staging path-based: staging.fluxiva.com.br → modo path (retorna null para usar getTenantFromPath).
+  // Não há mais empresa.staging.fluxiva.com.br — o tenant vem do path (/empresa1/login).
+  if (parts.length === 4 && parts[0] === "staging") return null;
   // Produção: domínio raiz (3 partes) → system
   if (parts.length === 3) return "system";
+  // Produção: subdomínio de empresa (ex.: empresa1.fluxiva.com.br, 4 partes)
   return sub === "sistema" ? "system" : sub;
 }
 
 /**
- * Sincroniza o tenant (por subdomínio em produção ou por path em dev)
- * e fornece basePath para links internos.
+ * Sincroniza o tenant e fornece basePath para links internos.
  *
- * Em produção/staging (hostname real com 3+ partes):
- *   - tenant = subdomínio (ex.: "empresa1", "system")
- *   - basePath = "" (não há prefixo no path — o slug está no hostname)
+ * Modo subdomínio (produção): empresa1.fluxiva.com.br → tenant="empresa1", basePath=""
+ *   O slug está no hostname; o path não precisa de prefixo.
  *
- * Em desenvolvimento (localhost):
- *   - tenant e basePath derivados do path como antes (/empresax/login → "empresax")
+ * Modo path (staging e localhost):
+ *   staging.fluxiva.com.br/empresa1/tasks → tenant="empresa1", basePath="/empresa1"
+ *   localhost:5173/empresa1/tasks         → tenant="empresa1", basePath="/empresa1"
+ *   staging.fluxiva.com.br/login          → tenant="system",   basePath=""
  */
 export function SyncTenantAndBasePath() {
   const location = useLocation();

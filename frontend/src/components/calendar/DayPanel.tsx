@@ -47,11 +47,11 @@ export default function DayPanel({
   const statusOrder = ["Em Atraso", "Em Andamento", "Concluído em Atraso", "Concluído"];
 
   return (
-    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden flex flex-col h-full min-h-[420px]">
-      <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200">
+    <div className="bg-white dark:bg-slate-800/95 border border-slate-200 dark:border-slate-600/80 rounded-xl overflow-hidden flex flex-col h-full min-h-[420px]">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-slate-600/80">
         <div>
-          <h3 className="text-sm font-semibold text-slate-900">{dateStr}</h3>
-          <p className="text-xs text-slate-500 mt-0.5">
+          <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">{dateStr}</h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             {tasks.length} tarefa{tasks.length !== 1 ? "s" : ""}
           </p>
         </div>
@@ -72,15 +72,15 @@ export default function DayPanel({
       </div>
 
       {!canCreateTask && (
-        <div className="px-4 py-2 bg-amber-50 border-b border-amber-200 text-xs text-amber-800">
+        <div className="px-4 py-2 bg-amber-50 dark:bg-amber-900/25 border-b border-amber-200 dark:border-amber-700/50 text-xs text-amber-800 dark:text-amber-200">
           {createBlockedReason || "Criação de tarefas desabilitada para sua área."}
         </div>
       )}
 
       <div className="flex-1 overflow-y-auto p-4">
         {tasks.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-slate-500">
-            <CheckCircle size={32} className="mb-3 opacity-30" />
+          <div className="flex flex-col items-center justify-center py-12 text-slate-500 dark:text-slate-400">
+            <CheckCircle size={32} className="mb-3 opacity-30 dark:opacity-50" />
             <p className="text-sm">Nenhuma tarefa com prazo neste dia</p>
             <Button className="mt-4" size="sm" onClick={onCreateTask} icon={<Plus size={14} />} disabled={!canCreateTask}>
               Criar atividade
@@ -93,17 +93,17 @@ export default function DayPanel({
               if (!items?.length) return null;
 
               const icons: Record<string, React.ReactNode> = {
-                "Em Atraso": <AlertCircle size={14} className="text-rose-600" />,
-                "Em Andamento": <Clock size={14} className="text-blue-600" />,
-                "Concluído em Atraso": <AlertTriangle size={14} className="text-amber-600" />,
-                "Concluído": <CheckCircle size={14} className="text-emerald-600" />,
+                "Em Atraso": <AlertCircle size={14} className="text-rose-600 dark:text-rose-400" />,
+                "Em Andamento": <Clock size={14} className="text-blue-600 dark:text-blue-400" />,
+                "Concluído em Atraso": <AlertTriangle size={14} className="text-amber-600 dark:text-amber-400" />,
+                "Concluído": <CheckCircle size={14} className="text-emerald-600 dark:text-emerald-400" />,
               };
 
               return (
                 <div key={status}>
                   <div className="flex items-center gap-2 mb-2">
                     {icons[status]}
-                    <span className="text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    <span className="text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
                       {status} ({items.length})
                     </span>
                   </div>
@@ -111,22 +111,22 @@ export default function DayPanel({
                     {items.map(task => (
                       <div
                         key={task.id}
-                        className="flex items-start gap-2 p-3 rounded-lg bg-slate-50 border border-slate-200 hover:border-slate-300 transition-colors"
+                        className="flex items-start gap-2 p-3 rounded-lg bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600/80 hover:border-slate-300 dark:hover:border-slate-500/60 transition-colors"
                       >
                         <button
                           type="button"
                           onClick={() => onEditTask(task)}
                           className="flex-1 text-left min-w-0"
                         >
-                          <p className="text-sm text-slate-800">{task.atividade}</p>
-                          <div className="flex items-center gap-3 mt-1.5 text-xs text-slate-500">
+                          <p className="text-sm text-slate-800 dark:text-slate-100">{task.atividade}</p>
+                          <div className="flex items-center gap-3 mt-1.5 text-xs text-slate-500 dark:text-slate-400">
                             <span>{task.responsavelNome}</span>
                             <span>·</span>
                             <span>{task.area}</span>
                             {task.realizado && (
                               <>
                                 <span>·</span>
-                                <span className="text-emerald-700">
+                                <span className="text-emerald-700 dark:text-emerald-400">
                                   Realizado: {new Date(task.realizado + "T00:00:00").toLocaleDateString("pt-BR")}
                                 </span>
                               </>
@@ -142,7 +142,7 @@ export default function DayPanel({
                               variant="ghost"
                               size="sm"
                               onClick={() => onMarkComplete(task)}
-                              className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                              className="text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/30"
                               title="Marcar como concluída"
                             >
                               <CheckCircle size={14} />

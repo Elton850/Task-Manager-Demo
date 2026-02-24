@@ -3,6 +3,16 @@ import db from "../db";
 import type { Tenant } from "../types";
 
 const IS_PROD = process.env.NODE_ENV === "production";
+const IS_STAGING = process.env.NODE_ENV === "staging";
+
+/**
+ * Em staging (path-based), o host único de staging vem de APP_DOMAIN (.env.staging).
+ * Ex.: APP_DOMAIN=staging.fluxiva.com.br → STAGING_HOST="staging.fluxiva.com.br".
+ * Se APP_DOMAIN não estiver definido (dev local com NODE_ENV=staging), qualquer host é aceito.
+ */
+const STAGING_HOST = IS_STAGING
+  ? (process.env.APP_DOMAIN || "").toLowerCase().trim()
+  : "";
 
 /** Cache em memória do tenant por slug (TTL 60s) para reduzir query por request. */
 const TENANT_CACHE_TTL_MS = 60_000;
@@ -45,8 +55,11 @@ function validateHost(host: string): boolean {
   if (h === "localhost" || h === "127.0.0.1") return true; // sempre aceitar para testes locais (staging/prod no PC)
   if (isIPv4(h)) return true; // acesso por IP (ex.: antes do DNS) → tratado como tenant system
   if (process.env.NODE_ENV === "test") return false; // em teste só localhost/127.0.0.1 são válidos (já aceitos acima)
-  // Staging: *.staging.fluxiva.com.br e staging.fluxiva.com.br (mesmo que ALLOWED_HOST_PATTERN exista)
-  if (h === "staging.fluxiva.com.br" || h.endsWith(".staging.fluxiva.com.br")) return true;
+  // Staging path-based: aceita APENAS o host exato (ex.: staging.fluxiva.com.br).
+  // Sem curinga de subdomínio — staging agora usa um único host com path por empresa.
+  if (IS_STAGING) {
+    return !STAGING_HOST || h === STAGING_HOST;
+  }
   if (IS_PROD && ALLOWED_HOST_PATTERN) {
     try {
       return new RegExp(ALLOWED_HOST_PATTERN).test(h);
@@ -65,28 +78,18 @@ function resolveTenantSlug(req: Request): { slug: string | null; hostInvalid: bo
   // Acesso por IP → tenant "system" (área do admin), sem interpretar número como subdomínio
   if (isIPv4(hostWithoutPort)) return { slug: null, hostInvalid: false };
 
-  // 1. Custom header (used by frontend SPA)
+  // 1. Custom header (enviado pelo frontend SPA — método primário em staging path-based)
   const header = req.headers["x-tenant-slug"];
   if (header && typeof header === "string") {
     const slug = header.trim().toLowerCase().replace(/[^a-z0-9-]/g, "");
     if (slug) return { slug, hostInvalid: false };
   }
 
-  // 2. Staging: demo.staging.fluxiva.com.br → "demo"; staging.fluxiva.com.br → "system"
+  // 2. Produção: empresaX.fluxiva.com.br (subdomínio) ou fluxiva.com.br (raiz → system)
+  // Staging usa path-based (host único staging.fluxiva.com.br); tenant vem do header X-Tenant-Slug.
+  // Sem header: cai no fallback "system" (linha 131 em tenantMiddleware). Não resolve por subdomínio em staging.
   const parts = host.split(".");
-  if (parts.length >= 5 && parts[1] === "staging") {
-    const sub = parts[0].toLowerCase().replace(/[^a-z0-9-]/g, "");
-    if (sub) {
-      const slug = sub === "sistema" ? "system" : sub;
-      return { slug, hostInvalid: false };
-    }
-  }
-  if (parts.length === 4 && parts[0] === "staging") {
-    return { slug: "system", hostInvalid: false };
-  }
-
-  // 3. Produção: empresaX.fluxiva.com.br ou fluxiva.com.br (raiz)
-  if (parts.length >= 3 && !host.includes("localhost")) {
+  if (!IS_STAGING && parts.length >= 3 && !host.includes("localhost")) {
     const sub = parts[0].toLowerCase().replace(/[^a-z0-9-]/g, "");
     if (sub) {
       if (parts.length === 3) return { slug: "system", hostInvalid: false }; // domínio raiz
@@ -95,7 +98,7 @@ function resolveTenantSlug(req: Request): { slug: string | null; hostInvalid: bo
     }
   }
 
-  // 4. Query param (permite links "abrir em nova guia" / download enviarem o tenant; auth continua validando JWT)
+  // 3. Query param (permite links "abrir em nova guia" / download enviarem o tenant; auth continua validando JWT)
   const qParam = req.query["tenant"];
   if (qParam && typeof qParam === "string") {
     const slug = qParam.trim().toLowerCase().replace(/[^a-z0-9-]/g, "");

@@ -121,21 +121,21 @@ function insertLookups(tenantId: string, now: string): void {
 }
 
 function insertRulesForArea(tenantId: string, area: string, now: string): void {
-  const allowedJson = JSON.stringify(DEFAULT_LOOKUPS.RECORRENCIA);
   const defaultTiposJson = JSON.stringify(getDefaultTiposList());
+  const customRecorrenciasJson = JSON.stringify(DEFAULT_LOOKUPS.RECORRENCIA);
   db.prepare(
-    "INSERT INTO rules (id, tenant_id, area, allowed_recorrencias, allowed_tipos, custom_tipos, default_tipos, updated_at, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
-  ).run(uuidv4(), tenantId, area, allowedJson, null, defaultTiposJson, defaultTiposJson, now, "seed");
+    "INSERT INTO rules (id, tenant_id, area, allowed_recorrencias, allowed_tipos, custom_tipos, default_tipos, custom_recorrencias, default_recorrencias, updated_at, updated_by) VALUES (?, ?, ?, '[]', NULL, ?, ?, ?, ?, ?, ?)"
+  ).run(uuidv4(), tenantId, area, defaultTiposJson, defaultTiposJson, customRecorrenciasJson, customRecorrenciasJson, now, "seed");
 }
 
 function insertRulesForSpec(tenantId: string, spec: TenantSpec, now: string): void {
   const areas = [...new Set(spec.leaders.map(l => l.area))];
-  const allowedJson = JSON.stringify(DEFAULT_LOOKUPS.RECORRENCIA);
   const defaultTiposJson = JSON.stringify(getDefaultTiposList());
+  const customRecorrenciasJson = JSON.stringify(DEFAULT_LOOKUPS.RECORRENCIA);
   for (const area of areas) {
     db.prepare(
-      "INSERT INTO rules (id, tenant_id, area, allowed_recorrencias, allowed_tipos, custom_tipos, default_tipos, updated_at, updated_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
-    ).run(uuidv4(), tenantId, area, allowedJson, null, defaultTiposJson, defaultTiposJson, now, "seed");
+      "INSERT INTO rules (id, tenant_id, area, allowed_recorrencias, allowed_tipos, custom_tipos, default_tipos, custom_recorrencias, default_recorrencias, updated_at, updated_by) VALUES (?, ?, ?, '[]', NULL, ?, ?, ?, ?, ?, ?)"
+    ).run(uuidv4(), tenantId, area, defaultTiposJson, defaultTiposJson, customRecorrenciasJson, customRecorrenciasJson, now, "seed");
   }
 }
 

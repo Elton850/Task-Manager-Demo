@@ -60,7 +60,8 @@ export default function TasksPage() {
         setUsers(usersRes.users);
         setLookups(lookupsRes.lookups);
         setRules(ruleRes.rule ? [ruleRes.rule] : []);
-        const allowed = ruleRes.rule?.allowedRecorrencias || [];
+        const rule = ruleRes.rule;
+        const allowed = [...(rule?.allowedRecorrencias || []), ...(rule?.customRecorrencias || [])];
         setAllowedRecorrencias(allowed);
         const canCreate = allowed.length > 0;
         setCanCreateTask(canCreate);
@@ -74,14 +75,20 @@ export default function TasksPage() {
         setUsers(usersRes.users);
         setLookups(lookupsRes.lookups);
         setRules(rulesRes.rules);
-        setCanCreateTask(true);
-        setCreateBlockedReason("");
-        setAllowedRecorrencias([]);
+        const leaderRule = rulesRes.rules?.find(r => r.area === user.area);
+        const leaderRecorrencias = leaderRule?.customRecorrencias ?? [];
+        setAllowedRecorrencias(leaderRecorrencias);
+        setCanCreateTask(leaderRecorrencias.length > 0);
+        setCreateBlockedReason(leaderRecorrencias.length > 0 ? "" : "Sua área não possui tipos de recorrência cadastrados. Configure em Configurações.");
       } else {
-        const [tasksRes, usersRes, lookupsRes] = await Promise.all(basePromises);
+        const [tasksRes, usersRes, lookupsRes, rulesRes] = await Promise.all([
+          ...basePromises,
+          rulesApi.list(),
+        ]);
         setTasks(tasksRes.tasks);
         setUsers(usersRes.users);
         setLookups(lookupsRes.lookups);
+        setRules(rulesRes.rules ?? []);
         setCanCreateTask(true);
         setCreateBlockedReason("");
         setAllowedRecorrencias([]);
@@ -217,11 +224,11 @@ export default function TasksPage() {
     <div className="space-y-4 max-w-full min-w-0 overflow-x-hidden">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <p className="text-sm text-slate-500 truncate">
+          <p className="text-sm text-slate-500 dark:text-slate-400 truncate">
             {new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })}
           </p>
           {!canCreateTask && (
-            <p className="text-xs text-amber-700 mt-1 inline-flex items-center gap-1 flex-wrap">
+            <p className="text-xs text-amber-700 dark:text-amber-400 mt-1 inline-flex items-center gap-1 flex-wrap">
               <Lock size={12} className="shrink-0" />
               <span className="break-words">{createBlockedReason}</span>
             </p>
@@ -244,6 +251,7 @@ export default function TasksPage() {
               toast("Download CSV iniciado", "success");
             }}
             title="Baixar tabela em CSV"
+            className="border-emerald-500/70 text-emerald-700 hover:bg-emerald-50 hover:border-emerald-600 dark:border-emerald-500/60 dark:text-emerald-400 dark:hover:bg-emerald-900/30 dark:hover:border-emerald-500"
           >
             CSV
           </Button>
@@ -260,6 +268,7 @@ export default function TasksPage() {
               toast("Download PDF iniciado", "success");
             }}
             title="Baixar tabela em PDF"
+            className="border-rose-500/70 text-rose-700 hover:bg-rose-50 hover:border-rose-600 dark:border-rose-500/60 dark:text-rose-400 dark:hover:bg-rose-900/30 dark:hover:border-rose-500"
           >
             PDF
           </Button>
@@ -306,7 +315,8 @@ export default function TasksPage() {
         task={editTask}
         lookups={lookups}
         users={users}
-        allowedRecorrencias={user?.role === "USER" ? allowedRecorrencias : undefined}
+        rules={rules}
+        allowedRecorrencias={user?.role === "USER" || user?.role === "LEADER" ? allowedRecorrencias : undefined}
         onClose={() => {
           setModalOpen(false);
           setEditTask(null);

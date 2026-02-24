@@ -248,7 +248,8 @@ const TABLES: Array<{ name: string; columns: string[]; orderBy?: string; conflic
   {
     name: "rules",
     columns: [
-      "id", "tenant_id", "area", "allowed_recorrencias", "allowed_tipos", "custom_tipos", "default_tipos", "updated_at", "updated_by",
+      "id", "tenant_id", "area", "allowed_recorrencias", "allowed_tipos", "custom_tipos", "default_tipos",
+      "custom_recorrencias", "default_recorrencias", "updated_at", "updated_by",
     ],
     conflictColumns: ["tenant_id", "area"],
   },

@@ -253,17 +253,17 @@ export default function JustificationsPage() {
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-xl font-semibold text-slate-900">Justificativas</h1>
-            <p className="text-sm text-slate-500 mt-0.5">
+            <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Justificativas</h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
               Atividades concluídas em atraso: visualize e envie justificativas.
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <label className="text-sm text-slate-600 whitespace-nowrap">Período:</label>
+            <label className="text-sm text-slate-600 dark:text-slate-300 whitespace-nowrap">Período:</label>
             <select
               value={competenciaYm}
               onChange={e => setCompetenciaYm(e.target.value)}
-              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+              className="rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 px-3 py-2 text-sm text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
             >
               <option value="">Todos</option>
               {getYmOptions().map(opt => (
@@ -279,18 +279,18 @@ export default function JustificationsPage() {
 
         <Card>
           {loading ? (
-            <div className="py-16 text-center text-slate-500">Carregando...</div>
+            <div className="py-16 text-center text-slate-500 dark:text-slate-400">Carregando...</div>
           ) : items.length === 0 ? (
             <div className="py-16 text-center">
-              <FileText className="mx-auto h-12 w-12 text-slate-300" />
-              <p className="mt-3 text-slate-600 font-medium">Nenhuma atividade concluída em atraso</p>
-              <p className="text-sm text-slate-500 mt-1">Altere o período ou não há tarefas concluídas em atraso no período escolhido.</p>
+              <FileText className="mx-auto h-12 w-12 text-slate-300 dark:text-slate-500" />
+              <p className="mt-3 text-slate-600 dark:text-slate-200 font-medium">Nenhuma atividade concluída em atraso</p>
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Altere o período ou não há tarefas concluídas em atraso no período escolhido.</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
                 <thead>
-                  <tr className="border-b border-slate-200 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                  <tr className="border-b border-slate-200 dark:border-slate-600 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
                     <th className="pb-3 pr-4">Atividade</th>
                     <th className="pb-3 pr-4 whitespace-nowrap">Prazo</th>
                     <th className="pb-3 pr-4 whitespace-nowrap">Realizado</th>
@@ -298,28 +298,28 @@ export default function JustificationsPage() {
                     <th className="pb-3 pr-4 text-right">Ações</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-600/70">
                   {items.map(item => (
-                    <tr key={item.task.id} className="hover:bg-slate-50/70">
-                      <td className="py-3 pr-4 font-medium text-slate-800">{item.task.atividade}</td>
-                      <td className="py-3 pr-4 text-slate-600">
+                    <tr key={item.task.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-700/60 transition-colors">
+                      <td className="py-3 pr-4 font-medium text-slate-800 dark:text-slate-100">{item.task.atividade}</td>
+                      <td className="py-3 pr-4 text-slate-600 dark:text-slate-300">
                         {item.task.prazo ? new Date(item.task.prazo + "T00:00:00").toLocaleDateString("pt-BR") : "—"}
                       </td>
-                      <td className="py-3 pr-4 text-slate-600">
+                      <td className="py-3 pr-4 text-slate-600 dark:text-slate-300">
                         {item.task.realizado ? new Date(item.task.realizado + "T00:00:00").toLocaleDateString("pt-BR") : "—"}
                       </td>
                       <td className="py-3 pr-4">
                         <span
                           className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${
                             item.justificationStatus === "approved"
-                              ? "bg-emerald-100 text-emerald-800"
+                              ? "bg-emerald-100 dark:bg-emerald-500/25 text-emerald-800 dark:text-emerald-300"
                               : item.justificationStatus === "pending"
-                                ? "bg-amber-100 text-amber-800"
+                                ? "bg-amber-100 dark:bg-amber-500/25 text-amber-800 dark:text-amber-300"
                                 : item.justificationStatus === "refused"
-                                  ? "bg-rose-100 text-rose-800"
+                                  ? "bg-rose-100 dark:bg-rose-500/25 text-rose-800 dark:text-rose-300"
                                   : item.justificationStatus === "blocked"
-                                    ? "bg-slate-200 text-slate-700"
-                                    : "bg-slate-100 text-slate-600"
+                                    ? "bg-slate-200 dark:bg-slate-600 text-slate-700 dark:text-slate-200"
+                                    : "bg-slate-100 dark:bg-slate-600/80 text-slate-600 dark:text-slate-300"
                           }`}
                         >
                           {JUSTIFICATION_STATUS_LABELS[item.justificationStatus]}
@@ -327,7 +327,7 @@ export default function JustificationsPage() {
                       </td>
                       <td className="py-3 pr-4 text-right">
                         {item.justificationStatus === "blocked" ? (
-                          <span className="text-xs text-slate-500">Bloqueada</span>
+                          <span className="text-xs text-slate-500 dark:text-slate-400">Bloqueada</span>
                         ) : item.justificationStatus === "none" || item.justificationStatus === "refused" ? (
                           <Button variant="secondary" size="sm" onClick={() => handleOpenJustify(item)}>
                             <MessageSquare size={14} />
@@ -351,28 +351,28 @@ export default function JustificationsPage() {
         {/* Modal Justificar */}
         {modalJustifyOpen && selectedItem && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50" onClick={() => !justifySaving && setModalJustifyOpen(false)}>
-            <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-5 space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl max-w-lg w-full p-5 space-y-4 border border-slate-200 dark:border-slate-600" onClick={e => e.stopPropagation()}>
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-slate-900">Justificar atividade</h3>
-                <button type="button" onClick={() => !justifySaving && setModalJustifyOpen(false)} className="p-1 rounded-lg hover:bg-slate-100 text-slate-500">
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Justificar atividade</h3>
+                <button type="button" onClick={() => !justifySaving && setModalJustifyOpen(false)} className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400">
                   <X size={20} />
                 </button>
               </div>
-              <p className="text-sm text-slate-600">{selectedItem.task.atividade}</p>
+              <p className="text-sm text-slate-600 dark:text-slate-300">{selectedItem.task.atividade}</p>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Descrição *</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Descrição *</label>
                 <textarea
                   value={justifyDescription}
                   onChange={e => setJustifyDescription(e.target.value)}
                   placeholder="Motivo pelo qual a atividade não foi concluída no prazo..."
                   rows={4}
                   maxLength={2000}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+                  className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700/50 px-3 py-2 text-sm text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
                 />
-                <p className="text-xs text-slate-500 mt-1">{justifyDescription.length}/2000</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">{justifyDescription.length}/2000</p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Evidência (opcional)</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Evidência (opcional)</label>
                 <input
                   ref={justifyFileInputRef}
                   type="file"
@@ -387,13 +387,13 @@ export default function JustificationsPage() {
                       setJustifyFile(f);
                     }
                   }}
-                  className="block w-full text-sm text-slate-600 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-brand-50 file:text-brand-800"
+                  className="block w-full text-sm text-slate-600 dark:text-slate-300 file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:bg-brand-50 dark:file:bg-brand-500/25 file:text-brand-800 dark:file:text-brand-200"
                 />
                 {justifyFile && (
-                  <p className="mt-1 text-xs text-slate-600 flex items-center gap-1">
+                  <p className="mt-1 text-xs text-slate-600 dark:text-slate-300 flex items-center gap-1">
                     <Paperclip size={12} />
                     {justifyFile.name} ({formatBytes(justifyFile.size)})
-                    <button type="button" onClick={() => { setJustifyFile(null); if (justifyFileInputRef.current) justifyFileInputRef.current.value = ""; }} className="text-rose-600 hover:underline ml-1">
+                    <button type="button" onClick={() => { setJustifyFile(null); if (justifyFileInputRef.current) justifyFileInputRef.current.value = ""; }} className="text-rose-600 dark:text-rose-400 hover:underline ml-1">
                       Remover
                     </button>
                   </p>
@@ -412,39 +412,39 @@ export default function JustificationsPage() {
         {/* Modal Ver justificativa */}
         {modalViewOpen && viewJustificationDetail && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50" onClick={() => setModalViewOpen(false)}>
-            <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-5 space-y-4 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl max-w-lg w-full p-5 space-y-4 max-h-[90vh] overflow-y-auto border border-slate-200 dark:border-slate-600" onClick={e => e.stopPropagation()}>
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-slate-900">Justificativa</h3>
-                <button type="button" onClick={() => setModalViewOpen(false)} className="p-1 rounded-lg hover:bg-slate-100 text-slate-500">
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Justificativa</h3>
+                <button type="button" onClick={() => setModalViewOpen(false)} className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400">
                   <X size={20} />
                 </button>
               </div>
               {viewJustificationDetail.task && (
-                <p className="text-sm text-slate-600">{viewJustificationDetail.task.atividade}</p>
+                <p className="text-sm text-slate-600 dark:text-slate-300">{viewJustificationDetail.task.atividade}</p>
               )}
               <div>
-                <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Descrição</p>
-                <p className="text-sm text-slate-800 whitespace-pre-wrap">{viewJustificationDetail.description}</p>
+                <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Descrição</p>
+                <p className="text-sm text-slate-800 dark:text-slate-200 whitespace-pre-wrap">{viewJustificationDetail.description}</p>
               </div>
               {viewJustificationDetail.reviewComment && (
                 <div>
-                  <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Comentário da análise</p>
-                  <p className="text-sm text-slate-700 whitespace-pre-wrap">{viewJustificationDetail.reviewComment}</p>
+                  <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Comentário da análise</p>
+                  <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{viewJustificationDetail.reviewComment}</p>
                 </div>
               )}
               {viewJustificationDetail.evidences && viewJustificationDetail.evidences.length > 0 && (
                 <div>
-                  <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-2">Evidência</p>
+                  <p className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Evidência</p>
                   <ul className="space-y-2">
                     {viewJustificationDetail.evidences.map(ev => {
                       const downloadUrl = `${ev.downloadUrl}${tenant?.slug ? `?tenant=${encodeURIComponent(tenant.slug)}` : ""}`;
                       return (
                         <li key={ev.id} className="flex items-center gap-2 text-sm">
-                          <a href={downloadUrl} download={ev.fileName} className="text-brand-600 hover:underline flex items-center gap-1">
+                          <a href={downloadUrl} download={ev.fileName} className="text-brand-600 dark:text-brand-400 hover:underline flex items-center gap-1">
                             <Paperclip size={14} />
                             {ev.fileName}
                           </a>
-                          <span className="text-slate-500">({formatBytes(ev.fileSize)})</span>
+                          <span className="text-slate-500 dark:text-slate-400">({formatBytes(ev.fileSize)})</span>
                         </li>
                       );
                     })}
@@ -466,8 +466,8 @@ export default function JustificationsPage() {
       <div className="space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-xl font-semibold text-slate-900">Justificativas</h1>
-            <p className="text-sm text-slate-500 mt-0.5">
+            <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Justificativas</h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
               Aprovar, recusar ou bloquear solicitações de justificativas da sua área.
             </p>
           </div>
@@ -477,12 +477,14 @@ export default function JustificationsPage() {
           </Button>
         </div>
 
-        <div className="flex gap-2 border-b border-slate-200">
+        <div className="flex gap-2 border-b border-slate-200 dark:border-slate-600">
           <button
             type="button"
             onClick={() => setLeaderTab("pending")}
             className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
-              leaderTab === "pending" ? "bg-white border border-slate-200 border-b-0 text-brand-700 -mb-px" : "text-slate-600 hover:text-slate-900"
+              leaderTab === "pending"
+                ? "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 border-b-0 text-brand-700 dark:text-brand-300 -mb-px"
+                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"
             }`}
           >
             Pendentes ({pendingItems.length})
@@ -491,7 +493,9 @@ export default function JustificationsPage() {
             type="button"
             onClick={() => setLeaderTab("approved")}
             className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
-              leaderTab === "approved" ? "bg-white border border-slate-200 border-b-0 text-brand-700 -mb-px" : "text-slate-600 hover:text-slate-900"
+              leaderTab === "approved"
+                ? "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 border-b-0 text-brand-700 dark:text-brand-300 -mb-px"
+                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"
             }`}
           >
             Aprovadas ({approvedItems.length})
@@ -500,7 +504,9 @@ export default function JustificationsPage() {
             type="button"
             onClick={() => setLeaderTab("blocked")}
             className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
-              leaderTab === "blocked" ? "bg-white border border-slate-200 border-b-0 text-brand-700 -mb-px" : "text-slate-600 hover:text-slate-900"
+              leaderTab === "blocked"
+                ? "bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 border-b-0 text-brand-700 dark:text-brand-300 -mb-px"
+                : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100"
             }`}
           >
             Bloqueadas ({blockedItems.length})
@@ -509,18 +515,18 @@ export default function JustificationsPage() {
 
         <Card>
           {loading ? (
-            <div className="py-16 text-center text-slate-500">Carregando...</div>
+            <div className="py-16 text-center text-slate-500 dark:text-slate-400">Carregando...</div>
           ) : leaderTab === "pending" ? (
             pendingItems.length === 0 ? (
               <div className="py-16 text-center">
-                <CheckCircle className="mx-auto h-12 w-12 text-slate-300" />
-                <p className="mt-3 text-slate-600 font-medium">Nenhuma solicitação pendente</p>
+                <CheckCircle className="mx-auto h-12 w-12 text-slate-300 dark:text-slate-500" />
+                <p className="mt-3 text-slate-600 dark:text-slate-200 font-medium">Nenhuma solicitação pendente</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="min-w-full text-sm">
                   <thead>
-                    <tr className="border-b border-slate-200 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    <tr className="border-b border-slate-200 dark:border-slate-600 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
                       <th className="pb-3 pr-4">Atividade</th>
                       <th className="pb-3 pr-4">Responsável</th>
                       <th className="pb-3 pr-4 whitespace-nowrap">Prazo / Realizado</th>
@@ -528,32 +534,32 @@ export default function JustificationsPage() {
                       <th className="pb-3 pr-4 text-right">Ações</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-600/70">
                     {pendingItems.map(row => (
-                      <tr key={row.id} className="hover:bg-slate-50/70">
+                      <tr key={row.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-700/60 transition-colors">
                         <td className="py-3 pr-4">
-                          <p className="font-medium text-slate-800">{row.task.atividade}</p>
-                          <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">{row.description}</p>
+                          <p className="font-medium text-slate-800 dark:text-slate-100">{row.task.atividade}</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2">{row.description}</p>
                         </td>
-                        <td className="py-3 pr-4 text-slate-600">{row.task.responsavelNome}</td>
-                        <td className="py-3 pr-4 text-slate-600 whitespace-nowrap">
+                        <td className="py-3 pr-4 text-slate-600 dark:text-slate-300">{row.task.responsavelNome}</td>
+                        <td className="py-3 pr-4 text-slate-600 dark:text-slate-300 whitespace-nowrap">
                           {row.task.prazo ? new Date(row.task.prazo + "T00:00:00").toLocaleDateString("pt-BR") : "—"} /{" "}
                           {row.task.realizado ? new Date(row.task.realizado + "T00:00:00").toLocaleDateString("pt-BR") : "—"}
                         </td>
-                        <td className="py-3 pr-4 text-slate-600">
+                        <td className="py-3 pr-4 text-slate-600 dark:text-slate-300">
                           {new Date(row.createdAt).toLocaleString("pt-BR")}
                         </td>
                         <td className="py-3 pr-4 text-right">
                           <div className="flex items-center justify-end gap-1 flex-wrap">
-                            <Button variant="secondary" size="sm" onClick={() => handleApproveClick(row)} className="text-emerald-700 hover:bg-emerald-50">
+                            <Button variant="secondary" size="sm" onClick={() => handleApproveClick(row)} className="text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/20">
                               <CheckCircle size={14} />
                               Aprovar
                             </Button>
-                            <Button variant="ghost" size="sm" onClick={() => openReviewModal(row.id, row.task.atividade, "refuse")} className="text-rose-600 hover:bg-rose-50">
+                            <Button variant="ghost" size="sm" onClick={() => openReviewModal(row.id, row.task.atividade, "refuse")} className="text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/20">
                               <XCircle size={14} />
                               Recusar
                             </Button>
-                            <Button variant="ghost" size="sm" onClick={() => openReviewModal(row.id, row.task.atividade, "refuse_and_block")} className="text-slate-700 hover:bg-slate-100">
+                            <Button variant="ghost" size="sm" onClick={() => openReviewModal(row.id, row.task.atividade, "refuse_and_block")} className="text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-600/80">
                               <Lock size={14} />
                               Recusar e bloquear
                             </Button>
@@ -568,14 +574,14 @@ export default function JustificationsPage() {
           ) : leaderTab === "approved" ? (
             approvedItems.length === 0 ? (
               <div className="py-16 text-center">
-                <CheckCircle className="mx-auto h-12 w-12 text-slate-300" />
-                <p className="mt-3 text-slate-600 font-medium">Nenhuma justificativa aprovada</p>
+                <CheckCircle className="mx-auto h-12 w-12 text-slate-300 dark:text-slate-500" />
+                <p className="mt-3 text-slate-600 dark:text-slate-200 font-medium">Nenhuma justificativa aprovada</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="min-w-full text-sm">
                   <thead>
-                    <tr className="border-b border-slate-200 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    <tr className="border-b border-slate-200 dark:border-slate-600 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
                       <th className="pb-3 pr-4">Atividade</th>
                       <th className="pb-3 pr-4">Responsável</th>
                       <th className="pb-3 pr-4 whitespace-nowrap">Prazo / Realizado</th>
@@ -583,24 +589,24 @@ export default function JustificationsPage() {
                       <th className="pb-3 pr-4">Aprovada em</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-600/70">
                     {approvedItems.map(row => (
-                      <tr key={row.id} className="hover:bg-slate-50/70">
+                      <tr key={row.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-700/60 transition-colors">
                         <td className="py-3 pr-4">
-                          <p className="font-medium text-slate-800">{row.task.atividade}</p>
-                          <p className="text-xs text-slate-500 mt-0.5 line-clamp-2">{row.description}</p>
+                          <p className="font-medium text-slate-800 dark:text-slate-100">{row.task.atividade}</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2">{row.description}</p>
                         </td>
-                        <td className="py-3 pr-4 text-slate-600">{row.task.responsavelNome}</td>
-                        <td className="py-3 pr-4 text-slate-600 whitespace-nowrap">
+                        <td className="py-3 pr-4 text-slate-600 dark:text-slate-300">{row.task.responsavelNome}</td>
+                        <td className="py-3 pr-4 text-slate-600 dark:text-slate-300 whitespace-nowrap">
                           {row.task.prazo ? new Date(row.task.prazo + "T00:00:00").toLocaleDateString("pt-BR") : "—"} /{" "}
                           {row.task.realizado ? new Date(row.task.realizado + "T00:00:00").toLocaleDateString("pt-BR") : "—"}
                         </td>
-                        <td className="py-3 pr-4 text-slate-600">
+                        <td className="py-3 pr-4 text-slate-600 dark:text-slate-300">
                           {new Date(row.createdAt).toLocaleString("pt-BR")}
                         </td>
-                        <td className="py-3 pr-4 text-slate-600">
+                        <td className="py-3 pr-4 text-slate-600 dark:text-slate-300">
                           {row.reviewedAt ? new Date(row.reviewedAt).toLocaleString("pt-BR") : "—"}
-                          {row.reviewedBy && <span className="text-slate-500 text-xs block">por {row.reviewedBy}</span>}
+                          {row.reviewedBy && <span className="text-slate-500 dark:text-slate-400 text-xs block">por {row.reviewedBy}</span>}
                         </td>
                       </tr>
                     ))}
@@ -611,14 +617,14 @@ export default function JustificationsPage() {
           ) : (
             blockedItems.length === 0 ? (
               <div className="py-16 text-center">
-                <Unlock className="mx-auto h-12 w-12 text-slate-300" />
-                <p className="mt-3 text-slate-600 font-medium">Nenhuma tarefa bloqueada</p>
+                <Unlock className="mx-auto h-12 w-12 text-slate-300 dark:text-slate-500" />
+                <p className="mt-3 text-slate-600 dark:text-slate-200 font-medium">Nenhuma tarefa bloqueada</p>
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="min-w-full text-sm">
                   <thead>
-                    <tr className="border-b border-slate-200 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                    <tr className="border-b border-slate-200 dark:border-slate-600 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
                       <th className="pb-3 pr-4">Atividade</th>
                       <th className="pb-3 pr-4">Responsável</th>
                       <th className="pb-3 pr-4">Área</th>
@@ -626,15 +632,15 @@ export default function JustificationsPage() {
                       <th className="pb-3 pr-4 text-right">Ação</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-600/70">
                     {blockedItems.map(row => (
-                      <tr key={row.taskId} className="hover:bg-slate-50/70">
-                        <td className="py-3 pr-4 font-medium text-slate-800">{row.atividade}</td>
-                        <td className="py-3 pr-4 text-slate-600">{row.responsavelNome}</td>
-                        <td className="py-3 pr-4 text-slate-600">{row.area}</td>
-                        <td className="py-3 pr-4 text-slate-600">
+                      <tr key={row.taskId} className="hover:bg-slate-50/70 dark:hover:bg-slate-700/60 transition-colors">
+                        <td className="py-3 pr-4 font-medium text-slate-800 dark:text-slate-100">{row.atividade}</td>
+                        <td className="py-3 pr-4 text-slate-600 dark:text-slate-300">{row.responsavelNome}</td>
+                        <td className="py-3 pr-4 text-slate-600 dark:text-slate-300">{row.area}</td>
+                        <td className="py-3 pr-4 text-slate-600 dark:text-slate-300">
                           {row.blockedAt ? new Date(row.blockedAt).toLocaleString("pt-BR") : "—"}
-                          {row.blockedBy && <span className="text-slate-500 text-xs block">por {row.blockedBy}</span>}
+                          {row.blockedBy && <span className="text-slate-500 dark:text-slate-400 text-xs block">por {row.blockedBy}</span>}
                         </td>
                         <td className="py-3 pr-4 text-right">
                           <Button
@@ -642,7 +648,7 @@ export default function JustificationsPage() {
                             size="sm"
                             onClick={() => handleUnblockClick(row.taskId, row.atividade)}
                             disabled={unblockingId === row.taskId}
-                            className="text-emerald-700 hover:bg-emerald-50"
+                            className="text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/20"
                           >
                             {unblockingId === row.taskId ? (
                               <span className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin inline-block" />
@@ -666,29 +672,29 @@ export default function JustificationsPage() {
         {/* Modal Recusar / Recusar e bloquear */}
         {reviewModalOpen && reviewTarget && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50" onClick={() => !reviewSaving && setReviewModalOpen(false)}>
-            <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-5 space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl max-w-lg w-full p-5 space-y-4 border border-slate-200 dark:border-slate-600" onClick={e => e.stopPropagation()}>
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-slate-900">
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
                   {reviewAction === "refuse_and_block" ? "Recusar e bloquear" : "Recusar justificativa"}
                 </h3>
-                <button type="button" onClick={() => !reviewSaving && setReviewModalOpen(false)} className="p-1 rounded-lg hover:bg-slate-100 text-slate-500">
+                <button type="button" onClick={() => !reviewSaving && setReviewModalOpen(false)} className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400">
                   <X size={20} />
                 </button>
               </div>
-              <p className="text-sm text-slate-600">{reviewTarget.atividade}</p>
+              <p className="text-sm text-slate-600 dark:text-slate-300">{reviewTarget.atividade}</p>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Motivo da recusa (opcional)</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Motivo da recusa (opcional)</label>
                 <textarea
                   value={reviewComment}
                   onChange={e => setReviewComment(e.target.value)}
                   placeholder="Informe o motivo da recusa..."
                   rows={3}
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800 focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+                  className="w-full rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700/50 px-3 py-2 text-sm text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
                 />
               </div>
               <div className="flex justify-end gap-2 pt-2">
                 <Button variant="secondary" onClick={() => !reviewSaving && setReviewModalOpen(false)}>Cancelar</Button>
-                <Button variant="secondary" onClick={() => setConfirmReviewSubmit(true)} disabled={reviewSaving} className="bg-rose-50 text-rose-700 hover:bg-rose-100">
+                <Button variant="secondary" onClick={() => setConfirmReviewSubmit(true)} disabled={reviewSaving} className="bg-rose-50 dark:bg-rose-500/20 text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-500/30">
                   {reviewSaving ? "Processando..." : reviewAction === "refuse_and_block" ? "Recusar e bloquear" : "Recusar"}
                 </Button>
               </div>

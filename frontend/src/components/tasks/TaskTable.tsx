@@ -41,15 +41,15 @@ function TaskTableInner({ tasks, loading, onEdit, onDelete, onDuplicate, onMarkC
   }, [tasks, sortField, sortDir]);
 
   const SortIcon = ({ field }: { field: SortField }) => (
-    <span className="inline-flex flex-col ml-1 opacity-50">
+    <span className="inline-flex flex-col ml-1 opacity-50 dark:opacity-70">
       {sortField === field ? (
         sortDir === "asc" ? (
-          <ChevronUp size={12} className="opacity-100 text-brand-700" />
+          <ChevronUp size={12} className="opacity-100 text-brand-700 dark:text-brand-400" />
         ) : (
-          <ChevronDown size={12} className="opacity-100 text-brand-700" />
+          <ChevronDown size={12} className="opacity-100 text-brand-700 dark:text-brand-400" />
         )
       ) : (
-        <ChevronUp size={10} />
+        <ChevronUp size={10} className="dark:text-slate-400" />
       )}
     </span>
   );
@@ -57,7 +57,7 @@ function TaskTableInner({ tasks, loading, onEdit, onDelete, onDuplicate, onMarkC
   const ThSortable = ({ field, label, className = "" }: { field: SortField; label: string; className?: string }) => (
     <th
       onClick={() => handleSort(field)}
-      className={`px-4 py-3.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider cursor-pointer hover:text-slate-900 hover:bg-slate-100/80 transition-colors select-none focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:ring-inset rounded-t ${className}`}
+      className={`px-4 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider cursor-pointer hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100/80 dark:hover:bg-slate-600/50 transition-colors select-none focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:ring-inset rounded-t ${className}`}
     >
       <span className="inline-flex items-center">
         {label}
@@ -77,11 +77,11 @@ function TaskTableInner({ tasks, loading, onEdit, onDelete, onDuplicate, onMarkC
   if (!sorted.length) {
     return (
       <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
-        <div className="w-16 h-16 rounded-2xl bg-slate-100 flex items-center justify-center mb-4 text-3xl">
+        <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-700/80 flex items-center justify-center mb-4 text-3xl">
           📋
         </div>
-        <p className="text-base font-semibold text-slate-700">Nenhuma tarefa encontrada</p>
-        <p className="text-sm text-slate-500 mt-1 max-w-xs">Ajuste os filtros ou crie uma nova tarefa para começar.</p>
+        <p className="text-base font-semibold text-slate-700 dark:text-slate-200">Nenhuma tarefa encontrada</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 max-w-xs">Ajuste os filtros ou crie uma nova tarefa para começar.</p>
       </div>
     );
   }
@@ -104,12 +104,12 @@ function TaskTableInner({ tasks, loading, onEdit, onDelete, onDuplicate, onMarkC
   };
 
   return (
-    <div className="overflow-x-auto overflow-y-hidden -mx-4 sm:mx-0 rounded-xl border border-slate-200/80 bg-white shadow-sm touch-pan-x">
+    <div className="overflow-x-auto overflow-y-hidden -mx-4 sm:mx-0 rounded-xl border border-slate-200/80 dark:border-slate-600/80 bg-white dark:bg-slate-800/80 shadow-sm dark:shadow-none touch-pan-x">
       <table className="min-w-full" role="table" aria-label="Lista de tarefas">
         <thead>
-          <tr className="border-b border-slate-200 bg-slate-50/90">
+          <tr className="border-b border-slate-200 dark:border-slate-600/80 bg-slate-50/90 dark:bg-slate-700/80">
             <ThSortable field="competenciaYm" label="Competência" className="w-0 whitespace-nowrap pl-5 pr-3" />
-            <th className="px-4 py-3.5 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider min-w-[200px] max-w-[320px]">
+            <th className="px-4 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider min-w-[200px] max-w-[320px]">
               Atividade
             </th>
             <ThSortable field="recorrencia" label="Recorrência" className="hidden md:table-cell w-0 whitespace-nowrap" />
@@ -117,30 +117,30 @@ function TaskTableInner({ tasks, loading, onEdit, onDelete, onDuplicate, onMarkC
             <ThSortable field="responsavelNome" label="Responsável" className="hidden sm:table-cell w-0 whitespace-nowrap" />
             <ThSortable field="prazo" label="Prazo" className="hidden md:table-cell w-0 whitespace-nowrap" />
             <ThSortable field="status" label="Status" className="w-0 whitespace-nowrap text-center" />
-            <th className="px-4 py-3.5 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider w-0 whitespace-nowrap pr-5">
+            <th className="px-4 py-3.5 text-right text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider w-0 whitespace-nowrap pr-5">
               <span className="sr-only">Ações</span>
             </th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100">
+        <tbody className="divide-y divide-slate-100 dark:divide-slate-600/60">
           {sorted.map(task => (
             <tr
               key={task.id}
-              className="group bg-white hover:bg-slate-50/70 transition-colors duration-150 align-middle focus-within:bg-slate-50/70"
+              className="group bg-white dark:bg-slate-800/50 hover:bg-slate-50/70 dark:hover:bg-slate-700/60 transition-colors duration-150 align-middle focus-within:bg-slate-50/70 dark:focus-within:bg-slate-700/60"
             >
-              <td className="pl-5 pr-3 py-4 text-sm text-slate-600 whitespace-nowrap font-mono tabular-nums align-middle border-l-4 border-transparent group-hover:border-slate-200 transition-colors">
+              <td className="pl-5 pr-3 py-4 text-sm text-slate-600 dark:text-slate-300 whitespace-nowrap font-mono tabular-nums align-middle border-l-4 border-transparent group-hover:border-slate-200 dark:group-hover:border-slate-600 transition-colors">
                 {task.competenciaYm}
               </td>
               <td className="px-4 py-4 align-middle">
                 <div className="min-w-0 flex flex-col gap-1.5">
                   <div className="flex items-start justify-between gap-3 min-w-0">
-                    <p className="text-sm font-medium text-slate-800 truncate flex-1 min-w-0 leading-snug" title={task.atividade}>
+                    <p className="text-sm font-medium text-slate-800 dark:text-slate-100 truncate flex-1 min-w-0 leading-snug" title={task.atividade}>
                       {task.atividade}
                     </p>
                     <div className="shrink-0 flex items-center gap-1.5">
                       {!task.parentTaskId && (task.subtaskCount ?? 0) > 0 && (
                         <span
-                          className="inline-flex items-center gap-1 text-xs text-brand-700 bg-brand-50 border border-brand-200 rounded-md px-1.5 py-0.5 font-medium"
+                          className="inline-flex items-center gap-1 text-xs text-brand-700 dark:text-brand-300 bg-brand-50 dark:bg-brand-500/20 border border-brand-200 dark:border-brand-500/40 rounded-md px-1.5 py-0.5 font-medium"
                           title={`${task.subtaskCount} subtarefa(s) vinculada(s)`}
                         >
                           <Layers size={12} />
@@ -149,14 +149,14 @@ function TaskTableInner({ tasks, loading, onEdit, onDelete, onDuplicate, onMarkC
                       )}
                       {task.parentTaskId && (
                         <span
-                          className="inline-flex items-center gap-1 text-xs text-slate-600 bg-slate-100 border border-slate-200 rounded-md px-1.5 py-0.5 font-medium"
+                          className="inline-flex items-center gap-1 text-xs text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-700/80 border border-slate-200 dark:border-slate-600 rounded-md px-1.5 py-0.5 font-medium"
                           title={task.parentTaskAtividade ? `Subtask da tarefa: ${task.parentTaskAtividade}` : "Subtask"}
                         >
                           Subtask
                         </span>
                       )}
                       {!!task.evidences?.length && (
-                        <span className="inline-flex items-center gap-1 text-xs text-brand-700 bg-brand-50 border border-brand-100 rounded-full px-2 py-0.5 font-medium" title={`${task.evidences.length} anexo(s)`}>
+                        <span className="inline-flex items-center gap-1 text-xs text-brand-700 dark:text-brand-300 bg-brand-50 dark:bg-brand-500/20 border border-brand-100 dark:border-brand-500/40 rounded-full px-2 py-0.5 font-medium" title={`${task.evidences.length} anexo(s)`}>
                           <Paperclip size={12} strokeWidth={2} />
                           {task.evidences.length}
                         </span>
@@ -164,38 +164,38 @@ function TaskTableInner({ tasks, loading, onEdit, onDelete, onDuplicate, onMarkC
                     </div>
                   </div>
                   {task.parentTaskAtividade && (
-                    <p className="text-xs text-slate-500 truncate" title={`Tarefa principal: ${task.parentTaskAtividade}`}>
-                      <span className="text-slate-400">↳ da tarefa:</span> {task.parentTaskAtividade}
+                    <p className="text-xs text-slate-500 dark:text-slate-400 truncate" title={`Tarefa principal: ${task.parentTaskAtividade}`}>
+                      <span className="text-slate-400 dark:text-slate-500">↳ da tarefa:</span> {task.parentTaskAtividade}
                     </p>
                   )}
                   {task.observacoes && (
-                    <p className="text-xs text-slate-500 truncate leading-relaxed" title={task.observacoes}>
-                      <span className="text-slate-400 font-medium">Obs.:</span> {task.observacoes}
+                    <p className="text-xs text-slate-500 dark:text-slate-400 truncate leading-relaxed" title={task.observacoes}>
+                      <span className="text-slate-400 dark:text-slate-500 font-medium">Obs.:</span> {task.observacoes}
                     </p>
                   )}
                   <div className="sm:hidden mt-0.5">
-                    <span className="text-xs text-slate-600">{task.responsavelNome}</span>
+                    <span className="text-xs text-slate-600 dark:text-slate-300">{task.responsavelNome}</span>
                   </div>
                 </div>
               </td>
-              <td className="px-4 py-4 text-sm text-slate-600 whitespace-nowrap hidden md:table-cell align-middle">{task.recorrencia}</td>
-              <td className="px-4 py-4 text-sm text-slate-600 whitespace-nowrap hidden lg:table-cell align-middle">{task.area}</td>
-              <td className="px-4 py-4 text-sm text-slate-700 font-medium whitespace-nowrap hidden sm:table-cell align-middle">{task.responsavelNome}</td>
+              <td className="px-4 py-4 text-sm text-slate-600 dark:text-slate-300 whitespace-nowrap hidden md:table-cell align-middle">{task.recorrencia}</td>
+              <td className="px-4 py-4 text-sm text-slate-600 dark:text-slate-300 whitespace-nowrap hidden lg:table-cell align-middle">{task.area}</td>
+              <td className="px-4 py-4 text-sm text-slate-700 dark:text-slate-200 font-medium whitespace-nowrap hidden sm:table-cell align-middle">{task.responsavelNome}</td>
               <td className="px-4 py-4 text-sm whitespace-nowrap hidden md:table-cell align-middle">
                 <div className="flex items-center gap-1.5">
                   {task.prazo ? (
                     <span
-                      className={`inline-flex items-center gap-1.5 ${task.status === "Em Atraso" ? "text-rose-600 font-semibold" : "text-slate-700"}`}
+                      className={`inline-flex items-center gap-1.5 ${task.status === "Em Atraso" ? "text-rose-600 dark:text-rose-400 font-semibold" : "text-slate-700 dark:text-slate-200"}`}
                       title={task.prazoModifiedByName || task.prazoModifiedBy ? `Prazo alterado por: ${task.prazoModifiedByName || task.prazoModifiedBy}` : undefined}
                     >
                       {task.status === "Em Atraso" && <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" aria-hidden />}
                       {new Date(task.prazo + "T00:00:00").toLocaleDateString("pt-BR")}
                     </span>
                   ) : (
-                    <span className="text-slate-400">—</span>
+                    <span className="text-slate-400 dark:text-slate-500">—</span>
                   )}
                   {(task.prazoModifiedByName || task.prazoModifiedBy) && (
-                    <span title={`Prazo modificado por: ${task.prazoModifiedByName || task.prazoModifiedBy}`} className="text-amber-600 cursor-help inline-flex">
+                    <span title={`Prazo modificado por: ${task.prazoModifiedByName || task.prazoModifiedBy}`} className="text-amber-600 dark:text-amber-400 cursor-help inline-flex">
                       <Info size={14} />
                     </span>
                   )}
@@ -210,14 +210,14 @@ function TaskTableInner({ tasks, loading, onEdit, onDelete, onDuplicate, onMarkC
                     <span
                       className={`text-[10px] font-medium px-1.5 py-0.5 rounded ${
                         task.justificationStatus === "approved"
-                          ? "bg-emerald-100 text-emerald-700"
+                          ? "bg-emerald-100 dark:bg-emerald-500/25 text-emerald-700 dark:text-emerald-300"
                           : task.justificationStatus === "pending"
-                            ? "bg-amber-100 text-amber-700"
+                            ? "bg-amber-100 dark:bg-amber-500/25 text-amber-700 dark:text-amber-300"
                             : task.justificationStatus === "refused"
-                              ? "bg-rose-100 text-rose-700"
+                              ? "bg-rose-100 dark:bg-rose-500/25 text-rose-700 dark:text-rose-300"
                               : task.justificationStatus === "blocked"
-                                ? "bg-slate-200 text-slate-600"
-                                : "bg-slate-100 text-slate-600"
+                                ? "bg-slate-200 dark:bg-slate-600 text-slate-600 dark:text-slate-300"
+                                : "bg-slate-100 dark:bg-slate-600 text-slate-600 dark:text-slate-300"
                       }`}
                       title="Status da justificativa"
                     >
@@ -230,12 +230,12 @@ function TaskTableInner({ tasks, loading, onEdit, onDelete, onDuplicate, onMarkC
                   )}
                   {task.realizado && (
                     <div
-                      className="text-xs text-slate-500 flex items-center justify-center gap-1 tabular-nums"
+                      className="text-xs text-slate-500 dark:text-slate-400 flex items-center justify-center gap-1 tabular-nums"
                       title={task.realizadoPorNome || task.realizadoPor ? `Concluído por: ${task.realizadoPorNome || task.realizadoPor}` : undefined}
                     >
                       <span>{new Date(task.realizado + "T00:00:00").toLocaleDateString("pt-BR")}</span>
                       {(task.realizadoPorNome || task.realizadoPor) && (
-                        <Info size={12} className="text-amber-600 shrink-0 cursor-help" title={`Concluído por: ${task.realizadoPorNome || task.realizadoPor}`} />
+                        <Info size={12} className="text-amber-600 dark:text-amber-400 shrink-0 cursor-help" title={`Concluído por: ${task.realizadoPorNome || task.realizadoPor}`} />
                       )}
                     </div>
                   )}
@@ -249,7 +249,7 @@ function TaskTableInner({ tasks, loading, onEdit, onDelete, onDuplicate, onMarkC
                       onClick={() => handleMarkComplete(task)}
                       disabled={!!markingId}
                       title="Marcar como concluída"
-                      className="inline-flex items-center justify-center p-2 rounded-lg text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:ring-offset-1"
+                      className="inline-flex items-center justify-center p-2 rounded-lg text-slate-500 dark:text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-colors disabled:opacity-50 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 focus:ring-offset-1 dark:focus:ring-offset-slate-800"
                       aria-label="Marcar como concluída"
                     >
                       {markingId === task.id ? (

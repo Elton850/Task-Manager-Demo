@@ -11,7 +11,7 @@ export default function ResponsibleTable({ data }: ResponsibleTableProps) {
 
   if (!sorted.length) {
     return (
-      <div className="text-center py-8 text-slate-600 text-sm">
+      <div className="text-center py-8 text-slate-600 dark:text-slate-400 text-sm">
         Nenhum dado disponível
       </div>
     );
@@ -19,28 +19,28 @@ export default function ResponsibleTable({ data }: ResponsibleTableProps) {
 
   return (
     <div className="overflow-x-auto">
-      <table className="min-w-full divide-y divide-slate-200">
-        <thead className="bg-slate-100">
+      <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-600/80">
+        <thead className="bg-slate-100 dark:bg-slate-700/80">
           <tr>
             {["Responsável", "Total", "Em Andamento", "Concluído", "Em Atraso", "Concl. Atraso", "Taxa Conclusão"].map(h => (
-              <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase tracking-wider whitespace-nowrap">
+              <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider whitespace-nowrap">
                 {h}
               </th>
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-200 bg-white">
+        <tbody className="divide-y divide-slate-200 dark:divide-slate-600/60 bg-white dark:bg-transparent">
           {sorted.map(row => {
             const totalFinished = row.concluido + row.concluidoEmAtraso;
             const rate = row.total > 0 ? Math.round((totalFinished / row.total) * 100) : 0;
 
             return (
-              <tr key={row.email} className="hover:bg-slate-50 transition-colors">
+              <tr key={row.email} className="hover:bg-slate-50 dark:hover:bg-slate-700/40 transition-colors">
                 <td className="px-4 py-3">
-                  <div className="text-sm font-medium text-slate-800">{row.nome}</div>
-                  <div className="text-xs text-slate-600">{row.email}</div>
+                  <div className="text-sm font-medium text-slate-800 dark:text-slate-100">{row.nome}</div>
+                  <div className="text-xs text-slate-600 dark:text-slate-400">{row.email}</div>
                 </td>
-                <td className="px-4 py-3 text-sm font-semibold text-slate-800">{row.total}</td>
+                <td className="px-4 py-3 text-sm font-semibold text-slate-800 dark:text-slate-200">{row.total}</td>
                 <td className="px-4 py-3">
                   <Badge variant="blue" size="sm">{row.emAndamento}</Badge>
                 </td>

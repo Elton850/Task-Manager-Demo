@@ -207,8 +207,8 @@ router.post("/", optionalAuth, async (req: Request, res: Response): Promise<void
       const updatedBy = req.user?.email ?? "system";
       for (const area of DEFAULT_LOOKUPS.AREA) {
         await db.prepare(`
-          INSERT INTO rules (id, tenant_id, area, allowed_recorrencias, allowed_tipos, custom_tipos, default_tipos, updated_at, updated_by)
-          VALUES (?, ?, ?, '[]', NULL, ?, ?, ?, ?)
+          INSERT INTO rules (id, tenant_id, area, allowed_recorrencias, allowed_tipos, custom_tipos, default_tipos, custom_recorrencias, default_recorrencias, updated_at, updated_by)
+          VALUES (?, ?, ?, '[]', NULL, ?, ?, '[]', '[]', ?, ?)
         `).run(uuidv4(), tenantId, area, defaultTiposJson, defaultTiposJson, now, updatedBy);
       }
       await db.exec("COMMIT");
@@ -217,11 +217,16 @@ router.post("/", optionalAuth, async (req: Request, res: Response): Promise<void
       throw e;
     }
 
-    // Se APP_DOMAIN estiver configurado, retorna o link completo com subdomínio.
-    // Sem APP_DOMAIN (dev local), retorna o path relativo como antes.
+    // Gera URL de acesso de acordo com o esquema do ambiente:
+    // - Produção (subdomain-based): https://empresa.fluxiva.com.br
+    // - Staging (path-based):       https://staging.fluxiva.com.br/empresa
+    // - Dev local:                  /empresa (caminho relativo)
     const appDomain = (process.env.APP_DOMAIN || "").trim();
+    const isStaging = process.env.NODE_ENV === "staging";
     const accessUrl = appDomain
-      ? `https://${slugNorm}.${appDomain}`
+      ? isStaging
+        ? `https://${appDomain}/${slugNorm}`  // staging: host único + path
+        : `https://${slugNorm}.${appDomain}`  // produção: subdomínio por empresa
       : `/${slugNorm}`;
 
     res.status(201).json({

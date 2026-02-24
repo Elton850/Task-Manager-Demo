@@ -422,16 +422,18 @@ router.post("/", async (req: Request, res: Response): Promise<void> => {
         competenciaYm = mustString(body.competenciaYm, "Competência");
         recorrencia = mustString(body.recorrencia, "Recorrência");
         tipo = mustString(body.tipo, "Tipo");
-        const rule = await db.prepare("SELECT allowed_recorrencias FROM rules WHERE tenant_id = ? AND area = ?")
-          .get(tenantId, area) as { allowed_recorrencias: string } | undefined;
+        const rule = await db.prepare("SELECT allowed_recorrencias, custom_recorrencias FROM rules WHERE tenant_id = ? AND area = ?")
+          .get(tenantId, area) as { allowed_recorrencias: string; custom_recorrencias?: string | null } | undefined;
         if (!rule) {
           res.status(400).json({ error: "Nenhuma regra configurada para sua área. Contate o ADMIN.", code: "NO_RULE" });
           return;
         }
         const allowed: string[] = JSON.parse(rule.allowed_recorrencias || "[]");
-        if (!allowed.includes(recorrencia)) {
+        const custom: string[] = JSON.parse(rule.custom_recorrencias || "[]");
+        const allowedAll = [...allowed, ...custom];
+        if (!allowedAll.includes(recorrencia)) {
           res.status(400).json({
-            error: `Recorrência "${recorrencia}" não permitida para sua área. Permitidas: ${allowed.join(", ")}`,
+            error: `Recorrência "${recorrencia}" não permitida para sua área. Permitidas: ${allowedAll.join(", ")}`,
             code: "RECORRENCIA_NOT_ALLOWED",
           });
           return;

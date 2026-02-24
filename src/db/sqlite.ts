@@ -198,6 +198,10 @@ try {
     rawDb.exec("ALTER TABLE rules ADD COLUMN custom_tipos TEXT");
   if (!rulesCols.some((c) => c.name === "default_tipos"))
     rawDb.exec("ALTER TABLE rules ADD COLUMN default_tipos TEXT");
+  if (!rulesCols.some((c) => c.name === "custom_recorrencias"))
+    rawDb.exec("ALTER TABLE rules ADD COLUMN custom_recorrencias TEXT");
+  if (!rulesCols.some((c) => c.name === "default_recorrencias"))
+    rawDb.exec("ALTER TABLE rules ADD COLUMN default_recorrencias TEXT");
 } catch { /* ignorar */ }
 
 // Limpeza: remover filtro de tipos que possa ter sido definido pelo admin mestre; ficam só tipos globais + customTipos (Leader)
