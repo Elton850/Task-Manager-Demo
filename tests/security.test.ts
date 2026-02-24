@@ -1,6 +1,9 @@
 /**
  * Testes de segurança: isolamento multi-tenant, autenticação, autorização,
  * CSRF, CORS, proteção contra IDOR e bypass.
+ *
+ * Requer tenant "demo" no banco (criado automaticamente no setup se não existir),
+ * para que rotas com X-Tenant-Slug: demo atinjam auth/CSRF em vez de 404.
  */
 import request from "supertest";
 import { v4 as uuidv4 } from "uuid";
@@ -9,6 +12,19 @@ import db from "../src/db";
 import { signToken } from "../src/middleware/auth";
 
 const DEMO_SLUG = "demo";
+
+/** Garante que o tenant "demo" existe (cria se não existir). Funciona com SQLite e PostgreSQL. */
+async function ensureDemoTenant(): Promise<void> {
+  const row = await Promise.resolve(
+    db.prepare("SELECT id FROM tenants WHERE slug = ?").get(DEMO_SLUG)
+  ) as { id: string } | undefined;
+  if (row) return;
+  const id = uuidv4();
+  const now = new Date().toISOString();
+  await Promise.resolve(
+    db.prepare("INSERT INTO tenants (id, slug, name, active, created_at) VALUES (?, ?, ?, 1, ?)").run(id, DEMO_SLUG, "Empresa Demo", now)
+  );
+}
 
 function getCsrfCookieAndToken(): Promise<{ cookie: string; token: string }> {
   return request(app)
@@ -57,6 +73,10 @@ describe("Segurança - Endpoints públicos", () => {
 });
 
 describe("Segurança - Autenticação obrigatória", () => {
+  beforeAll(async () => {
+    await ensureDemoTenant();
+  });
+
   it("GET /api/tasks sem auth retorna 401", async () => {
     const { cookie, token } = await getCsrfCookieAndToken();
     const res = await request(app)
@@ -94,6 +114,10 @@ describe("Segurança - Autenticação obrigatória", () => {
 });
 
 describe("Segurança - CSRF", () => {
+  beforeAll(async () => {
+    await ensureDemoTenant();
+  });
+
   it("POST mutação sem token CSRF retorna 403", async () => {
     const res = await request(app)
       .post("/api/auth/logout")
@@ -134,35 +158,49 @@ describe("Segurança - Tenant isolation (IDOR)", () => {
   let csrfTokenVal: string;
   let demoToken: string;
 
-  beforeAll(() => {
-    const demo = db.prepare("SELECT id FROM tenants WHERE slug = ?").get(DEMO_SLUG) as { id: string } | undefined;
+  beforeAll(async () => {
+    await ensureDemoTenant();
+    const demo = await Promise.resolve(
+      db.prepare("SELECT id FROM tenants WHERE slug = ?").get(DEMO_SLUG)
+    ) as { id: string } | undefined;
     if (!demo) throw new Error("Tenant demo não encontrado. Rode o seed.");
     demoTenantId = demo.id;
 
-    let other = db.prepare("SELECT id FROM tenants WHERE slug = ?").get("other") as { id: string } | undefined;
+    let other = await Promise.resolve(
+      db.prepare("SELECT id FROM tenants WHERE slug = ?").get("other")
+    ) as { id: string } | undefined;
     if (!other) {
       otherTenantId = uuidv4();
-      db.prepare("INSERT INTO tenants (id, slug, name, active, created_at) VALUES (?, ?, ?, 1, datetime('now'))")
-        .run(otherTenantId, "other", "Other Tenant");
+      const now = new Date().toISOString();
+      await Promise.resolve(
+        db.prepare("INSERT INTO tenants (id, slug, name, active, created_at) VALUES (?, ?, ?, 1, ?)").run(otherTenantId, "other", "Other Tenant", now)
+      );
       const taskId = uuidv4();
       const adminEmail = "admin@demo.com";
-      db.prepare(`
-        INSERT INTO tasks (id, tenant_id, competencia_ym, recorrencia, tipo, atividade,
-          responsavel_email, responsavel_nome, area, created_at, created_by, updated_at, updated_by)
-        VALUES (?, ?, ?, 'Mensal', 'Rotina', 'Task outro tenant', ?, 'Admin', 'TI', datetime('now'), ?, datetime('now'), ?)
-      `).run(taskId, otherTenantId, "2024-01", adminEmail, adminEmail, adminEmail);
-      taskIdOther = taskId;
-    } else {
-      otherTenantId = other.id;
-      let row = db.prepare("SELECT id FROM tasks WHERE tenant_id = ? LIMIT 1").get(otherTenantId) as { id: string } | undefined;
-      if (!row) {
-        const taskId = uuidv4();
-        const adminEmail = "admin@demo.com";
+      await Promise.resolve(
         db.prepare(`
           INSERT INTO tasks (id, tenant_id, competencia_ym, recorrencia, tipo, atividade,
             responsavel_email, responsavel_nome, area, created_at, created_by, updated_at, updated_by)
-          VALUES (?, ?, ?, 'Mensal', 'Rotina', 'Task outro tenant', ?, 'Admin', 'TI', datetime('now'), ?, datetime('now'), ?)
-        `).run(taskId, otherTenantId, "2024-01", adminEmail, adminEmail, adminEmail);
+          VALUES (?, ?, ?, 'Mensal', 'Rotina', 'Task outro tenant', ?, 'Admin', 'TI', ?, ?, ?, ?)
+        `).run(taskId, otherTenantId, "2024-01", adminEmail, adminEmail, now, adminEmail, now, adminEmail)
+      );
+      taskIdOther = taskId;
+    } else {
+      otherTenantId = other.id;
+      let row = await Promise.resolve(
+        db.prepare("SELECT id FROM tasks WHERE tenant_id = ? LIMIT 1").get(otherTenantId)
+      ) as { id: string } | undefined;
+      if (!row) {
+        const taskId = uuidv4();
+        const adminEmail = "admin@demo.com";
+        const now = new Date().toISOString();
+        await Promise.resolve(
+          db.prepare(`
+            INSERT INTO tasks (id, tenant_id, competencia_ym, recorrencia, tipo, atividade,
+              responsavel_email, responsavel_nome, area, created_at, created_by, updated_at, updated_by)
+            VALUES (?, ?, ?, 'Mensal', 'Rotina', 'Task outro tenant', ?, 'Admin', 'TI', ?, ?, ?, ?)
+          `).run(taskId, otherTenantId, "2024-01", adminEmail, adminEmail, now, adminEmail, now, adminEmail)
+        );
         taskIdOther = taskId;
       } else {
         taskIdOther = row.id;
@@ -249,8 +287,11 @@ describe("Segurança - Autorização (role)", () => {
   let csrfTokenVal: string;
   let userToken: string;
 
-  beforeAll(() => {
-    const demo = db.prepare("SELECT id FROM tenants WHERE slug = ?").get(DEMO_SLUG) as { id: string } | undefined;
+  beforeAll(async () => {
+    await ensureDemoTenant();
+    const demo = await Promise.resolve(
+      db.prepare("SELECT id FROM tenants WHERE slug = ?").get(DEMO_SLUG)
+    ) as { id: string } | undefined;
     if (!demo) throw new Error("Tenant demo não encontrado.");
     userToken = signToken({
       id: "user-1",
