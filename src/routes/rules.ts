@@ -9,6 +9,20 @@ router.use(requireAuth);
 
 const SYSTEM_TENANT_SLUG = "system";
 
+function safeJsonParse<T>(str: string | null | undefined, fallback: T): unknown {
+  if (str == null || str === "") return fallback;
+  try {
+    return JSON.parse(str) as unknown;
+  } catch {
+    return fallback;
+  }
+}
+
+function isMissingColumnsError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return /custom_recorrencias|default_recorrencias|does not exist|column.*not exist/i.test(msg);
+}
+
 function isSystemAdmin(req: Request): boolean {
   return !!(req.user && req.tenant?.slug === SYSTEM_TENANT_SLUG && req.user.role === "ADMIN");
 }
@@ -36,29 +50,29 @@ function rowToRule(row: RuleDbRow) {
   const allowedTipos =
     row.allowed_tipos == null || row.allowed_tipos === ""
       ? undefined
-      : (JSON.parse(row.allowed_tipos) as string[]);
+      : safeJsonParse(row.allowed_tipos, []) as string[];
   const customTipos =
     row.custom_tipos == null || row.custom_tipos === ""
       ? undefined
-      : (JSON.parse(row.custom_tipos) as string[]);
+      : (safeJsonParse(row.custom_tipos, []) as string[]);
   const defaultTipos =
     row.default_tipos == null || row.default_tipos === ""
       ? undefined
-      : (JSON.parse(row.default_tipos) as string[]);
+      : (safeJsonParse(row.default_tipos, []) as string[]);
   const customRecorrencias =
-    row.custom_recorrencias == null || row.custom_recorrencias === ""
+    (row as Record<string, unknown>).custom_recorrencias == null || (row as Record<string, unknown>).custom_recorrencias === ""
       ? undefined
-      : (JSON.parse(row.custom_recorrencias) as string[]);
+      : (safeJsonParse((row as Record<string, unknown>).custom_recorrencias as string, []) as string[]);
   const defaultRecorrencias =
-    row.default_recorrencias == null || row.default_recorrencias === ""
+    (row as Record<string, unknown>).default_recorrencias == null || (row as Record<string, unknown>).default_recorrencias === ""
       ? undefined
-      : (JSON.parse(row.default_recorrencias) as string[]);
+      : (safeJsonParse((row as Record<string, unknown>).default_recorrencias as string, []) as string[]);
   return {
     id: row.id,
     tenantId: row.tenant_id,
     area: row.area,
-    allowedRecorrencias: JSON.parse(row.allowed_recorrencias || "[]") as string[],
-    allowedTipos,
+    allowedRecorrencias: (safeJsonParse(row.allowed_recorrencias || "[]", []) as string[]),
+    allowedTipos: allowedTipos ?? undefined,
     customTipos: customTipos ?? [],
     defaultTipos: defaultTipos ?? [],
     customRecorrencias: customRecorrencias ?? [],
@@ -143,16 +157,39 @@ router.put("/for-tenant", async (req: Request, res: Response): Promise<void> => 
           ? JSON.stringify(defaultRecorrencias)
           : "[]";
 
-    if (existingRow) {
-      await db.prepare(`
-        UPDATE rules SET allowed_recorrencias = ?, allowed_tipos = ?, custom_tipos = ?, default_tipos = ?, custom_recorrencias = ?, default_recorrencias = ?, updated_at = ?, updated_by = ?
-        WHERE tenant_id = ? AND area = ?
-      `).run(allowedJson, allowedTiposJson, customTiposJson, defaultTiposJson, customRecorrenciasJson, defaultRecorrenciasJson, now, req.user!.email, tenantId, area);
-    } else {
-      await db.prepare(`
-        INSERT INTO rules (id, tenant_id, area, allowed_recorrencias, allowed_tipos, custom_tipos, default_tipos, custom_recorrencias, default_recorrencias, updated_at, updated_by)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(uuidv4(), tenantId, area, allowedJson, allowedTiposJson, customTiposJson, defaultTiposJson, customRecorrenciasJson, defaultRecorrenciasJson, now, req.user!.email);
+    const runUpsert = (withRecorrenciasCols: boolean) => {
+      if (existingRow) {
+        if (withRecorrenciasCols) {
+          return db.prepare(`
+            UPDATE rules SET allowed_recorrencias = ?, allowed_tipos = ?, custom_tipos = ?, default_tipos = ?, custom_recorrencias = ?, default_recorrencias = ?, updated_at = ?, updated_by = ?
+            WHERE tenant_id = ? AND area = ?
+          `).run(allowedJson, allowedTiposJson, customTiposJson, defaultTiposJson, customRecorrenciasJson, defaultRecorrenciasJson, now, req.user!.email, tenantId, area);
+        }
+        return db.prepare(`
+          UPDATE rules SET allowed_recorrencias = ?, allowed_tipos = ?, custom_tipos = ?, default_tipos = ?, updated_at = ?, updated_by = ?
+          WHERE tenant_id = ? AND area = ?
+        `).run(allowedJson, allowedTiposJson, customTiposJson, defaultTiposJson, now, req.user!.email, tenantId, area);
+      }
+      if (withRecorrenciasCols) {
+        return db.prepare(`
+          INSERT INTO rules (id, tenant_id, area, allowed_recorrencias, allowed_tipos, custom_tipos, default_tipos, custom_recorrencias, default_recorrencias, updated_at, updated_by)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(uuidv4(), tenantId, area, allowedJson, allowedTiposJson, customTiposJson, defaultTiposJson, customRecorrenciasJson, defaultRecorrenciasJson, now, req.user!.email);
+      }
+      return db.prepare(`
+        INSERT INTO rules (id, tenant_id, area, allowed_recorrencias, allowed_tipos, custom_tipos, default_tipos, updated_at, updated_by)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(uuidv4(), tenantId, area, allowedJson, allowedTiposJson, customTiposJson, defaultTiposJson, now, req.user!.email);
+    };
+
+    try {
+      await runUpsert(true);
+    } catch (err) {
+      if (isMissingColumnsError(err)) {
+        await runUpsert(false);
+      } else {
+        throw err;
+      }
     }
 
     const updated = await db.prepare("SELECT * FROM rules WHERE tenant_id = ? AND area = ?")
@@ -162,7 +199,8 @@ router.put("/for-tenant", async (req: Request, res: Response): Promise<void> => 
       return;
     }
     res.json({ rule: rowToRule(updated) });
-  } catch {
+  } catch (err) {
+    console.error("[rules] PUT /for-tenant:", err);
     res.status(500).json({ error: "Erro ao salvar regra.", code: "INTERNAL" });
   }
 });
@@ -278,16 +316,39 @@ router.put("/", async (req: Request, res: Response): Promise<void> => {
           ? JSON.stringify(defaultRecorrencias)
           : "[]";
 
-    if (existing) {
-      await db.prepare(`
-        UPDATE rules SET allowed_recorrencias = ?, allowed_tipos = ?, custom_tipos = ?, default_tipos = ?, custom_recorrencias = ?, default_recorrencias = ?, updated_at = ?, updated_by = ?
-        WHERE tenant_id = ? AND area = ?
-      `).run(allowedJson, allowedTiposJson, customTiposJson, defaultTiposJson, customRecorrenciasJson, defaultRecorrenciasJson, now, user.email, tenantId, area);
-    } else {
-      await db.prepare(`
-        INSERT INTO rules (id, tenant_id, area, allowed_recorrencias, allowed_tipos, custom_tipos, default_tipos, custom_recorrencias, default_recorrencias, updated_at, updated_by)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `).run(uuidv4(), tenantId, area, allowedJson, allowedTiposJson, customTiposJson, defaultTiposJson, customRecorrenciasJson, defaultRecorrenciasJson, now, user.email);
+    const runUpsert = (withRecorrenciasCols: boolean) => {
+      if (existing) {
+        if (withRecorrenciasCols) {
+          return db.prepare(`
+            UPDATE rules SET allowed_recorrencias = ?, allowed_tipos = ?, custom_tipos = ?, default_tipos = ?, custom_recorrencias = ?, default_recorrencias = ?, updated_at = ?, updated_by = ?
+            WHERE tenant_id = ? AND area = ?
+          `).run(allowedJson, allowedTiposJson, customTiposJson, defaultTiposJson, customRecorrenciasJson, defaultRecorrenciasJson, now, user.email, tenantId, area);
+        }
+        return db.prepare(`
+          UPDATE rules SET allowed_recorrencias = ?, allowed_tipos = ?, custom_tipos = ?, default_tipos = ?, updated_at = ?, updated_by = ?
+          WHERE tenant_id = ? AND area = ?
+        `).run(allowedJson, allowedTiposJson, customTiposJson, defaultTiposJson, now, user.email, tenantId, area);
+      }
+      if (withRecorrenciasCols) {
+        return db.prepare(`
+          INSERT INTO rules (id, tenant_id, area, allowed_recorrencias, allowed_tipos, custom_tipos, default_tipos, custom_recorrencias, default_recorrencias, updated_at, updated_by)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).run(uuidv4(), tenantId, area, allowedJson, allowedTiposJson, customTiposJson, defaultTiposJson, customRecorrenciasJson, defaultRecorrenciasJson, now, user.email);
+      }
+      return db.prepare(`
+        INSERT INTO rules (id, tenant_id, area, allowed_recorrencias, allowed_tipos, custom_tipos, default_tipos, updated_at, updated_by)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(uuidv4(), tenantId, area, allowedJson, allowedTiposJson, customTiposJson, defaultTiposJson, now, user.email);
+    };
+
+    try {
+      await runUpsert(true);
+    } catch (err) {
+      if (isMissingColumnsError(err)) {
+        await runUpsert(false);
+      } else {
+        throw err;
+      }
     }
 
     const updated = await db.prepare("SELECT * FROM rules WHERE tenant_id = ? AND area = ?")
@@ -297,7 +358,8 @@ router.put("/", async (req: Request, res: Response): Promise<void> => {
       return;
     }
     res.json({ rule: rowToRule(updated) });
-  } catch {
+  } catch (err) {
+    console.error("[rules] PUT /:", err);
     res.status(500).json({ error: "Erro ao salvar regra.", code: "INTERNAL" });
   }
 });

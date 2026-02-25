@@ -9,6 +9,8 @@
 --
 -- Se você já tem o schema antigo (sem allowed_tipos/custom_tipos em rules):
 --   Execute scripts/supabase-migration-rules-tipos.sql antes de atualizar o backend.
+-- Se a migração SQLite→Supabase falhar em rules com "custom_recorrencias does not exist":
+--   Execute scripts/supabase-migration-rules-recorrencias.sql no SQL Editor do Supabase.
 --
 -- Convenções:
 --   - snake_case idêntico ao SQLite para facilitar migração de dados e código.
@@ -100,15 +102,17 @@ CREATE TABLE IF NOT EXISTS lookups (
 
 -- ─── rules ───────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS rules (
-  id                   TEXT PRIMARY KEY,
-  tenant_id            TEXT NOT NULL REFERENCES tenants(id),
-  area                 TEXT NOT NULL,
-  allowed_recorrencias TEXT NOT NULL DEFAULT '[]',
-  allowed_tipos        TEXT,   -- JSON array: tipos globais permitidos para a área (NULL = todos)
-  custom_tipos         TEXT,   -- JSON array: tipos criados só para esta área (Leader/Admin)
-  default_tipos        TEXT,   -- JSON array: subset de custom_tipos que são "tipos padrão" (para excluir só esses)
-  updated_at           TEXT NOT NULL DEFAULT (now() AT TIME ZONE 'UTC')::TEXT,
-  updated_by           TEXT NOT NULL,
+  id                    TEXT PRIMARY KEY,
+  tenant_id             TEXT NOT NULL REFERENCES tenants(id),
+  area                  TEXT NOT NULL,
+  allowed_recorrencias  TEXT NOT NULL DEFAULT '[]',
+  allowed_tipos         TEXT,   -- JSON array: tipos globais permitidos para a área (NULL = todos)
+  custom_tipos          TEXT,   -- JSON array: tipos criados só para esta área (Leader/Admin)
+  default_tipos         TEXT,   -- JSON array: subset de custom_tipos que são "tipos padrão"
+  custom_recorrencias   TEXT,   -- JSON array: recorrências criadas só para esta área (equivalente SQLite)
+  default_recorrencias  TEXT,   -- JSON array: recorrências padrão (equivalente SQLite)
+  updated_at            TEXT NOT NULL DEFAULT (now() AT TIME ZONE 'UTC')::TEXT,
+  updated_by            TEXT NOT NULL,
   UNIQUE(tenant_id, area)
 );
 

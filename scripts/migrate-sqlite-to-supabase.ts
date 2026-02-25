@@ -280,12 +280,25 @@ const TABLES: Array<{ name: string; columns: string[]; orderBy?: string; conflic
   },
 ];
 
-// ─── Verificação de colunas no SQLite (tolerância a migrations) ───────────────
+// ─── Verificação de colunas (SQLite e Supabase) ───────────────────────────────
 
 function getExistingColumns(sqlite: DatabaseSync, tableName: string): string[] {
   try {
     const cols = sqlite.prepare(`PRAGMA table_info(${tableName})`).all() as { name: string }[];
     return cols.map(c => c.name);
+  } catch {
+    return [];
+  }
+}
+
+/** Colunas que existem na tabela no Supabase (evita erro "column does not exist"). */
+async function getSupabaseColumns(pg: Pool, tableName: string): Promise<string[]> {
+  try {
+    const res = await pg.query(
+      `SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = $1 ORDER BY ordinal_position`,
+      [tableName]
+    );
+    return res.rows.map((r: { column_name: string }) => r.column_name);
   } catch {
     return [];
   }
@@ -341,10 +354,13 @@ async function main() {
     process.stdout.write(`  ${table.name}... `);
 
     const existingCols = getExistingColumns(sqlite, table.name);
-    const cols = table.columns.filter(c => existingCols.includes(c));
+    const supabaseCols = await getSupabaseColumns(pg, table.name);
+    const cols = table.columns.filter(
+      c => existingCols.includes(c) && supabaseCols.includes(c)
+    );
 
     if (cols.length === 0) {
-      console.log("tabela não encontrada no SQLite — pulando.");
+      console.log("tabela não encontrada no SQLite ou sem colunas em comum com Supabase — pulando.");
       continue;
     }
 
@@ -408,7 +424,8 @@ async function main() {
     console.log("");
     console.log("⚠  Há divergências de contagem. Verifique os erros acima.");
     console.log("   Possíveis causas: conflitos de chave primária (dados já existiam),");
-    console.log("   erros de FK, ou colunas ausentes no SQLite de origem.");
+    console.log("   erros de FK, ou colunas ausentes no Supabase (ex.: rules).");
+    console.log("   Para rules: execute scripts/supabase-migration-rules-recorrencias.sql no SQL Editor do Supabase e rode a migração de novo.");
     console.log("   Re-execute o script para tentar novamente (é idempotente).");
   } else {
     console.log("");

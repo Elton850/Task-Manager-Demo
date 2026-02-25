@@ -106,13 +106,16 @@ export default function RulesManager({ rules, lookups, onRefresh, tenantSlug }: 
   ) => {
     setSaving(area);
     try {
+      const rule = rules.find(r => r.area === area);
       const payload: {
         allowedRecorrencias: string[];
         customTipos?: string[];
         defaultTipos?: string[];
         customRecorrencias?: string[];
         defaultRecorrencias?: string[];
-      } = { allowedRecorrencias: [] };
+      } = {
+        allowedRecorrencias: rule?.allowedRecorrencias ?? [],
+      };
       if (showTiposSection) {
         payload.customTipos = payloadOverride?.customTipos ?? (customTiposByArea[area] || []);
         payload.defaultTipos = payloadOverride?.defaultTipos ?? (defaultTiposByArea[area] || []);
@@ -145,7 +148,7 @@ export default function RulesManager({ rules, lookups, onRefresh, tenantSlug }: 
     const newDefault = [...new Set([...currentDefault, ...toAdd])];
     setCustomTiposByArea(prev => ({ ...prev, [area]: newCustom }));
     setDefaultTiposByArea(prev => ({ ...prev, [area]: newDefault }));
-    handleSave(area, { customTipos: newCustom, defaultTipos: newDefault });
+    toast("Tipos adicionados. Clique em Salvar para gravar as alterações.", "info");
   };
 
   const removeOnlyDefaultTipos = (area: string) => {
@@ -158,7 +161,7 @@ export default function RulesManager({ rules, lookups, onRefresh, tenantSlug }: 
     const newCustom = current.filter(t => !currentDefault.includes(t));
     setCustomTiposByArea(prev => ({ ...prev, [area]: newCustom }));
     setDefaultTiposByArea(prev => ({ ...prev, [area]: [] }));
-    handleSave(area, { customTipos: newCustom, defaultTipos: [] });
+    toast("Tipos removidos da lista. Clique em Salvar para gravar as alterações.", "info");
   };
 
   const loadDefaultRecorrencias = (area: string) => {
@@ -173,7 +176,7 @@ export default function RulesManager({ rules, lookups, onRefresh, tenantSlug }: 
     const newDefault = [...new Set([...currentDefault, ...toAdd])];
     setCustomRecorrenciasByArea(prev => ({ ...prev, [area]: newCustom }));
     setDefaultRecorrenciasByArea(prev => ({ ...prev, [area]: newDefault }));
-    handleSave(area, { customRecorrencias: newCustom, defaultRecorrencias: newDefault });
+    toast("Recorrências adicionadas. Clique em Salvar para gravar as alterações.", "info");
   };
 
   const removeOnlyDefaultRecorrencias = (area: string) => {
@@ -186,7 +189,7 @@ export default function RulesManager({ rules, lookups, onRefresh, tenantSlug }: 
     const newCustom = current.filter(r => !currentDefault.includes(r));
     setCustomRecorrenciasByArea(prev => ({ ...prev, [area]: newCustom }));
     setDefaultRecorrenciasByArea(prev => ({ ...prev, [area]: [] }));
-    handleSave(area, { customRecorrencias: newCustom, defaultRecorrencias: [] });
+    toast("Recorrências removidas da lista. Clique em Salvar para gravar as alterações.", "info");
   };
 
   return (
