@@ -7,6 +7,14 @@ import db from "../db";
 import { requireAuth, requireRole, optionalAuth } from "../middleware/auth";
 import { nowIso } from "../utils";
 import { getDefaultTiposList } from "../constants/defaultTipos";
+import {
+  shouldUseStorage,
+  isStorageKey,
+  uploadFile,
+  downloadFile,
+  deleteFile,
+  BUCKET_LOGOS,
+} from "../services/supabase-storage";
 
 const router = Router();
 const uploadsBaseDir = path.resolve(process.cwd(), "data", "uploads");
@@ -70,6 +78,26 @@ router.get("/logo/:slug", async (req: Request, res: Response): Promise<void> => 
       res.status(404).end();
       return;
     }
+
+    if (isStorageKey(row.logo_path)) {
+      // Logo no Supabase Storage
+      try {
+        const fileBuffer = await downloadFile(BUCKET_LOGOS, row.logo_path);
+        const ext = path.extname(row.logo_path).toLowerCase();
+        const mime = ext === ".png" ? "image/png" : ext === ".gif" ? "image/gif" : ext === ".webp" ? "image/webp" : "image/jpeg";
+        res.setHeader("Content-Type", mime);
+        res.setHeader("Cache-Control", "private, max-age=0, must-revalidate");
+        res.setHeader("Content-Length", fileBuffer.length);
+        res.send(fileBuffer);
+      } catch (storageErr) {
+        const msg = storageErr instanceof Error ? storageErr.message : "Erro no Storage.";
+        console.error("[tenants] Falha ao baixar logo do Storage:", msg);
+        res.status(500).end();
+      }
+      return;
+    }
+
+    // Logo em disco (registros antigos)
     const absolutePath = path.resolve(process.cwd(), row.logo_path);
     const allowedDir = path.resolve(uploadsBaseDir, TENANT_LOGOS_DIR);
     if (!absolutePath.startsWith(allowedDir + path.sep) && absolutePath !== allowedDir) {
@@ -283,14 +311,31 @@ router.post("/:id/logo", optionalAuth, async (req: Request, res: Response): Prom
       return;
     }
     const ext = mime === "image/png" ? ".png" : mime === "image/gif" ? ".gif" : mime === "image/webp" ? ".webp" : ".jpg";
-    const logoDir = path.join(uploadsBaseDir, TENANT_LOGOS_DIR, tenantId);
-    fs.mkdirSync(logoDir, { recursive: true });
-    const logoFileName = `logo${ext}`;
-    const absolutePath = path.join(logoDir, logoFileName);
-    fs.writeFileSync(absolutePath, buffer);
-    const relativePath = path.relative(process.cwd(), absolutePath).replaceAll("\\", "/");
-    await db.prepare("UPDATE tenants SET logo_path = ?, logo_updated_at = datetime('now') WHERE id = ?").run(relativePath, tenantId);
-    res.json({ ok: true, logoPath: relativePath });
+
+    let storedPath: string;
+    if (shouldUseStorage()) {
+      // Produção / staging: grava no Supabase Storage do ambiente atual
+      const storageKey = `${tenantId}/logo${ext}`;
+      try {
+        storedPath = await uploadFile(BUCKET_LOGOS, storageKey, buffer, mime);
+      } catch (storageErr) {
+        const msg = storageErr instanceof Error ? storageErr.message : "Erro no Storage.";
+        console.error("[tenants] Falha no upload do logo ao Storage:", msg);
+        res.status(500).json({ error: "Falha ao armazenar o logo. Tente novamente.", code: "STORAGE_ERROR" });
+        return;
+      }
+    } else {
+      // Desenvolvimento: grava em disco local
+      const logoDir = path.join(uploadsBaseDir, TENANT_LOGOS_DIR, tenantId);
+      fs.mkdirSync(logoDir, { recursive: true });
+      const logoFileName = `logo${ext}`;
+      const absolutePath = path.join(logoDir, logoFileName);
+      fs.writeFileSync(absolutePath, buffer);
+      storedPath = path.relative(process.cwd(), absolutePath).replaceAll("\\", "/");
+    }
+
+    await db.prepare("UPDATE tenants SET logo_path = ?, logo_updated_at = datetime('now') WHERE id = ?").run(storedPath, tenantId);
+    res.json({ ok: true, logoPath: storedPath });
   } catch {
     res.status(500).json({ error: "Erro ao salvar logo.", code: "INTERNAL" });
   }
@@ -307,10 +352,16 @@ router.delete("/:id/logo", optionalAuth, async (req: Request, res: Response): Pr
       return;
     }
     if (tenant.logo_path) {
-      const absolutePath = path.resolve(process.cwd(), tenant.logo_path);
-      const allowedDir = path.resolve(uploadsBaseDir, TENANT_LOGOS_DIR);
-      if (absolutePath.startsWith(allowedDir + path.sep) && fs.existsSync(absolutePath)) {
-        fs.unlinkSync(absolutePath);
+      if (isStorageKey(tenant.logo_path)) {
+        // Logo no Supabase Storage
+        await deleteFile(BUCKET_LOGOS, tenant.logo_path);
+      } else {
+        // Logo em disco (registros antigos)
+        const absolutePath = path.resolve(process.cwd(), tenant.logo_path);
+        const allowedDir = path.resolve(uploadsBaseDir, TENANT_LOGOS_DIR);
+        if (absolutePath.startsWith(allowedDir + path.sep) && fs.existsSync(absolutePath)) {
+          fs.unlinkSync(absolutePath);
+        }
       }
       await db.prepare("UPDATE tenants SET logo_path = NULL, logo_updated_at = datetime('now') WHERE id = ?").run(tenantId);
     }

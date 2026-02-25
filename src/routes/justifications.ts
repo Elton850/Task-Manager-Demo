@@ -5,6 +5,14 @@ import path from "path";
 import db from "../db";
 import { requireAuth } from "../middleware/auth";
 import { mustString, optStr, nowIso } from "../utils";
+import {
+  shouldUseStorage,
+  isStorageKey,
+  uploadFile,
+  downloadFile,
+  deleteFile,
+  BUCKET_EVIDENCES,
+} from "../services/supabase-storage";
 
 const router = Router();
 router.use(requireAuth);
@@ -491,17 +499,34 @@ router.post("/:id/evidences", async (req: Request, res: Response): Promise<void>
     }
     const evidenceId = uuidv4();
     const safeName = sanitizeFileName(fileName);
-    const dir = path.join(uploadsBaseDir, tenantId, JUSTIFICATION_UPLOAD_DIR, justificationId);
-    fs.mkdirSync(dir, { recursive: true });
-    const diskName = `${evidenceId}_${safeName}`;
-    const absolutePath = path.join(dir, diskName);
-    fs.writeFileSync(absolutePath, fileBuffer);
-    const relativePath = path.relative(process.cwd(), absolutePath).replaceAll("\\", "/");
     const now = nowIso();
+
+    let storedPath: string;
+    if (shouldUseStorage()) {
+      // Produção / staging: grava no Supabase Storage do ambiente atual
+      const storageKey = `${tenantId}/justifications/${justificationId}/${evidenceId}_${safeName}`;
+      try {
+        storedPath = await uploadFile(BUCKET_EVIDENCES, storageKey, fileBuffer, mimeType);
+      } catch (storageErr) {
+        const msg = storageErr instanceof Error ? storageErr.message : "Erro no Storage.";
+        console.error("[justifications] Falha no upload ao Storage:", msg);
+        res.status(500).json({ error: "Falha ao armazenar o arquivo. Tente novamente.", code: "STORAGE_ERROR" });
+        return;
+      }
+    } else {
+      // Desenvolvimento: grava em disco local
+      const dir = path.join(uploadsBaseDir, tenantId, JUSTIFICATION_UPLOAD_DIR, justificationId);
+      fs.mkdirSync(dir, { recursive: true });
+      const diskName = `${evidenceId}_${safeName}`;
+      const absolutePath = path.join(dir, diskName);
+      fs.writeFileSync(absolutePath, fileBuffer);
+      storedPath = path.relative(process.cwd(), absolutePath).replaceAll("\\", "/");
+    }
+
     await db.prepare(`
       INSERT INTO justification_evidences (id, tenant_id, justification_id, file_name, file_path, mime_type, file_size, uploaded_at, uploaded_by)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(evidenceId, tenantId, justificationId, fileName, relativePath, mimeType, fileBuffer.length, now, user.email);
+    `).run(evidenceId, tenantId, justificationId, fileName, storedPath, mimeType, fileBuffer.length, now, user.email);
     const ev = await db.prepare("SELECT * FROM justification_evidences WHERE id = ?").get(evidenceId) as JustificationEvidenceRow;
     res.status(201).json({
       evidence: {
@@ -551,25 +576,45 @@ router.get("/:id/evidences/:eid/download", async (req: Request, res: Response): 
       res.status(404).json({ error: "Evidência não encontrada.", code: "NOT_FOUND" });
       return;
     }
-    const absolutePath = path.resolve(process.cwd(), ev.file_path);
-    const baseDir = path.resolve(process.cwd(), "data", "uploads");
-    if (!absolutePath.startsWith(baseDir + path.sep) && absolutePath !== baseDir) {
-      res.status(400).json({ error: "Caminho inválido.", code: "INVALID_PATH" });
-      return;
-    }
-    if (!fs.existsSync(absolutePath)) {
-      res.status(404).json({ error: "Arquivo não encontrado.", code: "FILE_NOT_FOUND" });
-      return;
-    }
     const mime = ev.mime_type || "application/octet-stream";
     const inline = req.query.inline === "1" || String(req.query.inline).toLowerCase() === "true";
     res.setHeader("Content-Type", mime);
     res.setHeader("X-Content-Type-Options", "nosniff");
-    if (inline) {
-      res.setHeader("Content-Disposition", "inline");
-      res.sendFile(absolutePath);
+
+    if (isStorageKey(ev.file_path)) {
+      // Arquivo no Supabase Storage
+      try {
+        const fileBuffer = await downloadFile(BUCKET_EVIDENCES, ev.file_path);
+        if (inline) {
+          res.setHeader("Content-Disposition", "inline");
+        } else {
+          res.setHeader("Content-Disposition", `attachment; filename="${encodeURIComponent(ev.file_name)}"`);
+        }
+        res.setHeader("Content-Length", fileBuffer.length);
+        res.send(fileBuffer);
+      } catch (storageErr) {
+        const msg = storageErr instanceof Error ? storageErr.message : "Erro no Storage.";
+        console.error("[justifications] Falha no download do Storage:", msg);
+        res.status(500).json({ error: "Falha ao baixar o arquivo.", code: "STORAGE_ERROR" });
+      }
     } else {
-      res.download(absolutePath, ev.file_name);
+      // Arquivo em disco (registros antigos)
+      const absolutePath = path.resolve(process.cwd(), ev.file_path);
+      const baseDir = path.resolve(process.cwd(), "data", "uploads");
+      if (!absolutePath.startsWith(baseDir + path.sep) && absolutePath !== baseDir) {
+        res.status(400).json({ error: "Caminho inválido.", code: "INVALID_PATH" });
+        return;
+      }
+      if (!fs.existsSync(absolutePath)) {
+        res.status(404).json({ error: "Arquivo não encontrado.", code: "FILE_NOT_FOUND" });
+        return;
+      }
+      if (inline) {
+        res.setHeader("Content-Disposition", "inline");
+        res.sendFile(absolutePath);
+      } else {
+        res.download(absolutePath, ev.file_name);
+      }
     }
   } catch {
     res.status(500).json({ error: "Erro ao baixar.", code: "INTERNAL" });
@@ -605,8 +650,14 @@ router.delete("/:id/evidences/:eid", async (req: Request, res: Response): Promis
       res.status(404).json({ error: "Evidência não encontrada.", code: "NOT_FOUND" });
       return;
     }
-    const absolutePath = path.resolve(process.cwd(), ev.file_path);
-    if (fs.existsSync(absolutePath)) fs.unlinkSync(absolutePath);
+    if (isStorageKey(ev.file_path)) {
+      // Arquivo no Supabase Storage
+      await deleteFile(BUCKET_EVIDENCES, ev.file_path);
+    } else {
+      // Arquivo em disco (registros antigos)
+      const absolutePath = path.resolve(process.cwd(), ev.file_path);
+      if (fs.existsSync(absolutePath)) fs.unlinkSync(absolutePath);
+    }
     await db.prepare("DELETE FROM justification_evidences WHERE id = ? AND tenant_id = ?").run(evidenceId, tenantId);
     res.json({ ok: true });
   } catch {

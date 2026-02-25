@@ -5,6 +5,14 @@ import path from "path";
 import db from "../db";
 import { requireAuth } from "../middleware/auth";
 import { mustString, optStr, nowIso, calcStatus } from "../utils";
+import {
+  shouldUseStorage,
+  isStorageKey,
+  uploadFile,
+  downloadFile,
+  deleteFile,
+  BUCKET_EVIDENCES,
+} from "../services/supabase-storage";
 
 const router = Router();
 router.use(requireAuth);
@@ -838,14 +846,29 @@ router.post("/:id/evidences", async (req: Request, res: Response): Promise<void>
 
     const evidenceId = uuidv4();
     const safeName = sanitizeFileName(fileName);
-    const tenantDir = path.join(uploadsBaseDir, tenantId, taskId);
-    fs.mkdirSync(tenantDir, { recursive: true });
-    const diskName = `${evidenceId}_${safeName}`;
-    const absolutePath = path.join(tenantDir, diskName);
-    fs.writeFileSync(absolutePath, fileBuffer);
-
-    const relativePath = path.relative(process.cwd(), absolutePath).replaceAll("\\", "/");
     const now = nowIso();
+
+    let storedPath: string;
+    if (shouldUseStorage()) {
+      // Produção / staging: grava no Supabase Storage do ambiente atual
+      const storageKey = `${tenantId}/tasks/${taskId}/${evidenceId}_${safeName}`;
+      try {
+        storedPath = await uploadFile(BUCKET_EVIDENCES, storageKey, fileBuffer, mimeType);
+      } catch (storageErr) {
+        const msg = storageErr instanceof Error ? storageErr.message : "Erro no Storage.";
+        console.error("[tasks] Falha no upload ao Storage:", msg);
+        res.status(500).json({ error: "Falha ao armazenar o arquivo. Tente novamente.", code: "STORAGE_ERROR" });
+        return;
+      }
+    } else {
+      // Desenvolvimento: grava em disco local
+      const tenantDir = path.join(uploadsBaseDir, tenantId, taskId);
+      fs.mkdirSync(tenantDir, { recursive: true });
+      const diskName = `${evidenceId}_${safeName}`;
+      const absolutePath = path.join(tenantDir, diskName);
+      fs.writeFileSync(absolutePath, fileBuffer);
+      storedPath = path.relative(process.cwd(), absolutePath).replaceAll("\\", "/");
+    }
 
     await db.prepare(`
       INSERT INTO task_evidences
@@ -856,7 +879,7 @@ router.post("/:id/evidences", async (req: Request, res: Response): Promise<void>
       tenantId,
       taskId,
       fileName,
-      relativePath,
+      storedPath,
       mimeType,
       fileBuffer.length,
       now,
@@ -909,27 +932,47 @@ router.get("/:id/evidences/:evidenceId/download", async (req: Request, res: Resp
       return;
     }
 
-    const absolutePath = path.resolve(process.cwd(), evidence.file_path);
-    const uploadsBase = path.resolve(process.cwd(), "data", "uploads");
-    if (!absolutePath.startsWith(uploadsBase + path.sep) && absolutePath !== uploadsBase) {
-      res.status(400).json({ error: "Caminho de arquivo inválido.", code: "INVALID_PATH" });
-      return;
-    }
-    if (!fs.existsSync(absolutePath)) {
-      res.status(404).json({ error: "Arquivo não encontrado no disco.", code: "FILE_NOT_FOUND" });
-      return;
-    }
-
     const mime = evidence.mime_type || "application/octet-stream";
     const inline = req.query.inline === "1" || String(req.query.inline).toLowerCase() === "true";
     res.setHeader("Content-Type", mime);
     res.setHeader("X-Content-Type-Options", "nosniff");
-    if (inline) {
-      res.setHeader("Content-Disposition", "inline");
-      res.setHeader("Cache-Control", "private, max-age=3600");
-      res.sendFile(absolutePath);
+
+    if (isStorageKey(evidence.file_path)) {
+      // Arquivo no Supabase Storage
+      try {
+        const fileBuffer = await downloadFile(BUCKET_EVIDENCES, evidence.file_path);
+        if (inline) {
+          res.setHeader("Content-Disposition", "inline");
+          res.setHeader("Cache-Control", "private, max-age=3600");
+        } else {
+          res.setHeader("Content-Disposition", `attachment; filename="${encodeURIComponent(evidence.file_name)}"`);
+        }
+        res.setHeader("Content-Length", fileBuffer.length);
+        res.send(fileBuffer);
+      } catch (storageErr) {
+        const msg = storageErr instanceof Error ? storageErr.message : "Erro no Storage.";
+        console.error("[tasks] Falha no download do Storage:", msg);
+        res.status(500).json({ error: "Falha ao baixar o arquivo.", code: "STORAGE_ERROR" });
+      }
     } else {
-      res.download(absolutePath, evidence.file_name);
+      // Arquivo em disco (registros antigos)
+      const absolutePath = path.resolve(process.cwd(), evidence.file_path);
+      const uploadsBase = path.resolve(process.cwd(), "data", "uploads");
+      if (!absolutePath.startsWith(uploadsBase + path.sep) && absolutePath !== uploadsBase) {
+        res.status(400).json({ error: "Caminho de arquivo inválido.", code: "INVALID_PATH" });
+        return;
+      }
+      if (!fs.existsSync(absolutePath)) {
+        res.status(404).json({ error: "Arquivo não encontrado no disco.", code: "FILE_NOT_FOUND" });
+        return;
+      }
+      if (inline) {
+        res.setHeader("Content-Disposition", "inline");
+        res.setHeader("Cache-Control", "private, max-age=3600");
+        res.sendFile(absolutePath);
+      } else {
+        res.download(absolutePath, evidence.file_name);
+      }
     }
   } catch {
     res.status(500).json({ error: "Erro ao baixar evidência.", code: "INTERNAL" });
@@ -965,9 +1008,15 @@ router.delete("/:id/evidences/:evidenceId", async (req: Request, res: Response):
       return;
     }
 
-    const absolutePath = path.resolve(process.cwd(), evidence.file_path);
-    if (fs.existsSync(absolutePath)) {
-      fs.unlinkSync(absolutePath);
+    if (isStorageKey(evidence.file_path)) {
+      // Arquivo no Supabase Storage
+      await deleteFile(BUCKET_EVIDENCES, evidence.file_path);
+    } else {
+      // Arquivo em disco (registros antigos)
+      const absolutePath = path.resolve(process.cwd(), evidence.file_path);
+      if (fs.existsSync(absolutePath)) {
+        fs.unlinkSync(absolutePath);
+      }
     }
 
     await db.prepare("DELETE FROM task_evidences WHERE id = ? AND tenant_id = ?").run(evidenceId, tenantId);
