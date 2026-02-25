@@ -11,6 +11,7 @@ const RESERVED_SEGMENTS = new Set([
   "justificativas",
   "sistema",
   "logs-acesso",
+  "erro",
 ]);
 
 /**

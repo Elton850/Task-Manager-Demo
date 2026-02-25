@@ -114,6 +114,14 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 
   if (!res.ok) {
     const payload = data as { error?: string; code?: string; meta?: unknown };
+    if (res.status === 404 && payload.code === "TENANT_NOT_FOUND") {
+      if (typeof window !== "undefined" && !window.location.pathname.startsWith("/erro")) {
+        window.location.replace(`${window.location.origin}/erro?tipo=empresa`);
+      }
+      const error = new Error(payload.error || "Empresa não encontrada") as Error & { code?: string };
+      error.code = "TENANT_NOT_FOUND";
+      throw error;
+    }
     if (res.status === 401) {
       const isLoginEndpoint = path === "/auth/login";
       if (isLoginEndpoint) {

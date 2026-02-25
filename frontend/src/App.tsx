@@ -6,6 +6,7 @@ import { ToastProvider } from "@/contexts/ToastContext";
 import { SyncTenantAndBasePath, useBasePath } from "@/contexts/BasePathContext";
 import Layout from "@/components/layout/Layout";
 import LoginPage from "@/pages/LoginPage";
+import ErrorPage from "@/pages/ErrorPage";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import ToastContainer from "@/components/ui/ToastContainer";
 import { setTenantSlug, getTenantSlugFromUrl } from "@/services/api";
@@ -74,11 +75,9 @@ function LayoutIndexRedirect() {
   return <Navigate to={isSystemAdmin ? `${basePath}/sistema` : `${basePath}/calendar`} replace />;
 }
 
-function NotFoundRedirect() {
+function NotFoundToErrorPage() {
   const basePath = useBasePath();
-  const { user, tenant } = useAuth();
-  const isSystemAdmin = tenant?.slug === "system" && user?.role === "ADMIN";
-  return <Navigate to={isSystemAdmin ? `${basePath}/sistema` : `${basePath}/calendar`} replace />;
+  return <Navigate to={`${basePath}/erro?tipo=pagina`} replace />;
 }
 
 /** Rotas para sistema (/) e para tenant (/:tenant) — mesmo conteúdo, basePath vem do pathname em SyncTenantAndBasePath. */
@@ -86,6 +85,7 @@ const appRouteChildren = (
   <>
     <Route index element={<IndexRedirect />} />
     <Route path="login" element={<LoginPage />} />
+    <Route path="erro" element={<ErrorPage />} />
     <Route
       element={
         <ProtectedRoute>
@@ -105,7 +105,7 @@ const appRouteChildren = (
       <Route path="empresas" element={<SystemAdminRoute><Suspense fallback={<LoadingSpinner fullPage />}><CompaniesPage /></Suspense></SystemAdminRoute>} />
       <Route path="empresa" element={<AdminRoute><Suspense fallback={<LoadingSpinner fullPage />}><CompanyPage /></Suspense></AdminRoute>} />
     </Route>
-    <Route path="*" element={<NotFoundRedirect />} />
+    <Route path="*" element={<NotFoundToErrorPage />} />
   </>
 );
 
