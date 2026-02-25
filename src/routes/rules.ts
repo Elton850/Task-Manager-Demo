@@ -182,10 +182,12 @@ router.put("/for-tenant", async (req: Request, res: Response): Promise<void> => 
       `).run(uuidv4(), tenantId, area, allowedJson, allowedTiposJson, customTiposJson, defaultTiposJson, now, req.user!.email);
     };
 
+    let usedLegacySchema = false;
     try {
       await runUpsert(true);
     } catch (err) {
       if (isMissingColumnsError(err)) {
+        usedLegacySchema = true;
         await runUpsert(false);
       } else {
         throw err;
@@ -198,7 +200,9 @@ router.put("/for-tenant", async (req: Request, res: Response): Promise<void> => 
       res.status(500).json({ error: "Erro ao salvar regra.", code: "INTERNAL" });
       return;
     }
-    res.json({ rule: rowToRule(updated) });
+    const body: { rule: ReturnType<typeof rowToRule>; usedLegacySchema?: boolean } = { rule: rowToRule(updated) };
+    if (usedLegacySchema) body.usedLegacySchema = true;
+    res.json(body);
   } catch (err) {
     console.error("[rules] PUT /for-tenant:", err);
     res.status(500).json({ error: "Erro ao salvar regra.", code: "INTERNAL" });
@@ -341,10 +345,12 @@ router.put("/", async (req: Request, res: Response): Promise<void> => {
       `).run(uuidv4(), tenantId, area, allowedJson, allowedTiposJson, customTiposJson, defaultTiposJson, now, user.email);
     };
 
+    let usedLegacySchema = false;
     try {
       await runUpsert(true);
     } catch (err) {
       if (isMissingColumnsError(err)) {
+        usedLegacySchema = true;
         await runUpsert(false);
       } else {
         throw err;
@@ -357,7 +363,9 @@ router.put("/", async (req: Request, res: Response): Promise<void> => {
       res.status(500).json({ error: "Erro ao salvar regra.", code: "INTERNAL" });
       return;
     }
-    res.json({ rule: rowToRule(updated) });
+    const body: { rule: ReturnType<typeof rowToRule>; usedLegacySchema?: boolean } = { rule: rowToRule(updated) };
+    if (usedLegacySchema) body.usedLegacySchema = true;
+    res.json(body);
   } catch (err) {
     console.error("[rules] PUT /:", err);
     res.status(500).json({ error: "Erro ao salvar regra.", code: "INTERNAL" });

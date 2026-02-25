@@ -316,14 +316,19 @@ export default function TaskModal({
 
   const selectableUsers = user?.role === "LEADER" ? users.filter(u => u.area === user.area) : users;
 
-  // Área da tarefa: em edição vem da task; em criação vem do responsável selecionado ou da área do Leader
+  // Área da tarefa: em edição vem da task; em criação vem do responsável selecionado, initialData ou área do usuário (para usar as regras corretas de tipos/recorrência)
   const areaForRecorrencia = task?.area
-    || (user?.role === "LEADER" ? user.area : undefined)
-    || users.find(u => u.email === form.responsavelEmail)?.area;
-  const fromRules = areaForRecorrencia && rules?.find(r => r.area === areaForRecorrencia)?.customRecorrencias;
+    || initialData?.area
+    || users.find(u => u.email === form.responsavelEmail)?.area
+    || user?.area;
+  const ruleForArea = areaForRecorrencia ? rules?.find(r => r.area === areaForRecorrencia) : undefined;
+  const fromRules = ruleForArea?.customRecorrencias;
   const recorrenciaList = (Array.isArray(fromRules) && fromRules.length ? fromRules : allowedRecorrencias) ?? [];
   const recorrenciaOptions = recorrenciaList.map(v => ({ value: v, label: v }));
-  const tipoOptions = (lookups.TIPO || []).map(v => ({ value: v, label: v }));
+  const tipoList = (Array.isArray(ruleForArea?.customTipos) && ruleForArea.customTipos.length > 0)
+    ? ruleForArea.customTipos
+    : (lookups.TIPO || []);
+  const tipoOptions = tipoList.map(v => ({ value: v, label: v }));
   const userOptions = selectableUsers.map(u => ({ value: u.email, label: `${u.nome} (${u.area})` }));
 
   const ymOptions = Array.from({ length: 13 }, (_, i) => {

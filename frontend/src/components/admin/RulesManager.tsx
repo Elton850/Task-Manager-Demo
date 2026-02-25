@@ -122,10 +122,15 @@ export default function RulesManager({ rules, lookups, onRefresh, tenantSlug }: 
         payload.customRecorrencias = payloadOverride?.customRecorrencias ?? (customRecorrenciasByArea[area] || []);
         payload.defaultRecorrencias = payloadOverride?.defaultRecorrencias ?? (defaultRecorrenciasByArea[area] || []);
       }
-      if (tenantSlug) {
-        await rulesApi.saveForTenant(tenantSlug, area, payload);
-      } else {
-        await rulesApi.save(area, payload);
+      const res = tenantSlug
+        ? await rulesApi.saveForTenant(tenantSlug, area, payload)
+        : await rulesApi.save(area, payload);
+      if ((res as { usedLegacySchema?: boolean }).usedLegacySchema) {
+        toast(
+          "Recorrências e tipos por área não foram gravados: a base ainda não tem as colunas custom_recorrencias/default_recorrencias. Execute scripts/supabase-migration-rules-recorrencias.sql no Supabase e tente novamente.",
+          "error"
+        );
+        return;
       }
       onRefresh();
       toast(`Regras de "${area}" salvas com sucesso`, "success");
