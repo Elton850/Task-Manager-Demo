@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect } from "react";
-import { useLocation, Outlet } from "react-router-dom";
+import { useLocation, Outlet, Navigate } from "react-router-dom";
 import { setTenantSlug } from "@/services/api";
 import { getTenantFromPath, getBasePath } from "@/utils/tenantPath";
 
@@ -60,6 +60,21 @@ export function SyncTenantAndBasePath() {
 
   const tenant = isSubdomainMode ? subdomainSlug : getTenantFromPath(pathname);
   const basePath = isSubdomainMode ? "" : getBasePath(pathname);
+
+  // Em modo subdomínio (produção), /slug/... é redundante e gera URL errada (ex.: demo.fluxiva.com.br/demo/login).
+  // Redireciona para a mesma rota sem o prefixo (ex.: /demo/login → /login). Afeta qualquer empresa, não só "demo".
+  const slugPrefix = subdomainSlug ? `/${subdomainSlug}` : "";
+  const hasRedundantSlugInPath =
+    isSubdomainMode &&
+    slugPrefix &&
+    (pathname === slugPrefix || pathname.startsWith(`${slugPrefix}/`));
+  const pathWithoutSlug = hasRedundantSlugInPath
+    ? (pathname === slugPrefix ? "/" : pathname.slice(slugPrefix.length) || "/")
+    : null;
+
+  if (pathWithoutSlug !== null) {
+    return <Navigate to={pathWithoutSlug} replace />;
+  }
 
   useEffect(() => {
     setTenantSlug(tenant);
