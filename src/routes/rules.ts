@@ -60,13 +60,13 @@ function rowToRule(row: RuleDbRow) {
       ? undefined
       : (safeJsonParse(row.default_tipos, []) as string[]);
   const customRecorrencias =
-    (row as Record<string, unknown>).custom_recorrencias == null || (row as Record<string, unknown>).custom_recorrencias === ""
+    row.custom_recorrencias == null || row.custom_recorrencias === ""
       ? undefined
-      : (safeJsonParse((row as Record<string, unknown>).custom_recorrencias as string, []) as string[]);
+      : (safeJsonParse(row.custom_recorrencias, []) as string[]);
   const defaultRecorrencias =
-    (row as Record<string, unknown>).default_recorrencias == null || (row as Record<string, unknown>).default_recorrencias === ""
+    row.default_recorrencias == null || row.default_recorrencias === ""
       ? undefined
-      : (safeJsonParse((row as Record<string, unknown>).default_recorrencias as string, []) as string[]);
+      : (safeJsonParse(row.default_recorrencias, []) as string[]);
   return {
     id: row.id,
     tenantId: row.tenant_id,
