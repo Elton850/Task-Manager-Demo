@@ -142,8 +142,8 @@ export default function AdminPage() {
   return (
     <div className="space-y-5 max-w-4xl">
       <div>
-        <h2 className="text-lg font-semibold text-slate-900 mb-1">Configurações</h2>
-        <p className="text-sm text-slate-600">
+        <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-1">Configurações</h2>
+        <p className="text-sm text-slate-600 dark:text-slate-400">
           {masterAdmin
             ? "Gerencie listas de valores e regras por empresa (selecione uma empresa abaixo)"
             : user?.role === "ADMIN"
@@ -159,7 +159,7 @@ export default function AdminPage() {
             <select
               value={selectedTenantSlug}
               onChange={e => setSelectedTenantSlug(e.target.value)}
-              className="rounded-lg border-2 border-slate-400 bg-white px-3 py-2 text-sm font-medium text-slate-900 min-w-[200px] focus:border-brand-500 focus:ring-2 focus:ring-brand-200 focus:outline-none"
+              className="rounded-lg border-2 border-slate-400 dark:border-slate-500 bg-white dark:bg-slate-700/90 px-3 py-2 text-sm font-medium text-slate-900 dark:text-slate-100 min-w-[200px] focus:border-brand-500 focus:ring-2 focus:ring-brand-200 dark:focus:ring-brand-500/30 focus:outline-none"
             >
               <option value="">Selecione uma empresa</option>
               {companyOptions.map(o => (
@@ -171,14 +171,14 @@ export default function AdminPage() {
       )}
 
       {tabs.length > 1 && (
-        <div className="flex gap-1 p-1 bg-slate-100 border border-slate-200 rounded-lg w-fit">
+        <div className="flex gap-1 p-1 bg-slate-100 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-600/80 rounded-lg w-fit">
           {tabs.map(t => (
             <button
               key={t.id}
               onClick={() => setTab(t.id)}
               className={`
                 flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-all
-                ${tab === t.id ? "bg-white text-brand-800 border border-brand-200 shadow-sm" : "text-slate-700 hover:text-slate-900"}
+                ${tab === t.id ? "bg-white dark:bg-slate-700/90 text-brand-800 dark:text-brand-300 border border-brand-200 dark:border-brand-500/40 shadow-sm dark:shadow-none" : "text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100"}
               `}
             >
               {t.icon}
@@ -189,7 +189,7 @@ export default function AdminPage() {
       )}
 
       {!showCompanyContent && masterAdmin && (
-        <p className="text-sm text-slate-500 py-4">Selecione uma empresa acima para gerenciar listas de valores e regras por área.</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400 py-4">Selecione uma empresa acima para gerenciar listas de valores e regras por área.</p>
       )}
 
       {showCompanyContent && tab === "lookups" && user?.role === "ADMIN" && (

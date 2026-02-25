@@ -119,10 +119,10 @@ export default function UserModal({ open, user, lookups, companyName, companies,
     >
       <div className="space-y-4">
         {companyName && !companies?.length && (
-          <div className="rounded-lg bg-slate-50 border border-slate-200 px-4 py-3">
-            <p className="text-xs font-medium text-slate-500 mb-0.5">Empresa</p>
-            <p className="text-sm font-medium text-slate-800">{companyName}</p>
-            <p className="text-xs text-slate-500 mt-0.5">O usuário será vinculado a esta empresa.</p>
+          <div className="rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-600/80 px-4 py-3">
+            <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-0.5">Empresa</p>
+            <p className="text-sm font-medium text-slate-800 dark:text-slate-100">{companyName}</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">O usuário será vinculado a esta empresa.</p>
           </div>
         )}
         {!isEdit && companies && companies.length > 0 && (

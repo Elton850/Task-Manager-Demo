@@ -137,13 +137,13 @@ export default function LookupManager({ items, onRefresh, onLookupRenamed, tenan
   const renderCategory = (category: string) => (
     <div key={category}>
       {!isOnlyAreas && (
-        <h3 className="text-sm font-semibold text-slate-800 mb-3">{CATEGORY_LABELS[category] || category}</h3>
+        <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-3">{CATEGORY_LABELS[category] || category}</h3>
       )}
-      <div className={`flex flex-wrap gap-2 ${isOnlyAreas ? "p-4 sm:p-5" : "mb-4 p-3"} bg-slate-50 rounded-lg border border-slate-200 min-h-[60px]`}>
+      <div className={`flex flex-wrap gap-2 ${isOnlyAreas ? "p-4 sm:p-5" : "mb-4 p-3"} bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-600/80 min-h-[60px]`}>
         {grouped[category].map(item => (
           <div
             key={item.id}
-            className={`group relative inline-flex items-center gap-1.5 rounded-lg bg-white border border-slate-300 hover:border-slate-400 transition-all ${isOnlyAreas ? "px-4 py-2" : "px-3 py-1.5"}`}
+            className={`group relative inline-flex items-center gap-1.5 rounded-lg bg-white dark:bg-slate-700/90 border border-slate-300 dark:border-slate-500 hover:border-slate-400 dark:hover:border-slate-400 transition-all ${isOnlyAreas ? "px-4 py-2" : "px-3 py-1.5"}`}
           >
             {editId === item.id ? (
               <>
@@ -158,7 +158,7 @@ export default function LookupManager({ items, onRefresh, onLookupRenamed, tenan
                   autoFocus
                 />
                 <Button variant="ghost" size="sm" onClick={() => handleRename(item.id)} loading={loading === `rename-${item.id}`} className="p-0.5">
-                  <Check size={12} className="text-emerald-700" />
+                  <Check size={12} className="text-emerald-700 dark:text-emerald-400" />
                 </Button>
                 <Button variant="ghost" size="sm" onClick={() => setEditId(null)} className="p-0.5">
                   <X size={12} />
@@ -166,12 +166,12 @@ export default function LookupManager({ items, onRefresh, onLookupRenamed, tenan
               </>
             ) : (
               <>
-                <span className={`text-slate-800 font-medium ${isOnlyAreas ? "text-base" : "text-sm"}`}>{item.value}</span>
+                <span className={`text-slate-800 dark:text-slate-100 font-medium ${isOnlyAreas ? "text-base" : "text-sm"}`}>{item.value}</span>
                 <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
                   <button
                     type="button"
                     onClick={() => { setEditId(item.id); setEditValue(item.value); }}
-                    className="p-1 h-6 w-6 rounded-md text-slate-600 hover:text-brand-700 hover:bg-brand-50 transition-colors flex items-center justify-center"
+                    className="p-1 h-6 w-6 rounded-md text-slate-600 dark:text-slate-300 hover:text-brand-700 dark:hover:text-brand-400 hover:bg-brand-50 dark:hover:bg-brand-900/30 transition-colors flex items-center justify-center"
                     title="Editar"
                   >
                     <Edit2 size={14} className="text-current" />
@@ -180,7 +180,7 @@ export default function LookupManager({ items, onRefresh, onLookupRenamed, tenan
                     type="button"
                     onClick={() => setDeleteTarget({ id: item.id, value: item.value })}
                     disabled={loading === `delete-${item.id}`}
-                    className="p-1 h-6 w-6 rounded-md text-slate-600 hover:text-rose-700 hover:bg-rose-50 transition-colors flex items-center justify-center disabled:opacity-50"
+                    className="p-1 h-6 w-6 rounded-md text-slate-600 dark:text-slate-300 hover:text-rose-700 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-900/30 transition-colors flex items-center justify-center disabled:opacity-50"
                     title="Remover"
                   >
                     {loading === `delete-${item.id}` ? (
@@ -195,7 +195,7 @@ export default function LookupManager({ items, onRefresh, onLookupRenamed, tenan
           </div>
         ))}
         {grouped[category].length === 0 && (
-          <div className={`text-slate-500 italic self-center ${isOnlyAreas ? "text-sm" : "text-xs"}`}>Nenhuma área cadastrada. Adicione abaixo.</div>
+          <div className={`text-slate-500 dark:text-slate-400 italic self-center ${isOnlyAreas ? "text-sm" : "text-xs"}`}>Nenhuma área cadastrada. Adicione abaixo.</div>
         )}
       </div>
       <div className={`flex gap-2 ${isOnlyAreas ? "mt-4 flex-col sm:flex-row sm:items-center" : ""}`}>
@@ -216,7 +216,7 @@ export default function LookupManager({ items, onRefresh, onLookupRenamed, tenan
   return (
     <div className="space-y-6">
       {tenantSlug && copyOptions.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 p-3 bg-slate-50 rounded-lg border border-slate-200">
+        <div className="flex flex-wrap items-center gap-2 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-600/80">
           <Button size="sm" variant="outline" onClick={() => setCopyOpen(true)} icon={<Copy size={14} />}>
             Copiar de outra empresa
           </Button>
@@ -224,7 +224,7 @@ export default function LookupManager({ items, onRefresh, onLookupRenamed, tenan
       )}
 
       {isOnlyAreas && (
-        <p className="text-sm text-slate-600 -mt-1">
+        <p className="text-sm text-slate-600 dark:text-slate-400 -mt-1">
           Cadastre aqui as áreas disponíveis. Recorrências e tipos de tarefa são configurados pelo Leader na aba <strong>Regras por Área</strong>.
         </p>
       )}
@@ -259,7 +259,7 @@ export default function LookupManager({ items, onRefresh, onLookupRenamed, tenan
         }
       >
         <div className="space-y-3">
-          <p className="text-sm text-slate-700">
+          <p className="text-sm text-slate-700 dark:text-slate-300">
             {onlyAreas
               ? "As áreas da empresa selecionada substituirão as atuais."
               : "As listas de valores da empresa selecionada substituirão as atuais (áreas, recorrências, tipos)."}
@@ -267,7 +267,7 @@ export default function LookupManager({ items, onRefresh, onLookupRenamed, tenan
           <select
             value={copySourceSlug}
             onChange={e => setCopySourceSlug(e.target.value)}
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            className="w-full rounded-lg border border-slate-300 dark:border-slate-500 bg-white dark:bg-slate-700/90 px-3 py-2 text-sm text-slate-900 dark:text-slate-100"
           >
             <option value="">Selecione a empresa de origem</option>
             {copyOptions.map(c => (

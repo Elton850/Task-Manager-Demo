@@ -77,8 +77,8 @@ export default function SystemLogsPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold text-slate-900">Logs de acesso</h1>
-          <p className="text-sm text-slate-500 mt-0.5">
+          <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Logs de acesso</h1>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
             Registro de logins no sistema. Filtre por período e empresa.
           </p>
         </div>
@@ -91,11 +91,11 @@ export default function SystemLogsPage() {
       <Card>
         <div className="flex flex-wrap items-center gap-3 mb-4">
           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">De (competência)</label>
+            <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">De (competência)</label>
             <select
               value={fromYm}
               onChange={e => setFromYm(e.target.value)}
-              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+              className="rounded-lg border border-slate-300 dark:border-slate-500 bg-white dark:bg-slate-700/90 px-3 py-2 text-sm text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
             >
               <option value="">Todas</option>
               {getYmOptions().map(opt => (
@@ -104,11 +104,11 @@ export default function SystemLogsPage() {
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">Até (competência)</label>
+            <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Até (competência)</label>
             <select
               value={toYm}
               onChange={e => setToYm(e.target.value)}
-              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+              className="rounded-lg border border-slate-300 dark:border-slate-500 bg-white dark:bg-slate-700/90 px-3 py-2 text-sm text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
             >
               <option value="">Todas</option>
               {getYmOptions().map(opt => (
@@ -117,11 +117,11 @@ export default function SystemLogsPage() {
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-slate-500 mb-1">Empresa</label>
+            <label className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1">Empresa</label>
             <select
               value={tenantSlug}
               onChange={e => setTenantSlug(e.target.value)}
-              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 min-w-[180px]"
+              className="rounded-lg border border-slate-300 dark:border-slate-500 bg-white dark:bg-slate-700/90 px-3 py-2 text-sm text-slate-800 dark:text-slate-100 focus:ring-2 focus:ring-brand-500 focus:border-brand-500 min-w-[180px]"
             >
               <option value="">Todas</option>
               {tenants.map(t => (
@@ -136,29 +136,29 @@ export default function SystemLogsPage() {
             <LoadingSpinner text="Carregando logs..." />
           </div>
         ) : items.length === 0 ? (
-          <div className="py-12 text-center text-slate-500">
-            <FileText className="mx-auto h-10 w-10 text-slate-300 mb-2" />
+          <div className="py-12 text-center text-slate-500 dark:text-slate-400">
+            <FileText className="mx-auto h-10 w-10 text-slate-300 dark:text-slate-500 mb-2" />
             <p>Nenhum registro encontrado para os filtros selecionados.</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
               <thead>
-                <tr className="border-b border-slate-200 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
+                <tr className="border-b border-slate-200 dark:border-slate-600/80 bg-slate-50/90 dark:bg-slate-700/80 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
                   <th className="pb-3 pr-4">Data e hora</th>
                   <th className="pb-3 pr-4">Empresa</th>
                   <th className="pb-3 pr-4">Usuário</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-600/60">
                 {items.map((log, i) => (
-                  <tr key={`${log.loggedAt}-${log.userEmail}-${i}`} className="hover:bg-slate-50/70">
-                    <td className="py-3 pr-4 text-slate-700 whitespace-nowrap">{formatDateTime(log.loggedAt)}</td>
+                  <tr key={`${log.loggedAt}-${log.userEmail}-${i}`} className="hover:bg-slate-50/70 dark:hover:bg-slate-700/60 transition-colors">
+                    <td className="py-3 pr-4 text-slate-700 dark:text-slate-300 whitespace-nowrap">{formatDateTime(log.loggedAt)}</td>
                     <td className="py-3 pr-4">
-                      <span className="font-medium text-slate-800">{log.tenantName}</span>
-                      <span className="text-slate-500 text-xs ml-1">({log.tenantSlug})</span>
+                      <span className="font-medium text-slate-800 dark:text-slate-100">{log.tenantName}</span>
+                      <span className="text-slate-500 dark:text-slate-400 text-xs ml-1">({log.tenantSlug})</span>
                     </td>
-                    <td className="py-3 pr-4 text-slate-700">{log.userName} ({log.userEmail})</td>
+                    <td className="py-3 pr-4 text-slate-700 dark:text-slate-300">{log.userName} ({log.userEmail})</td>
                   </tr>
                 ))}
               </tbody>

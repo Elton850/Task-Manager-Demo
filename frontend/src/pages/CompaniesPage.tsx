@@ -150,20 +150,20 @@ export default function CompaniesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3 text-slate-800">
-        <div className="p-2 rounded-lg bg-brand-100 border border-brand-200">
-          <Building2 size={24} className="text-brand-700" />
+      <div className="flex items-center gap-3 text-slate-800 dark:text-slate-100">
+        <div className="p-2 rounded-lg bg-brand-100 dark:bg-brand-900/30 border border-brand-200 dark:border-brand-500/40">
+          <Building2 size={24} className="text-brand-700 dark:text-brand-300" />
         </div>
         <div>
           <h1 className="text-lg font-semibold">Cadastro de empresas</h1>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-slate-500 dark:text-slate-400">
             Cadastre as empresas. Depois, cadastre os usuários (Líderes e Usuários) na aba Usuários e vincule cada um à empresa. Cada usuário acessa pelo link da sua empresa (ex.: site.com/empresax).
           </p>
         </div>
       </div>
 
       <Card>
-        <h2 className="text-sm font-semibold text-slate-800 mb-3">Nova empresa</h2>
+        <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-3">Nova empresa</h2>
         <form onSubmit={handleCreate} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input
@@ -179,7 +179,7 @@ export default function CompaniesPage() {
               placeholder="Empresa X Ltda"
             />
           </div>
-          <p className="text-xs text-slate-600">
+          <p className="text-xs text-slate-600 dark:text-slate-400">
             Os usuários serão cadastrados na aba Usuários. Cada um acessa pelo link:{" "}
             <strong className="font-mono">{getTenantAccessUrl(form.slug.trim() || "slug")}</strong>
           </p>
@@ -191,7 +191,7 @@ export default function CompaniesPage() {
 
       <Card>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-sm font-semibold text-slate-800">Empresas cadastradas</h2>
+          <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Empresas cadastradas</h2>
           <Button variant="ghost" size="sm" onClick={load} icon={<RefreshCw size={14} />}>
             Atualizar
           </Button>
@@ -209,18 +209,18 @@ export default function CompaniesPage() {
               className="hidden"
               onChange={handleLogoFileChange}
             />
-            <table className="min-w-full divide-y divide-slate-200">
-              <thead className="bg-slate-100">
+            <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-600/80">
+              <thead className="bg-slate-100 dark:bg-slate-700/80">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase w-24">Logo</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase">Nome</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase">Identificador / Link</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 uppercase">Status</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase w-24">Logo</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase">Nome</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase">Identificador / Link</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase">Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-200 bg-white">
+              <tbody className="divide-y divide-slate-200 dark:divide-slate-600/60 bg-white dark:bg-slate-800/30">
                 {tenants.map((t) => (
-                  <tr key={t.id} className="hover:bg-slate-50">
+                  <tr key={t.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/60 transition-colors">
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         {t.hasLogo ? (
@@ -228,11 +228,11 @@ export default function CompaniesPage() {
                             key={t.logoUpdatedAt ?? logoVersion[t.id] ?? t.id}
                             src={`/api/tenants/logo/${t.slug}?tenant=system&v=${encodeURIComponent(t.logoUpdatedAt || logoVersion[t.id] || "")}`}
                             alt=""
-                            className="h-10 w-10 rounded-lg border border-slate-200 object-cover bg-white"
+                            className="h-10 w-10 rounded-lg border border-slate-200 dark:border-slate-600 object-cover bg-white dark:bg-slate-700/80"
                           />
                         ) : (
-                          <div className="h-10 w-10 rounded-lg border border-dashed border-slate-300 bg-slate-50 flex items-center justify-center">
-                            <Building2 size={18} className="text-slate-400" />
+                          <div className="h-10 w-10 rounded-lg border border-dashed border-slate-300 dark:border-slate-500 bg-slate-50 dark:bg-slate-700/80 flex items-center justify-center">
+                            <Building2 size={18} className="text-slate-400 dark:text-slate-500" />
                           </div>
                         )}
                         <div className="flex flex-col gap-0.5">
@@ -251,7 +251,7 @@ export default function CompaniesPage() {
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="text-xs h-7 text-rose-600 hover:text-rose-700 hover:bg-rose-50"
+                              className="text-xs h-7 text-rose-600 dark:text-rose-400 hover:text-rose-700 dark:hover:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-900/30"
                               onClick={() => handleRemoveLogo(t.id)}
                               disabled={!!logoRemovingId}
                               loading={logoRemovingId === t.id}
@@ -263,16 +263,16 @@ export default function CompaniesPage() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-sm font-medium text-slate-800">{t.name}</td>
+                    <td className="px-4 py-3 text-sm font-medium text-slate-800 dark:text-slate-100">{t.name}</td>
                     <td className="px-4 py-3">
                       <div className="flex flex-col gap-1">
-                        <span className="text-sm text-slate-600 font-mono">@{t.slug}</span>
+                        <span className="text-sm text-slate-600 dark:text-slate-300 font-mono">@{t.slug}</span>
                         <div className="flex items-center gap-1">
                           <a
                             href={getTenantAccessUrl(t.slug)}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-xs text-brand-600 hover:text-brand-800 font-mono truncate max-w-[180px]"
+                            className="text-xs text-brand-600 dark:text-brand-400 hover:text-brand-800 dark:hover:text-brand-300 font-mono truncate max-w-[180px]"
                             title={getTenantAccessUrl(t.slug)}
                           >
                             <ExternalLink size={11} className="inline mr-0.5" />
@@ -282,7 +282,7 @@ export default function CompaniesPage() {
                             type="button"
                             onClick={() => handleCopyLink(t.slug)}
                             title="Copiar link"
-                            className="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700 flex-shrink-0"
+                            className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-600 text-slate-400 dark:text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 flex-shrink-0"
                           >
                             <Copy size={12} />
                           </button>
@@ -291,11 +291,11 @@ export default function CompaniesPage() {
                     </td>
                     <td className="px-4 py-3">
                       {t.active ? (
-                        <span className="inline-flex items-center gap-1 text-xs text-emerald-700 font-medium">
+                        <span className="inline-flex items-center gap-1 text-xs text-emerald-700 dark:text-emerald-400 font-medium">
                           <CheckCircle size={14} /> Ativa
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 text-xs text-slate-500 font-medium">
+                        <span className="inline-flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400 font-medium">
                           <XCircle size={14} /> Inativa
                         </span>
                       )}
@@ -305,7 +305,7 @@ export default function CompaniesPage() {
               </tbody>
             </table>
             {tenants.length === 0 && (
-              <div className="text-center py-8 text-slate-500 text-sm">
+              <div className="text-center py-8 text-slate-500 dark:text-slate-400 text-sm">
                 Nenhuma empresa cadastrada. Use o formulário acima para cadastrar a primeira.
               </div>
             )}

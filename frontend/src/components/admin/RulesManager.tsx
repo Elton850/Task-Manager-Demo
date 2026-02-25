@@ -200,9 +200,9 @@ export default function RulesManager({ rules, lookups, onRefresh, tenantSlug }: 
   return (
     <div className="space-y-6">
       {areas.map(area => (
-        <div key={area} className="p-4 rounded-xl bg-white border border-slate-200 shadow-sm">
+        <div key={area} className="p-4 rounded-xl bg-white dark:bg-slate-800/95 border border-slate-200 dark:border-slate-600/80 shadow-sm dark:shadow-none">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold text-slate-900">{area}</h3>
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">{area}</h3>
             <Button size="sm" onClick={() => handleSave(area)} loading={saving === area} icon={<Save size={13} />}>
               Salvar
             </Button>
@@ -211,16 +211,16 @@ export default function RulesManager({ rules, lookups, onRefresh, tenantSlug }: 
           {showTiposSection && (
             <>
               {(customRecorrenciasByArea[area]?.length ?? 0) === 0 && (
-                <p className="text-xs text-amber-700 mb-3">
+                <p className="text-xs text-amber-700 dark:text-amber-400 mb-3">
                   Nenhum tipo de recorrência definido para esta área. Adicione recorrências abaixo ou use &quot;Carregar tipos padrão&quot; para que usuários possam criar tarefas.
                 </p>
               )}
-              <div className="mt-5 pt-4 border-t border-slate-200">
-                <div className="flex items-center gap-2 text-sm font-semibold text-slate-800 mb-2">
+              <div className="mt-5 pt-4 border-t border-slate-200 dark:border-slate-600/80">
+                <div className="flex items-center gap-2 text-sm font-semibold text-slate-800 dark:text-slate-200 mb-2">
                   <Repeat size={14} />
                   {tenantSlug ? "Tipos de recorrência desta área" : "Tipos de recorrência da sua área"}
                 </div>
-                <p className="text-xs text-slate-500 mb-2">
+                <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">
                   {tenantSlug
                     ? "Recorrências criadas pelo Leader para esta área. Aparecem ao criar/editar tarefas. Excluir não altera tarefas já salvas."
                     : "Crie tipos de recorrência somente para a sua área. Eles aparecem na lista ao criar/editar tarefas. Se excluir um tipo, as tarefas que já usam esse tipo mantêm o valor."}
@@ -258,13 +258,13 @@ export default function RulesManager({ rules, lookups, onRefresh, tenantSlug }: 
                     {(customRecorrenciasByArea[area] || []).map(r => (
                       <li
                         key={r}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-brand-100 text-brand-900 border border-brand-300"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-brand-100 dark:bg-brand-500/20 text-brand-900 dark:text-brand-200 border border-brand-300 dark:border-brand-500/40"
                       >
                         {r}
                         <button
                           type="button"
                           onClick={() => removeCustomRecorrencia(area, r)}
-                          className="p-0.5 rounded hover:bg-brand-200"
+                          className="p-0.5 rounded hover:bg-brand-200 dark:hover:bg-brand-500/40"
                           aria-label={`Remover ${r}`}
                         >
                           <Trash2 size={12} />
@@ -274,12 +274,12 @@ export default function RulesManager({ rules, lookups, onRefresh, tenantSlug }: 
                   </ul>
                 )}
               </div>
-              <div className="mt-5 pt-4 border-t border-slate-200">
-                <div className="flex items-center gap-2 text-sm font-semibold text-slate-800 mb-2">
+              <div className="mt-5 pt-4 border-t border-slate-200 dark:border-slate-600/80">
+                <div className="flex items-center gap-2 text-sm font-semibold text-slate-800 dark:text-slate-200 mb-2">
                   <ListTodo size={14} />
                   {tenantSlug ? "Tipos de atividade desta área" : "Tipos de atividade da sua área"}
               </div>
-              <p className="text-xs text-slate-500 mb-2">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">
                 {tenantSlug
                   ? "Tipos criados pelo Leader para esta área. Visíveis ao criar/editar tarefas. Excluir não altera tarefas já salvas."
                   : "Crie tipos de atividade somente para a sua área. Eles aparecem na lista ao criar/editar tarefas. Se excluir um tipo, as tarefas que já usam esse tipo mantêm o valor (indicadores e exibição permanecem corretos)."}
@@ -317,13 +317,13 @@ export default function RulesManager({ rules, lookups, onRefresh, tenantSlug }: 
                   {(customTiposByArea[area] || []).map(t => (
                     <li
                       key={t}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-brand-100 text-brand-900 border border-brand-300"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-brand-100 dark:bg-brand-500/20 text-brand-900 dark:text-brand-200 border border-brand-300 dark:border-brand-500/40"
                     >
                       {t}
                       <button
                         type="button"
                         onClick={() => removeCustomTipo(area, t)}
-                        className="p-0.5 rounded hover:bg-brand-200"
+                        className="p-0.5 rounded hover:bg-brand-200 dark:hover:bg-brand-500/40"
                         aria-label={`Remover ${t}`}
                       >
                         <Trash2 size={12} />

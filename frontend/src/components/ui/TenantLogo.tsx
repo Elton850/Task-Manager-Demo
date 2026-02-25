@@ -25,7 +25,7 @@ export default function TenantLogo({ tenantSlug, logoVersion, alt = "Logo", clas
 
   return (
     <div
-      className={`${size} rounded-lg border border-slate-200 overflow-hidden bg-slate-50 flex items-center justify-center flex-shrink-0 ${className}`}
+      className={`${size} rounded-lg border border-slate-200 dark:border-slate-600 overflow-hidden bg-slate-50 dark:bg-slate-700/80 flex items-center justify-center flex-shrink-0 ${className}`}
       title={hasLogo ? alt : "Nenhuma logo definida"}
       aria-label={hasLogo ? alt : "Placeholder: nenhuma logo"}
     >
@@ -33,12 +33,12 @@ export default function TenantLogo({ tenantSlug, logoVersion, alt = "Logo", clas
         <img
           src={logoUrl}
           alt={alt}
-          className="w-full h-full object-contain bg-white"
+          className="w-full h-full object-contain bg-white dark:bg-slate-700/80"
           onError={() => setUseFallback(true)}
         />
       ) : (
         <Building2
-          className="w-[55%] h-[55%] text-slate-300"
+          className="w-[55%] h-[55%] text-slate-300 dark:text-slate-500"
           strokeWidth={1.5}
           aria-hidden
         />
