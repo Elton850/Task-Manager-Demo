@@ -684,25 +684,25 @@ export default function UsersPage() {
             <LoadingSpinner text="Carregando usuários..." />
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-600/80">
+          <div className="overflow-x-auto overflow-y-hidden">
+            <table className="w-full table-fixed divide-y divide-slate-200 dark:divide-slate-600/80">
               <thead>
                 <tr className="border-b border-slate-200 dark:border-slate-600/80 bg-slate-50/90 dark:bg-slate-700/80">
                   {isAdmin && (
-                    <th className="pl-5 pr-2 py-3.5 text-left w-10" aria-label="Selecionar">
+                    <th className="pl-4 pr-1 py-3.5 text-left w-9 shrink-0" aria-label="Selecionar">
                       <span className="sr-only">Selecionar</span>
                     </th>
                   )}
-                  <th className="px-4 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Empresa</th>
-                  <th className="px-4 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Usuário</th>
-                  <th className="px-4 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Email</th>
-                  <th className="px-4 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Função</th>
-                  <th className="px-4 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Área</th>
-                  <th className="px-4 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Status</th>
-                  <th className="px-4 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider whitespace-nowrap">Logins (período)</th>
-                  <th className="px-4 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider whitespace-nowrap">Login / Logout</th>
+                  <th className="px-2 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider min-w-0">Empresa</th>
+                  <th className="px-2 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider min-w-0">Usuário</th>
+                  <th className="px-2 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider min-w-0">Email</th>
+                  <th className="px-2 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider shrink-0 whitespace-nowrap">Função</th>
+                  <th className="px-2 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider min-w-0">Área</th>
+                  <th className="px-2 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider shrink-0 whitespace-nowrap">Status</th>
+                  <th className="px-2 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider shrink-0 whitespace-nowrap">Logins</th>
+                  <th className="px-2 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider shrink-0 whitespace-nowrap">Login / Logout</th>
                   {isAdmin && (
-                    <th className="px-4 py-3.5 pr-5 text-right text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Ações</th>
+                    <th className="px-2 py-3.5 pr-4 text-right text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider shrink-0">Ações</th>
                   )}
                 </tr>
               </thead>
@@ -715,7 +715,7 @@ export default function UsersPage() {
                     }`}
                   >
                     {isAdmin && (
-                      <td className="pl-5 pr-2 py-3">
+                      <td className="pl-4 pr-1 py-3 align-middle">
                         <input
                           type="checkbox"
                           checked={selectedIds.has(u.id)}
@@ -725,32 +725,36 @@ export default function UsersPage() {
                         />
                       </td>
                     )}
-                    <td className={`py-3 ${isAdmin ? "px-4" : "pl-5 pr-4"}`}>
-                      <div className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
+                    <td className={`px-2 py-3 align-middle min-w-0 ${!isAdmin && "pl-4"}`}>
+                      <div className="flex items-center gap-1.5 min-w-0">
                         <Building2 size={14} className="text-slate-400 dark:text-slate-500 flex-shrink-0" />
-                        {(u.tenantName ?? tenant?.name) || "—"}
+                        <span className="text-sm text-slate-700 dark:text-slate-200 truncate" title={(u.tenantName ?? tenant?.name) || undefined}>
+                          {(u.tenantName ?? tenant?.name) || "—"}
+                        </span>
                       </div>
                     </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-full bg-brand-100 dark:bg-brand-500/25 border border-brand-200 dark:border-brand-500/40 flex items-center justify-center flex-shrink-0">
+                    <td className="px-2 py-3 align-middle min-w-0">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="w-7 h-7 rounded-full bg-brand-100 dark:bg-brand-500/25 border border-brand-200 dark:border-brand-500/40 flex items-center justify-center flex-shrink-0">
                           <span className="text-xs font-bold text-brand-800 dark:text-brand-200">
                             {u.nome.charAt(0).toUpperCase()}
                           </span>
                         </div>
-                        <div>
-                          <p className="text-sm font-medium text-slate-800 dark:text-slate-100">{u.nome}</p>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-slate-800 dark:text-slate-100 truncate" title={u.nome}>{u.nome}</p>
                           {u.canDelete && (
                             <span className="inline-flex items-center gap-1 text-xs text-emerald-700 dark:text-emerald-400 font-medium mt-0.5">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                              Pode excluir
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                              <span className="truncate">Pode excluir</span>
                             </span>
                           )}
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-sm text-slate-700 dark:text-slate-200">{u.email}</td>
-                    <td className="px-4 py-3">
+                    <td className="px-2 py-3 align-middle min-w-0">
+                      <span className="text-sm text-slate-700 dark:text-slate-200 truncate block" title={u.email}>{u.email}</span>
+                    </td>
+                    <td className="px-2 py-3 align-middle shrink-0">
                       <Badge variant={getRoleVariant(u.role)}>
                         {u.role === "ADMIN"
                           ? "Administrador"
@@ -759,32 +763,34 @@ export default function UsersPage() {
                             : "Usuário"}
                       </Badge>
                     </td>
-                    <td className="px-4 py-3 text-sm text-slate-700 dark:text-slate-200">{u.area}</td>
-                    <td className="px-4 py-3">
+                    <td className="px-2 py-3 align-middle min-w-0">
+                      <span className="text-sm text-slate-700 dark:text-slate-200 truncate block" title={u.area}>{u.area}</span>
+                    </td>
+                    <td className="px-2 py-3 align-middle shrink-0">
                       <Badge variant={u.active ? "green" : "slate"}>
                         {u.active ? "Ativo" : "Inativo"}
                       </Badge>
                       {u.mustChangePassword && (
-                        <div className="text-xs text-amber-700 mt-0.5">
+                        <div className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
                           Aguardando senha
                         </div>
                       )}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-2 py-3 align-middle shrink-0">
                       <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
                         {filters.from && filters.to
                           ? loginCounts[u.id] ?? 0
                           : "—"}
                       </span>
                     </td>
-                    <td className="px-4 py-3 min-w-0">
+                    <td className="px-2 py-3 align-middle min-w-0">
                       <div className="flex flex-col gap-0.5 text-xs text-slate-600 dark:text-slate-300">
-                        <span title={u.lastLoginAt ?? undefined}>Login: {formatDateTime(u.lastLoginAt)}</span>
-                        <span title={u.lastLogoutAt ?? undefined}>Logout: {formatDateTime(u.lastLogoutAt)}</span>
+                        <span className="truncate" title={u.lastLoginAt ?? undefined}>Login: {formatDateTime(u.lastLoginAt)}</span>
+                        <span className="truncate" title={u.lastLogoutAt ?? undefined}>Logout: {formatDateTime(u.lastLogoutAt)}</span>
                       </div>
                     </td>
                     {isAdmin && (
-                      <td className="pl-4 pr-5 py-3">
+                      <td className="px-2 pr-4 py-3 align-middle shrink-0">
                         <div className="flex items-center justify-end gap-1">
                           {isMasterAdmin && (
                             <Button
