@@ -1,14 +1,16 @@
 /**
  * Serviço de e-mail via Resend (plano gratuito: 3.000/mês, 100/dia).
- * Template em formato de card para código de redefinição de senha.
+ * Template em formato de card para código de redefinição/confirmação de senha.
  *
- * Para o envio funcionar, configure no .env:
- *   RESEND_API_KEY=re_xxxx...  (chave em https://resend.com/api-keys)
- *   EMAIL_FROM=Task Manager <noreply@seudominio.com>  (ou onboarding@resend.dev para testes)
+ * Configuração por ambiente (carregada por load-env.ts antes deste módulo):
+ *   RESEND_API_KEY=re_xxxx...           → chave em https://resend.com/api-keys
+ *   EMAIL_FROM=Nome <email@dominio.com> → remetente com domínio verificado no Resend
+ *
+ * Em produção e staging, EMAIL_FROM DEVE usar o domínio da aplicação (não onboarding@resend.dev).
+ * Em desenvolvimento, EMAIL_FROM é opcional — se ausente, usa onboarding@resend.dev como fallback.
+ *
+ * Consulte PASSO-A-PASSO-EMAIL-HOSTGATOR-RESEND.md para configurar o domínio no Resend e no DNS.
  */
-
-const RESEND_API_KEY = (process.env.RESEND_API_KEY || "").trim();
-const EMAIL_FROM = (process.env.EMAIL_FROM || "Task Manager <onboarding@resend.dev>").trim();
 
 export interface SendResetCodeOptions {
   to: string;
@@ -16,6 +18,64 @@ export interface SendResetCodeOptions {
   code: string;
   expiresAt: string;
   tenantName?: string;
+}
+
+const RESEND_TEST_SENDER = "Task Manager <onboarding@resend.dev>";
+const RESEND_TEST_DOMAIN = "resend.dev";
+
+/**
+ * Verifica se o remetente usa o domínio de teste do Resend.
+ * Em produção/staging isso é inválido — deve-se usar domínio próprio verificado.
+ */
+function isTestSenderDomain(from: string): boolean {
+  return from.toLowerCase().includes(RESEND_TEST_DOMAIN);
+}
+
+/**
+ * Lê e valida a configuração de e-mail em tempo de execução (não no topo do módulo),
+ * garantindo que cada ambiente use as variáveis corretas já carregadas por load-env.ts.
+ *
+ * Retorna { ok: true, apiKey, from } ou { ok: false, error }.
+ */
+function resolveEmailConfig(): { ok: true; apiKey: string; from: string } | { ok: false; error: string } {
+  const apiKey = (process.env.RESEND_API_KEY || "").trim();
+  const envFrom = (process.env.EMAIL_FROM || "").trim();
+  const nodeEnv = process.env.NODE_ENV;
+  const isProdOrStaging = nodeEnv === "production" || nodeEnv === "staging";
+
+  // Validação da API key (obrigatória em todos os ambientes para enviar)
+  if (!apiKey) {
+    return { ok: false, error: "RESEND_API_KEY não configurada. Configure no .env do ambiente." };
+  }
+  if (!apiKey.startsWith("re_")) {
+    return { ok: false, error: "RESEND_API_KEY inválida (deve começar com re_). Verifique em https://resend.com/api-keys." };
+  }
+
+  if (isProdOrStaging) {
+    // Produção / staging: EMAIL_FROM é obrigatório e deve usar domínio próprio verificado no Resend
+    if (!envFrom) {
+      return {
+        ok: false,
+        error:
+          `EMAIL_FROM não configurado. Em ${nodeEnv}, defina com o domínio verificado no Resend ` +
+          `(ex.: Task Manager <noreply@seudominio.com>). Consulte PASSO-A-PASSO-EMAIL-HOSTGATOR-RESEND.md.`,
+      };
+    }
+    if (isTestSenderDomain(envFrom)) {
+      return {
+        ok: false,
+        error:
+          `EMAIL_FROM usa domínio de teste (${RESEND_TEST_DOMAIN}), não permitido em ${nodeEnv}. ` +
+          `Configure com o domínio da aplicação verificado no Resend ` +
+          `(ex.: Task Manager <noreply@seudominio.com>). Consulte PASSO-A-PASSO-EMAIL-HOSTGATOR-RESEND.md.`,
+      };
+    }
+    return { ok: true, apiKey, from: envFrom };
+  }
+
+  // Desenvolvimento: fallback para domínio de teste se EMAIL_FROM não estiver configurado
+  const from = envFrom || RESEND_TEST_SENDER;
+  return { ok: true, apiKey, from };
 }
 
 /**
@@ -90,35 +150,49 @@ function escapeHtml(text: string): string {
 }
 
 /**
- * Envia o código de redefinição por e-mail usando Resend.
+ * Envia o código de redefinição/confirmação de senha por e-mail usando Resend.
+ *
+ * - Lê RESEND_API_KEY e EMAIL_FROM do process.env em tempo de execução.
+ * - Em produção/staging: falha explicitamente se EMAIL_FROM não estiver configurado
+ *   com domínio próprio verificado no Resend (não usa onboarding@resend.dev).
+ * - Em desenvolvimento: EMAIL_FROM opcional — fallback para onboarding@resend.dev.
+ *
  * Retorna { sent: true } em sucesso ou { sent: false, error: string } em falha.
  */
-export async function sendResetCodeEmail(options: SendResetCodeOptions): Promise<{ sent: boolean; error?: string }> {
-  if (!RESEND_API_KEY || !RESEND_API_KEY.startsWith("re_")) {
-    return { sent: false, error: "RESEND_API_KEY não configurada ou inválida (deve começar com re_). Configure no .env." };
+export async function sendResetCodeEmail(
+  options: SendResetCodeOptions
+): Promise<{ sent: boolean; error?: string }> {
+  const config = resolveEmailConfig();
+  if (!config.ok) {
+    console.error("[email] Configuração inválida:", config.error);
+    return { sent: false, error: config.error };
   }
+
   if (!options.to || !String(options.to).trim()) {
     return { sent: false, error: "Destinatário do e-mail não informado." };
   }
 
   try {
     const { Resend } = await import("resend");
-    const resend = new Resend(RESEND_API_KEY);
+    const resend = new Resend(config.apiKey);
 
     const html = buildResetCodeCardHtml(options);
     const { error } = await resend.emails.send({
-      from: EMAIL_FROM,
+      from: config.from,
       to: options.to,
       subject: "Seu código para redefinir a senha — Task Manager",
       html,
     });
 
     if (error) {
+      console.error("[email] Falha no envio via Resend:", error.message);
       return { sent: false, error: error.message || "Falha ao enviar e-mail." };
     }
+
     return { sent: true };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Erro ao enviar e-mail.";
+    console.error("[email] Exceção ao enviar e-mail:", message);
     return { sent: false, error: message };
   }
 }

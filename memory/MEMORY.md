@@ -40,10 +40,20 @@
 - Novos uploads em prod/staging vão para Supabase Storage do ambiente correto
 - Em dev, tudo em disco como antes
 
+## Serviço de E-mail (src/services/email.ts)
+- Usa `resend` (pacote já em `package.json`)
+- Lê `RESEND_API_KEY` e `EMAIL_FROM` em **runtime** dentro de `sendResetCodeEmail` (não no topo do módulo)
+- Em produção/staging: `EMAIL_FROM` obrigatório e não pode usar `onboarding@resend.dev` — falha explícita se inválido
+- Em dev: fallback para `Task Manager <onboarding@resend.dev>` se `EMAIL_FROM` não configurado
+- Chamada pelas rotas em `src/routes/auth.ts`: `request-reset`, `generate-reset`, `generate-reset-bulk`
+- Referência de configuração de domínio: `PASSO-A-PASSO-EMAIL-HOSTGATOR-RESEND.md`
+
 ## Variáveis de ambiente relevantes
 ```
 SUPABASE_URL=
 SUPABASE_SERVICE_ROLE_KEY=
 SUPABASE_STORAGE_BUCKET_EVIDENCES=task-evidences
 SUPABASE_STORAGE_BUCKET_LOGOS=tenant-logos
+RESEND_API_KEY=re_...
+EMAIL_FROM=Task Manager <noreply@dominio-verificado.com>
 ```
