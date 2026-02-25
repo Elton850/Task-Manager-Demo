@@ -434,7 +434,7 @@ export default function UsersPage() {
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
             <div className="flex-1 min-w-0">
-              <label className="block text-sm font-medium text-slate-700 mb-1">Buscar</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Buscar</label>
               <Input
                 placeholder="Nome, email ou área..."
                 value={filters.search}
@@ -467,7 +467,7 @@ export default function UsersPage() {
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="min-w-0">
-              <label className="block text-sm font-medium text-slate-700 mb-1">Área</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Área</label>
               <Select
                 options={areaOptions}
                 value={filters.area}
@@ -477,7 +477,7 @@ export default function UsersPage() {
               />
             </div>
             <div className="min-w-0">
-              <label className="block text-sm font-medium text-slate-700 mb-1">Função</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Função</label>
               <Select
                 options={ROLE_OPTIONS}
                 value={filters.role}
@@ -486,7 +486,7 @@ export default function UsersPage() {
               />
             </div>
             <div className="min-w-0">
-              <label className="block text-sm font-medium text-slate-700 mb-1">Status</label>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Status</label>
               <Select
                 options={STATUS_OPTIONS}
                 value={filters.status}
@@ -496,7 +496,7 @@ export default function UsersPage() {
             </div>
             {isMasterAdmin && (
               <div className="min-w-0">
-                <label className="block text-sm font-medium text-slate-700 mb-1">Empresa</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Empresa</label>
                 <Select
                   options={[
                     { value: "", label: "Todas" },
@@ -510,7 +510,7 @@ export default function UsersPage() {
             )}
             {isMasterAdmin && (
               <div className="min-w-0">
-                <label className="block text-sm font-medium text-slate-700 mb-1">Senha</label>
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">Senha</label>
                 <Select
                   options={[
                     { value: "", label: "Todos" },
@@ -524,7 +524,7 @@ export default function UsersPage() {
             )}
             <div className="min-w-0 flex items-end gap-2">
               <div className="flex-1 min-w-0">
-                <label className="block text-sm font-medium text-slate-700 mb-1">
+                <label className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1">
                   <span className="inline-flex items-center gap-1">
                     <Filter size={14} />
                     Período (logins)
@@ -559,7 +559,7 @@ export default function UsersPage() {
             <Users size={18} />
           </div>
           <div className="text-2xl font-bold text-slate-700 dark:text-slate-100">{filtered.length}</div>
-          <div className="text-xs text-slate-600 dark:text-slate-300 mt-0.5 font-medium">
+          <div className="text-sm text-slate-600 dark:text-slate-300 mt-0.5 font-medium">
             Usuários (filtro)
           </div>
         </div>
@@ -568,21 +568,21 @@ export default function UsersPage() {
             <UserCheck size={18} />
           </div>
           <div className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">{activeFiltered.length}</div>
-          <div className="text-xs text-slate-600 dark:text-slate-300 mt-0.5 font-medium">Ativos</div>
+          <div className="text-sm text-slate-600 dark:text-slate-300 mt-0.5 font-medium">Ativos</div>
         </div>
         <div className="bg-slate-200/80 dark:bg-slate-700/80 border border-slate-400/30 dark:border-slate-600/80 rounded-xl p-4">
           <div className="text-slate-600 dark:text-slate-400 mb-2">
             <UserX size={18} />
           </div>
           <div className="text-2xl font-bold text-slate-700 dark:text-slate-200">{inactiveFiltered.length}</div>
-          <div className="text-xs text-slate-600 dark:text-slate-300 mt-0.5 font-medium">Inativos</div>
+          <div className="text-sm text-slate-600 dark:text-slate-300 mt-0.5 font-medium">Inativos</div>
         </div>
         <div className="bg-brand-500/10 dark:bg-brand-500/15 border border-brand-500/20 dark:border-brand-500/30 rounded-xl p-4">
           <div className="text-brand-600 dark:text-brand-400 mb-2">
             <LogIn size={18} />
           </div>
           <div className="text-2xl font-bold text-brand-700 dark:text-brand-300">{totalLoginsInPeriod}</div>
-          <div className="text-xs text-slate-600 dark:text-slate-300 mt-0.5 font-medium">
+          <div className="text-sm text-slate-600 dark:text-slate-300 mt-0.5 font-medium">
             Logins no período
           </div>
         </div>
@@ -593,7 +593,7 @@ export default function UsersPage() {
           <div className="text-2xl font-bold text-amber-700 dark:text-amber-300">
             {usersWithLoginInPeriod}
           </div>
-          <div className="text-xs text-slate-600 dark:text-slate-300 mt-0.5 font-medium">
+          <div className="text-sm text-slate-600 dark:text-slate-300 mt-0.5 font-medium">
             Acessaram no período
           </div>
         </div>
@@ -605,7 +605,7 @@ export default function UsersPage() {
             <div className="text-2xl font-bold text-violet-700 dark:text-violet-300">
               {withoutPasswordFiltered.length}
             </div>
-            <div className="text-xs text-slate-600 dark:text-slate-300 mt-0.5 font-medium">
+            <div className="text-sm text-slate-600 dark:text-slate-300 mt-0.5 font-medium">
               Sem senha definida
             </div>
           </div>
@@ -693,16 +693,16 @@ export default function UsersPage() {
                       <span className="sr-only">Selecionar</span>
                     </th>
                   )}
-                  <th className="px-2 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider min-w-0">Empresa</th>
-                  <th className="px-2 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider min-w-0">Usuário</th>
-                  <th className="px-2 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider min-w-0">Email</th>
-                  <th className="px-2 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider shrink-0 whitespace-nowrap">Função</th>
-                  <th className="px-2 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider min-w-0">Área</th>
-                  <th className="px-2 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider shrink-0 whitespace-nowrap">Status</th>
-                  <th className="px-2 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider shrink-0 whitespace-nowrap">Logins</th>
-                  <th className="px-2 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider shrink-0 whitespace-nowrap">Login / Logout</th>
+                  <th className="px-3 py-3.5 text-left text-sm font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider min-w-0">Empresa</th>
+                  <th className="px-3 py-3.5 text-left text-sm font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider min-w-0">Usuário</th>
+                  <th className="px-3 py-3.5 text-left text-sm font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider min-w-0">Email</th>
+                  <th className="px-3 py-3.5 text-left text-sm font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider shrink-0 whitespace-nowrap">Função</th>
+                  <th className="px-3 py-3.5 text-left text-sm font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider min-w-0">Área</th>
+                  <th className="px-3 py-3.5 text-left text-sm font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider shrink-0 whitespace-nowrap">Status</th>
+                  <th className="px-3 py-3.5 text-left text-sm font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider shrink-0 whitespace-nowrap">Logins</th>
+                  <th className="px-3 py-3.5 text-left text-sm font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider shrink-0 whitespace-nowrap">Login / Logout</th>
                   {isAdmin && (
-                    <th className="px-2 py-3.5 pr-4 text-right text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider shrink-0">Ações</th>
+                    <th className="px-3 py-3.5 pr-4 text-right text-sm font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider shrink-0">Ações</th>
                   )}
                 </tr>
               </thead>
@@ -725,25 +725,25 @@ export default function UsersPage() {
                         />
                       </td>
                     )}
-                    <td className={`px-2 py-3 align-middle min-w-0 ${!isAdmin && "pl-4"}`}>
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <Building2 size={14} className="text-slate-400 dark:text-slate-500 flex-shrink-0" />
-                        <span className="text-sm text-slate-700 dark:text-slate-200 truncate" title={(u.tenantName ?? tenant?.name) || undefined}>
+                    <td className={`px-3 py-3.5 align-middle min-w-0 ${!isAdmin && "pl-4"}`}>
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Building2 size={14} className="text-slate-500 dark:text-slate-400 flex-shrink-0" />
+                        <span className="text-sm font-medium text-slate-800 dark:text-slate-100 truncate leading-snug" title={(u.tenantName ?? tenant?.name) || undefined}>
                           {(u.tenantName ?? tenant?.name) || "—"}
                         </span>
                       </div>
                     </td>
-                    <td className="px-2 py-3 align-middle min-w-0">
+                    <td className="px-3 py-3.5 align-middle min-w-0">
                       <div className="flex items-center gap-2 min-w-0">
-                        <div className="w-7 h-7 rounded-full bg-brand-100 dark:bg-brand-500/25 border border-brand-200 dark:border-brand-500/40 flex items-center justify-center flex-shrink-0">
-                          <span className="text-xs font-bold text-brand-800 dark:text-brand-200">
+                        <div className="w-8 h-8 rounded-full bg-brand-100 dark:bg-brand-500/25 border border-brand-200 dark:border-brand-500/40 flex items-center justify-center flex-shrink-0">
+                          <span className="text-sm font-bold text-brand-800 dark:text-brand-200">
                             {u.nome.charAt(0).toUpperCase()}
                           </span>
                         </div>
                         <div className="min-w-0">
-                          <p className="text-sm font-medium text-slate-800 dark:text-slate-100 truncate" title={u.nome}>{u.nome}</p>
+                          <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate leading-snug" title={u.nome}>{u.nome}</p>
                           {u.canDelete && (
-                            <span className="inline-flex items-center gap-1 text-xs text-emerald-700 dark:text-emerald-400 font-medium mt-0.5">
+                            <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 dark:text-emerald-300 mt-0.5">
                               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
                               <span className="truncate">Pode excluir</span>
                             </span>
@@ -751,10 +751,10 @@ export default function UsersPage() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-2 py-3 align-middle min-w-0">
-                      <span className="text-sm text-slate-700 dark:text-slate-200 truncate block" title={u.email}>{u.email}</span>
+                    <td className="px-3 py-3.5 align-middle min-w-0">
+                      <span className="text-sm font-medium text-slate-800 dark:text-slate-100 truncate block leading-snug" title={u.email}>{u.email}</span>
                     </td>
-                    <td className="px-2 py-3 align-middle shrink-0">
+                    <td className="px-3 py-3.5 align-middle shrink-0">
                       <Badge variant={getRoleVariant(u.role)}>
                         {u.role === "ADMIN"
                           ? "Administrador"
@@ -763,34 +763,34 @@ export default function UsersPage() {
                             : "Usuário"}
                       </Badge>
                     </td>
-                    <td className="px-2 py-3 align-middle min-w-0">
-                      <span className="text-sm text-slate-700 dark:text-slate-200 truncate block" title={u.area}>{u.area}</span>
+                    <td className="px-3 py-3.5 align-middle min-w-0">
+                      <span className="text-sm font-medium text-slate-800 dark:text-slate-100 truncate block leading-snug" title={u.area}>{u.area}</span>
                     </td>
-                    <td className="px-2 py-3 align-middle shrink-0">
+                    <td className="px-3 py-3.5 align-middle shrink-0">
                       <Badge variant={u.active ? "green" : "slate"}>
                         {u.active ? "Ativo" : "Inativo"}
                       </Badge>
                       {u.mustChangePassword && (
-                        <div className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">
+                        <div className="text-xs font-medium text-amber-700 dark:text-amber-300 mt-0.5 leading-snug">
                           Aguardando senha
                         </div>
                       )}
                     </td>
-                    <td className="px-2 py-3 align-middle shrink-0">
-                      <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
+                    <td className="px-3 py-3.5 align-middle shrink-0">
+                      <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">
                         {filters.from && filters.to
                           ? loginCounts[u.id] ?? 0
                           : "—"}
                       </span>
                     </td>
-                    <td className="px-2 py-3 align-middle min-w-0">
-                      <div className="flex flex-col gap-0.5 text-xs text-slate-600 dark:text-slate-300">
+                    <td className="px-3 py-3.5 align-middle min-w-0">
+                      <div className="flex flex-col gap-1 text-sm text-slate-700 dark:text-slate-200 leading-snug">
                         <span className="truncate" title={u.lastLoginAt ?? undefined}>Login: {formatDateTime(u.lastLoginAt)}</span>
                         <span className="truncate" title={u.lastLogoutAt ?? undefined}>Logout: {formatDateTime(u.lastLogoutAt)}</span>
                       </div>
                     </td>
                     {isAdmin && (
-                      <td className="px-2 pr-4 py-3 align-middle shrink-0">
+                      <td className="px-3 pr-4 py-3.5 align-middle shrink-0">
                         <div className="flex items-center justify-end gap-1">
                           {isMasterAdmin && (
                             <Button
@@ -852,7 +852,7 @@ export default function UsersPage() {
               </tbody>
             </table>
             {filtered.length === 0 && (
-              <div className="text-center py-12 text-slate-500 dark:text-slate-400 text-sm">
+              <div className="text-center py-12 text-slate-600 dark:text-slate-300 text-sm font-medium">
                 {filters.search || filters.area || filters.role || filters.status
                   ? "Nenhum usuário encontrado com os filtros aplicados"
                   : "Nenhum usuário cadastrado"}
