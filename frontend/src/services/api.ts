@@ -25,7 +25,7 @@ export function clearCsrfToken(): void {
   csrfToken = "";
 }
 
-const RESERVED_SEGMENTS = new Set(["login", "calendar", "tasks", "performance", "users", "admin", "empresa", "empresas", "justificativas", "sistema", "logs-acesso"]);
+const RESERVED_SEGMENTS = new Set(["login", "calendar", "tasks", "performance", "users", "admin", "empresa", "empresas", "justificativas", "sistema", "logs-acesso", "erro"]);
 
 /**
  * True quando o tenant vem do hostname (modo subdomínio): produção (empresa.fluxiva.com.br)

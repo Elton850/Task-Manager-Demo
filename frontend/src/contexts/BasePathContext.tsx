@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect } from "react";
+import React, { createContext, useContext, useEffect, useState } from "react";
 import { useLocation, Outlet, Navigate } from "react-router-dom";
 import { setTenantSlug } from "@/services/api";
 import { getTenantFromPath, getBasePath } from "@/utils/tenantPath";
@@ -76,15 +76,49 @@ export function SyncTenantAndBasePath() {
     return <Navigate to={pathWithoutSlug} replace />;
   }
 
+  // Quando o path é exatamente /erro, não validar tenant — evita loop e permite exibir a página de erro.
+  const isErrorPage = pathname === "/erro" || pathname.endsWith("/erro");
+  const [tenantValidated, setTenantValidated] = useState<boolean>(() => tenant === "system" || isErrorPage);
+
   useEffect(() => {
-    setTenantSlug(tenant);
-    if (tenant !== "system") {
-      localStorage.setItem("tenantSlug", tenant);
-    } else {
-      // Evitar que ao acessar a raiz do staging (staging.dominio/) o localStorage puxe tenant antigo
-      localStorage.removeItem("tenantSlug");
+    if (tenant === "system" || isErrorPage) {
+      setTenantSlug(tenant);
+      if (tenant === "system") localStorage.removeItem("tenantSlug");
+      setTenantValidated(true);
+      return;
     }
-  }, [tenant]);
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/tenants/current", {
+          credentials: "include",
+          headers: { "X-Tenant-Slug": tenant },
+        });
+        const data = await res.json().catch(() => ({})) as { code?: string };
+        if (cancelled) return;
+        if (res.status === 404 && data.code === "TENANT_NOT_FOUND") {
+          if (typeof window !== "undefined") {
+            window.location.replace(`${window.location.origin}/erro?tipo=empresa`);
+          }
+          return;
+        }
+        if (res.ok) {
+          setTenantSlug(tenant);
+          localStorage.setItem("tenantSlug", tenant);
+          setTenantValidated(true);
+        } else {
+          setTenantValidated(true);
+        }
+      } catch {
+        if (!cancelled) setTenantValidated(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [tenant, isErrorPage]);
+
+  if (tenant !== "system" && !isErrorPage && !tenantValidated) {
+    return null;
+  }
 
   return (
     <BasePathContext.Provider value={basePath}>
