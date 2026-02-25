@@ -14,13 +14,18 @@ export class AuthError extends Error {
   }
 }
 
+const JWT_OPTIONS: jwt.SignOptions = {
+  expiresIn: "12h",
+  algorithm: "HS256",
+};
+
 export function signToken(user: AuthUser): string {
   if (!JWT_SECRET) throw new Error("JWT_SECRET não configurado.");
-  return jwt.sign(user, JWT_SECRET, { expiresIn: "12h" });
+  return jwt.sign(user, JWT_SECRET, JWT_OPTIONS);
 }
 
 export function verifyToken(token: string): AuthUser {
-  return jwt.verify(token, JWT_SECRET) as AuthUser;
+  return jwt.verify(token, JWT_SECRET, { algorithms: ["HS256"] }) as AuthUser;
 }
 
 const SKIP_AUTH_PATHS = new Set(["/auth/login", "/auth/reset", "/auth/request-reset", "/csrf", "/health"]);

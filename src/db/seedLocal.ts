@@ -285,7 +285,7 @@ async function seedDemo(passwordHash: string, now: string): Promise<void> {
     db.prepare("INSERT INTO login_events (id, tenant_id, user_id, logged_at) VALUES (?, ?, ?, ?)").run(uuidv4(), demoTenantId, adminId, now);
 
     db.exec("COMMIT");
-    console.log("✅ Demo: admin@demo.com / " + MOCK_PASSWORD + " (tarefas, task_evidences, task_justifications, justification_evidences, subtarefas, login_events)");
+    console.log("✅ Demo: admin@demo.com (tarefas, task_evidences, task_justifications, justification_evidences, subtarefas, login_events)");
   } catch (e) {
     db.exec("ROLLBACK");
     throw e;
@@ -361,7 +361,7 @@ async function main(): Promise<void> {
   logVerification();
   console.log("\n🎉 Seed local concluído! Banco: " + DB_PATH);
   console.log("\n📋 Para migrar para o Supabase: npm run migrate:supabase");
-  console.log("   Acesso demo: ?tenant=demo → admin@demo.com / " + MOCK_PASSWORD);
+  console.log("   Acesso demo: ?tenant=demo → admin@demo.com (senha definida no seed)");
 }
 
 main().catch((err) => {

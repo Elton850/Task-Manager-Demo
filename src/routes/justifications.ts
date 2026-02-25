@@ -4,7 +4,7 @@ import fs from "fs";
 import path from "path";
 import db from "../db";
 import { requireAuth } from "../middleware/auth";
-import { mustString, optStr, nowIso } from "../utils";
+import { mustString, optStr, nowIso, getClientErrorMessage } from "../utils";
 import {
   shouldUseStorage,
   isStorageKey,
@@ -394,7 +394,7 @@ router.post("/", async (req: Request, res: Response): Promise<void> => {
       },
     });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Erro ao criar justificativa.";
+    const msg = getClientErrorMessage(err, "Erro ao criar justificativa.");
     res.status(400).json({ error: msg, code: "VALIDATION" });
   }
 });
@@ -539,7 +539,7 @@ router.post("/:id/evidences", async (req: Request, res: Response): Promise<void>
       },
     });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Erro ao anexar evidência.";
+    const msg = getClientErrorMessage(err, "Erro ao anexar evidência.");
     res.status(400).json({ error: msg, code: "VALIDATION" });
   }
 });
@@ -654,8 +654,13 @@ router.delete("/:id/evidences/:eid", async (req: Request, res: Response): Promis
       // Arquivo no Supabase Storage
       await deleteFile(BUCKET_EVIDENCES, ev.file_path);
     } else {
-      // Arquivo em disco (registros antigos)
+      // Arquivo em disco (registros antigos) — validar path para evitar path traversal
       const absolutePath = path.resolve(process.cwd(), ev.file_path);
+      const allowedBase = path.resolve(process.cwd(), "data", "uploads");
+      if (!absolutePath.startsWith(allowedBase + path.sep) && absolutePath !== allowedBase) {
+        res.status(400).json({ error: "Caminho de arquivo inválido.", code: "VALIDATION" });
+        return;
+      }
       if (fs.existsSync(absolutePath)) fs.unlinkSync(absolutePath);
     }
     await db.prepare("DELETE FROM justification_evidences WHERE id = ? AND tenant_id = ?").run(evidenceId, tenantId);
@@ -730,7 +735,7 @@ router.put("/:id/review", async (req: Request, res: Response): Promise<void> => 
       },
     });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Erro ao analisar justificativa.";
+    const msg = getClientErrorMessage(err, "Erro ao analisar justificativa.");
     res.status(400).json({ error: msg, code: "VALIDATION" });
   }
 });

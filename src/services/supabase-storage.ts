@@ -127,9 +127,11 @@ async function ensureBucket(name: string, isPublic: boolean): Promise<void> {
   }
 
   ensuredBuckets.add(name);
-  console.log(
-    `[supabase-storage] Bucket "${name}" pronto (public=${isPublic}, env=${process.env.NODE_ENV})`
-  );
+  if (process.env.NODE_ENV !== "production") {
+    console.log(
+      `[supabase-storage] Bucket "${name}" pronto (public=${isPublic}, env=${process.env.NODE_ENV})`
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------

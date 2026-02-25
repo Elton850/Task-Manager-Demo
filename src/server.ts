@@ -51,7 +51,7 @@ if (DB_PROVIDER === "supabase") {
     const ok = dbUrl.startsWith("postgresql://") || dbUrl.startsWith("postgres://");
     console.log(
       "[startup] SUPABASE_DB_URL:",
-      ok ? `${dbUrl.length} chars, prefix OK` : `inválida (${dbUrl.length} chars, começa com "${dbUrl.slice(0, 24)}..."). Use postgresql://... sem aspas.`
+      ok ? `${dbUrl.length} chars, prefix OK` : `inválida (${dbUrl.length} chars). Use postgresql://... ou postgres://... sem aspas.`
     );
     if (!ok) {
       console.error("[startup] Corrija SUPABASE_DB_URL em .env.production na VPS e reinicie o PM2.");
@@ -216,7 +216,13 @@ app.use((_req, res) => {
 
 // ── Error handler ─────────────────────────────────────────────────────────────
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  console.error("[ERROR]", err.message);
+  const ts = new Date().toISOString();
+  if (process.env.NODE_ENV === "production") {
+    console.error(`[ERROR] ${ts}`, err.name || "Error");
+  } else {
+    console.error(`[ERROR] ${ts}`, err.message);
+    console.error(err.stack);
+  }
   res.status(500).json({ error: "Erro interno do servidor.", code: "INTERNAL" });
 });
 

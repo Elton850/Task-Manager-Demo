@@ -46,3 +46,15 @@ export function calcStatus(prazo: string | null | undefined, realizado: string |
 export function optStr(v: unknown): string {
   return String(v ?? "").trim();
 }
+
+/**
+ * Mensagem de erro segura para enviar ao cliente na resposta da API.
+ * Em produção retorna apenas o fallback para não expor detalhes internos (BD, Storage, etc.).
+ * Em desenvolvimento/staging retorna a mensagem real para facilitar debug.
+ */
+export function getClientErrorMessage(err: unknown, fallback: string): string {
+  if (process.env.NODE_ENV === "production") {
+    return fallback;
+  }
+  return err instanceof Error ? err.message : fallback;
+}

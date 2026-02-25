@@ -165,8 +165,9 @@ export function tenantMiddleware(req: Request, res: Response, next: NextFunction
 
       next();
     })
-    .catch((err) => {
-      console.error("[tenantMiddleware] Erro ao buscar tenant:", err);
+    .catch((err: unknown) => {
+      if (!IS_PROD) console.error("[tenantMiddleware] Erro ao buscar tenant:", err);
+      else console.error("[tenantMiddleware] Erro ao buscar tenant:", err instanceof Error ? err.name : "Unknown");
       res.status(500).json({ error: "Erro interno ao verificar empresa.", code: "INTERNAL" });
     });
 }

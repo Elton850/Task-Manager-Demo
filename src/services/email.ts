@@ -185,14 +185,19 @@ export async function sendResetCodeEmail(
     });
 
     if (error) {
-      console.error("[email] Falha no envio via Resend:", error.message);
-      return { sent: false, error: error.message || "Falha ao enviar e-mail." };
+      const logDetail = process.env.NODE_ENV === "production" ? "(verificar Resend)" : error.message;
+      console.error("[email] Falha no envio via Resend:", logDetail);
+      return { sent: false, error: "Falha ao enviar e-mail." };
     }
 
     return { sent: true };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Erro ao enviar e-mail.";
-    console.error("[email] Exceção ao enviar e-mail:", message);
-    return { sent: false, error: message };
+    if (process.env.NODE_ENV !== "production") {
+      console.error("[email] Exceção ao enviar e-mail:", message);
+    } else {
+      console.error("[email] Exceção ao enviar e-mail.");
+    }
+    return { sent: false, error: "Falha ao enviar e-mail." };
   }
 }

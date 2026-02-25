@@ -4,7 +4,7 @@ import fs from "fs";
 import path from "path";
 import db from "../db";
 import { requireAuth } from "../middleware/auth";
-import { mustString, optStr, nowIso, calcStatus } from "../utils";
+import { mustString, optStr, nowIso, calcStatus, getClientErrorMessage } from "../utils";
 import {
   shouldUseStorage,
   isStorageKey,
@@ -491,7 +491,7 @@ router.post("/", async (req: Request, res: Response): Promise<void> => {
     const emailToName = await getNamesForEmails(tenantId, [created.prazo_modified_by, created.realizado_por].filter(Boolean) as string[]);
     res.status(201).json({ task: rowToTask(created, [], emailToName) });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Erro ao criar tarefa.";
+    const msg = getClientErrorMessage(err, "Erro ao criar tarefa.");
     res.status(400).json({ error: msg, code: "VALIDATION" });
   }
 });
@@ -609,7 +609,7 @@ router.put("/:id", async (req: Request, res: Response): Promise<void> => {
     const emailToName = await getNamesForEmails(tenantId, auditEmails);
     res.json({ task: rowToTask(updated, evidences, emailToName) });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Erro ao atualizar tarefa.";
+    const msg = getClientErrorMessage(err, "Erro ao atualizar tarefa.");
     res.status(400).json({ error: msg, code: "VALIDATION" });
   }
 });
@@ -898,7 +898,7 @@ router.post("/:id/evidences", async (req: Request, res: Response): Promise<void>
       task: rowToTask(updatedTask, evidences, emailToName),
     });
   } catch (err) {
-    const msg = err instanceof Error ? err.message : "Erro ao anexar evidência.";
+    const msg = getClientErrorMessage(err, "Erro ao anexar evidência.");
     res.status(400).json({ error: msg, code: "VALIDATION" });
   }
 });

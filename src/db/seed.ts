@@ -49,7 +49,7 @@ async function seed() {
       INSERT INTO users (id, tenant_id, email, nome, role, area, active, can_delete, password_hash, must_change_password, created_at)
       VALUES (?, ?, ?, ?, 'ADMIN', 'TI', 1, 1, ?, 0, ?)
     `).run(adminId, tenantId, ADMIN_EMAIL, "Administrador", passwordHash, now);
-    console.log(`✅ Admin: ${ADMIN_EMAIL} / ${ADMIN_PASSWORD}`);
+    console.log(`✅ Admin: ${ADMIN_EMAIL} (defina a senha no primeiro acesso ou via .env)`);
 
     let lookupOrder = 0;
     for (const [category, values] of Object.entries(DEFAULT_LOOKUPS)) {
@@ -100,11 +100,8 @@ async function seed() {
   }
 
   console.log("\n🎉 Seed concluído!");
-  console.log(`\n📋 Acesso:`);
-  console.log(`   URL:   http://localhost:3000?tenant=${DEMO_TENANT_SLUG}`);
-  console.log(`   Email: ${ADMIN_EMAIL}`);
-  console.log(`   Senha: ${ADMIN_PASSWORD}`);
-  console.log(`\n⚠️  Altere a senha após o primeiro login!`);
+  console.log(`\n📋 Acesso: http://localhost:3000?tenant=${DEMO_TENANT_SLUG}`);
+  console.log(`   Email: ${ADMIN_EMAIL} — altere a senha após o primeiro login.`);
 }
 
 seed().catch(console.error).finally(() => process.exit());
