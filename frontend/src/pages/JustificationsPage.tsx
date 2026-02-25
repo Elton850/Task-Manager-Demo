@@ -290,25 +290,25 @@ export default function JustificationsPage() {
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
                 <thead>
-                  <tr className="border-b border-slate-200 dark:border-slate-600 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
-                    <th className="pb-3 pr-4">Atividade</th>
-                    <th className="pb-3 pr-4 whitespace-nowrap">Prazo</th>
-                    <th className="pb-3 pr-4 whitespace-nowrap">Realizado</th>
-                    <th className="pb-3 pr-4 whitespace-nowrap">Status justificativa</th>
-                    <th className="pb-3 pr-4 text-right">Ações</th>
+                  <tr className="border-b border-slate-200 dark:border-slate-600/80 bg-slate-50/90 dark:bg-slate-700/80">
+                    <th className="pl-5 pr-4 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Atividade</th>
+                    <th className="px-4 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider whitespace-nowrap">Prazo</th>
+                    <th className="px-4 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider whitespace-nowrap">Realizado</th>
+                    <th className="px-4 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider whitespace-nowrap">Status justificativa</th>
+                    <th className="px-4 py-3.5 pr-5 text-right text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-600/70">
                   {items.map(item => (
                     <tr key={item.task.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-700/60 transition-colors">
-                      <td className="py-3 pr-4 font-medium text-slate-800 dark:text-slate-100">{item.task.atividade}</td>
-                      <td className="py-3 pr-4 text-slate-600 dark:text-slate-300">
+                      <td className="pl-5 pr-4 py-3 font-medium text-slate-800 dark:text-slate-100">{item.task.atividade}</td>
+                      <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
                         {item.task.prazo ? new Date(item.task.prazo + "T00:00:00").toLocaleDateString("pt-BR") : "—"}
                       </td>
-                      <td className="py-3 pr-4 text-slate-600 dark:text-slate-300">
+                      <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
                         {item.task.realizado ? new Date(item.task.realizado + "T00:00:00").toLocaleDateString("pt-BR") : "—"}
                       </td>
-                      <td className="py-3 pr-4">
+                      <td className="px-4 py-3">
                         <span
                           className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${
                             item.justificationStatus === "approved"
@@ -325,7 +325,7 @@ export default function JustificationsPage() {
                           {JUSTIFICATION_STATUS_LABELS[item.justificationStatus]}
                         </span>
                       </td>
-                      <td className="py-3 pr-4 text-right">
+                      <td className="px-4 pr-5 py-3 text-right">
                         {item.justificationStatus === "blocked" ? (
                           <span className="text-xs text-slate-500 dark:text-slate-400">Bloqueada</span>
                         ) : item.justificationStatus === "none" || item.justificationStatus === "refused" ? (
@@ -526,30 +526,30 @@ export default function JustificationsPage() {
               <div className="overflow-x-auto">
                 <table className="min-w-full text-sm">
                   <thead>
-                    <tr className="border-b border-slate-200 dark:border-slate-600 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
-                      <th className="pb-3 pr-4">Atividade</th>
-                      <th className="pb-3 pr-4">Responsável</th>
-                      <th className="pb-3 pr-4 whitespace-nowrap">Prazo / Realizado</th>
-                      <th className="pb-3 pr-4">Data justificativa</th>
-                      <th className="pb-3 pr-4 text-right">Ações</th>
+                    <tr className="border-b border-slate-200 dark:border-slate-600/80 bg-slate-50/90 dark:bg-slate-700/80">
+                      <th className="pl-5 pr-4 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Atividade</th>
+                      <th className="px-4 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Responsável</th>
+                      <th className="px-4 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider whitespace-nowrap">Prazo / Realizado</th>
+                      <th className="px-4 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider whitespace-nowrap">Data justificativa</th>
+                      <th className="px-4 py-3.5 pr-5 text-right text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Ações</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-600/70">
                     {pendingItems.map(row => (
                       <tr key={row.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-700/60 transition-colors">
-                        <td className="py-3 pr-4">
+                        <td className="pl-5 pr-4 py-3">
                           <p className="font-medium text-slate-800 dark:text-slate-100">{row.task.atividade}</p>
                           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2">{row.description}</p>
                         </td>
-                        <td className="py-3 pr-4 text-slate-600 dark:text-slate-300">{row.task.responsavelNome}</td>
-                        <td className="py-3 pr-4 text-slate-600 dark:text-slate-300 whitespace-nowrap">
+                        <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{row.task.responsavelNome}</td>
+                        <td className="px-4 py-3 text-slate-600 dark:text-slate-300 whitespace-nowrap">
                           {row.task.prazo ? new Date(row.task.prazo + "T00:00:00").toLocaleDateString("pt-BR") : "—"} /{" "}
                           {row.task.realizado ? new Date(row.task.realizado + "T00:00:00").toLocaleDateString("pt-BR") : "—"}
                         </td>
-                        <td className="py-3 pr-4 text-slate-600 dark:text-slate-300">
+                        <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
                           {new Date(row.createdAt).toLocaleString("pt-BR")}
                         </td>
-                        <td className="py-3 pr-4 text-right">
+                        <td className="px-4 pr-5 py-3 text-right">
                           <div className="flex items-center justify-end gap-1 flex-wrap">
                             <Button variant="secondary" size="sm" onClick={() => handleApproveClick(row)} className="text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-500/20">
                               <CheckCircle size={14} />
@@ -581,30 +581,30 @@ export default function JustificationsPage() {
               <div className="overflow-x-auto">
                 <table className="min-w-full text-sm">
                   <thead>
-                    <tr className="border-b border-slate-200 dark:border-slate-600 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
-                      <th className="pb-3 pr-4">Atividade</th>
-                      <th className="pb-3 pr-4">Responsável</th>
-                      <th className="pb-3 pr-4 whitespace-nowrap">Prazo / Realizado</th>
-                      <th className="pb-3 pr-4">Data justificativa</th>
-                      <th className="pb-3 pr-4">Aprovada em</th>
+                    <tr className="border-b border-slate-200 dark:border-slate-600/80 bg-slate-50/90 dark:bg-slate-700/80">
+                      <th className="pl-5 pr-4 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Atividade</th>
+                      <th className="px-4 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Responsável</th>
+                      <th className="px-4 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider whitespace-nowrap">Prazo / Realizado</th>
+                      <th className="px-4 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider whitespace-nowrap">Data justificativa</th>
+                      <th className="px-4 py-3.5 pr-5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider whitespace-nowrap">Aprovada em</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-600/70">
                     {approvedItems.map(row => (
                       <tr key={row.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-700/60 transition-colors">
-                        <td className="py-3 pr-4">
+                        <td className="pl-5 pr-4 py-3">
                           <p className="font-medium text-slate-800 dark:text-slate-100">{row.task.atividade}</p>
                           <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 line-clamp-2">{row.description}</p>
                         </td>
-                        <td className="py-3 pr-4 text-slate-600 dark:text-slate-300">{row.task.responsavelNome}</td>
-                        <td className="py-3 pr-4 text-slate-600 dark:text-slate-300 whitespace-nowrap">
+                        <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{row.task.responsavelNome}</td>
+                        <td className="px-4 py-3 text-slate-600 dark:text-slate-300 whitespace-nowrap">
                           {row.task.prazo ? new Date(row.task.prazo + "T00:00:00").toLocaleDateString("pt-BR") : "—"} /{" "}
                           {row.task.realizado ? new Date(row.task.realizado + "T00:00:00").toLocaleDateString("pt-BR") : "—"}
                         </td>
-                        <td className="py-3 pr-4 text-slate-600 dark:text-slate-300">
+                        <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
                           {new Date(row.createdAt).toLocaleString("pt-BR")}
                         </td>
-                        <td className="py-3 pr-4 text-slate-600 dark:text-slate-300">
+                        <td className="px-4 pr-5 py-3 text-slate-600 dark:text-slate-300">
                           {row.reviewedAt ? new Date(row.reviewedAt).toLocaleString("pt-BR") : "—"}
                           {row.reviewedBy && <span className="text-slate-500 dark:text-slate-400 text-xs block">por {row.reviewedBy}</span>}
                         </td>
@@ -624,25 +624,25 @@ export default function JustificationsPage() {
               <div className="overflow-x-auto">
                 <table className="min-w-full text-sm">
                   <thead>
-                    <tr className="border-b border-slate-200 dark:border-slate-600 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
-                      <th className="pb-3 pr-4">Atividade</th>
-                      <th className="pb-3 pr-4">Responsável</th>
-                      <th className="pb-3 pr-4">Área</th>
-                      <th className="pb-3 pr-4">Bloqueada em</th>
-                      <th className="pb-3 pr-4 text-right">Ação</th>
+                    <tr className="border-b border-slate-200 dark:border-slate-600/80 bg-slate-50/90 dark:bg-slate-700/80">
+                      <th className="pl-5 pr-4 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Atividade</th>
+                      <th className="px-4 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Responsável</th>
+                      <th className="px-4 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Área</th>
+                      <th className="px-4 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider whitespace-nowrap">Bloqueada em</th>
+                      <th className="px-4 py-3.5 pr-5 text-right text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Ação</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-slate-600/70">
                     {blockedItems.map(row => (
                       <tr key={row.taskId} className="hover:bg-slate-50/70 dark:hover:bg-slate-700/60 transition-colors">
-                        <td className="py-3 pr-4 font-medium text-slate-800 dark:text-slate-100">{row.atividade}</td>
-                        <td className="py-3 pr-4 text-slate-600 dark:text-slate-300">{row.responsavelNome}</td>
-                        <td className="py-3 pr-4 text-slate-600 dark:text-slate-300">{row.area}</td>
-                        <td className="py-3 pr-4 text-slate-600 dark:text-slate-300">
+                        <td className="pl-5 pr-4 py-3 font-medium text-slate-800 dark:text-slate-100">{row.atividade}</td>
+                        <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{row.responsavelNome}</td>
+                        <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{row.area}</td>
+                        <td className="px-4 py-3 text-slate-600 dark:text-slate-300">
                           {row.blockedAt ? new Date(row.blockedAt).toLocaleString("pt-BR") : "—"}
                           {row.blockedBy && <span className="text-slate-500 dark:text-slate-400 text-xs block">por {row.blockedBy}</span>}
                         </td>
-                        <td className="py-3 pr-4 text-right">
+                        <td className="px-4 pr-5 py-3 text-right">
                           <Button
                             variant="secondary"
                             size="sm"

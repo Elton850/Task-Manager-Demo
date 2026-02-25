@@ -20,10 +20,13 @@ export default function ResponsibleTable({ data }: ResponsibleTableProps) {
   return (
     <div className="overflow-x-auto">
       <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-600/80">
-        <thead className="bg-slate-100 dark:bg-slate-700/80">
-          <tr>
-            {["Responsável", "Total", "Em Andamento", "Concluído", "Em Atraso", "Concl. Atraso", "Taxa Conclusão"].map(h => (
-              <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider whitespace-nowrap">
+        <thead>
+          <tr className="border-b border-slate-200 dark:border-slate-600/80 bg-slate-50/90 dark:bg-slate-700/80">
+            {["Responsável", "Total", "Em Andamento", "Concluído", "Em Atraso", "Concl. Atraso", "Taxa Conclusão"].map((h, i) => (
+              <th
+                key={h}
+                className={`py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider whitespace-nowrap ${i === 0 ? "pl-5 pr-4" : i === 6 ? "px-4 pr-5" : "px-4"}`}
+              >
                 {h}
               </th>
             ))}
@@ -36,7 +39,7 @@ export default function ResponsibleTable({ data }: ResponsibleTableProps) {
 
             return (
               <tr key={row.email} className="hover:bg-slate-50 dark:hover:bg-slate-700/40 transition-colors">
-                <td className="px-4 py-3">
+                <td className="pl-5 pr-4 py-3">
                   <div className="text-sm font-medium text-slate-800 dark:text-slate-100">{row.nome}</div>
                   <div className="text-xs text-slate-600 dark:text-slate-400">{row.email}</div>
                 </td>
@@ -59,9 +62,9 @@ export default function ResponsibleTable({ data }: ResponsibleTableProps) {
                     : <span className="text-slate-400 text-xs">—</span>
                   }
                 </td>
-                <td className="px-4 py-3">
+                <td className="px-4 pr-5 py-3">
                   <div className="flex items-center gap-2">
-                    <div className="flex-1 h-2 bg-slate-200 rounded-full overflow-hidden min-w-[60px]">
+                    <div className="flex-1 h-2 bg-slate-200 dark:bg-slate-600 rounded-full overflow-hidden min-w-[60px]">
                       <div
                         className={`h-full rounded-full ${rate >= 80 ? "bg-emerald-500" : rate >= 50 ? "bg-amber-500" : "bg-rose-500"}`}
                         style={{ width: `${rate}%` }}

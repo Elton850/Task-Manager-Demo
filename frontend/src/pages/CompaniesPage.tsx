@@ -210,18 +210,18 @@ export default function CompaniesPage() {
               onChange={handleLogoFileChange}
             />
             <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-600/80">
-              <thead className="bg-slate-100 dark:bg-slate-700/80">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase w-24">Logo</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase">Nome</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase">Identificador / Link</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase">Status</th>
+              <thead>
+                <tr className="border-b border-slate-200 dark:border-slate-600/80 bg-slate-50/90 dark:bg-slate-700/80">
+                  <th className="pl-5 pr-4 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider w-24">Logo</th>
+                  <th className="px-4 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Nome</th>
+                  <th className="px-4 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider whitespace-nowrap">Identificador / Link</th>
+                  <th className="px-4 py-3.5 pr-5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 dark:divide-slate-600/60 bg-white dark:bg-slate-800/30">
                 {tenants.map((t) => (
                   <tr key={t.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/60 transition-colors">
-                    <td className="px-4 py-3">
+                    <td className="pl-5 pr-4 py-3">
                       <div className="flex items-center gap-2">
                         {t.hasLogo ? (
                           <img
@@ -264,7 +264,7 @@ export default function CompaniesPage() {
                       </div>
                     </td>
                     <td className="px-4 py-3 text-sm font-medium text-slate-800 dark:text-slate-100">{t.name}</td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 min-w-0">
                       <div className="flex flex-col gap-1">
                         <span className="text-sm text-slate-600 dark:text-slate-300 font-mono">@{t.slug}</span>
                         <div className="flex items-center gap-1">
@@ -289,7 +289,7 @@ export default function CompaniesPage() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="pl-4 pr-5 py-3">
                       {t.active ? (
                         <span className="inline-flex items-center gap-1 text-xs text-emerald-700 dark:text-emerald-400 font-medium">
                           <CheckCircle size={14} /> Ativa

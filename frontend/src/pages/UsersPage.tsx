@@ -686,44 +686,24 @@ export default function UsersPage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-600/80">
-              <thead className="bg-slate-100 dark:bg-slate-700/60">
-                <tr>
+              <thead>
+                <tr className="border-b border-slate-200 dark:border-slate-600/80 bg-slate-50/90 dark:bg-slate-700/80">
                   {isAdmin && (
-                    <th className="px-4 py-3 text-left w-10">
+                    <th className="pl-5 pr-2 py-3.5 text-left w-10" aria-label="Selecionar">
                       <span className="sr-only">Selecionar</span>
                     </th>
                   )}
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                    Empresa
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                    Usuário
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                    Email
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                    Função
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                    Área
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                    Logins (período)
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                    Último login
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                    Último logout
-                  </th>
+                  <th className="px-4 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Empresa</th>
+                  <th className="px-4 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Usuário</th>
+                  <th className="px-4 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Email</th>
+                  <th className="px-4 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Função</th>
+                  <th className="px-4 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Área</th>
+                  <th className="px-4 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Status</th>
+                  <th className="px-4 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider whitespace-nowrap">Logins (período)</th>
+                  <th className="px-4 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider whitespace-nowrap">Último login</th>
+                  <th className="px-4 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider whitespace-nowrap">Último logout</th>
                   {isAdmin && (
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
-                      Ações
-                    </th>
+                    <th className="px-4 py-3.5 pr-5 text-right text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Ações</th>
                   )}
                 </tr>
               </thead>
@@ -736,7 +716,7 @@ export default function UsersPage() {
                     }`}
                   >
                     {isAdmin && (
-                      <td className="px-4 py-3">
+                      <td className="pl-5 pr-2 py-3">
                         <input
                           type="checkbox"
                           checked={selectedIds.has(u.id)}
@@ -746,7 +726,7 @@ export default function UsersPage() {
                         />
                       </td>
                     )}
-                    <td className="px-4 py-3">
+                    <td className={`py-3 ${isAdmin ? "px-4" : "pl-5 pr-4"}`}>
                       <div className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
                         <Building2 size={14} className="text-slate-400 dark:text-slate-500 flex-shrink-0" />
                         {(u.tenantName ?? tenant?.name) || "—"}
@@ -805,8 +785,8 @@ export default function UsersPage() {
                       {formatDateTime(u.lastLogoutAt)}
                     </td>
                     {isAdmin && (
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-1">
+                      <td className="pl-4 pr-5 py-3">
+                        <div className="flex items-center justify-end gap-1">
                           {isMasterAdmin && (
                             <Button
                               variant="ghost"

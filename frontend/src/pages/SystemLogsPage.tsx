@@ -144,21 +144,21 @@ export default function SystemLogsPage() {
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
               <thead>
-                <tr className="border-b border-slate-200 dark:border-slate-600/80 bg-slate-50/90 dark:bg-slate-700/80 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">
-                  <th className="pb-3 pr-4">Data e hora</th>
-                  <th className="pb-3 pr-4">Empresa</th>
-                  <th className="pb-3 pr-4">Usuário</th>
+                <tr className="border-b border-slate-200 dark:border-slate-600/80 bg-slate-50/90 dark:bg-slate-700/80">
+                  <th className="pl-5 pr-4 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider whitespace-nowrap">Data e hora</th>
+                  <th className="px-4 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Empresa</th>
+                  <th className="px-4 py-3.5 pr-5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Usuário</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-600/60">
                 {items.map((log, i) => (
                   <tr key={`${log.loggedAt}-${log.userEmail}-${i}`} className="hover:bg-slate-50/70 dark:hover:bg-slate-700/60 transition-colors">
-                    <td className="py-3 pr-4 text-slate-700 dark:text-slate-300 whitespace-nowrap">{formatDateTime(log.loggedAt)}</td>
-                    <td className="py-3 pr-4">
+                    <td className="pl-5 pr-4 py-3 text-slate-700 dark:text-slate-300 whitespace-nowrap">{formatDateTime(log.loggedAt)}</td>
+                    <td className="px-4 py-3">
                       <span className="font-medium text-slate-800 dark:text-slate-100">{log.tenantName}</span>
                       <span className="text-slate-500 dark:text-slate-400 text-xs ml-1">({log.tenantSlug})</span>
                     </td>
-                    <td className="py-3 pr-4 text-slate-700 dark:text-slate-300">{log.userName} ({log.userEmail})</td>
+                    <td className="px-4 pr-5 py-3 text-slate-700 dark:text-slate-300">{log.userName} ({log.userEmail})</td>
                   </tr>
                 ))}
               </tbody>
