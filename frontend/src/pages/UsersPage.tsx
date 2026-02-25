@@ -13,6 +13,7 @@ import {
   UserCog,
   Filter,
   Eye,
+  MoreVertical,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { setTenantSlug } from "@/services/api";
@@ -117,6 +118,7 @@ export default function UsersPage() {
   const [bulkResetTargetCount, setBulkResetTargetCount] = useState<number | null>(null);
   const [bulkResetting, setBulkResetting] = useState(false);
   const [impersonatingId, setImpersonatingId] = useState<string | null>(null);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
   const set = (field: keyof UserFilters, value: string) =>
     setFilters((f) => ({ ...f, [field]: value }));
@@ -164,6 +166,16 @@ export default function UsersPage() {
   useEffect(() => {
     loadLoginCounts();
   }, [loadLoginCounts]);
+
+  useEffect(() => {
+    if (!openMenuId) return;
+    const close = (e: MouseEvent) => {
+      if ((e.target as Element).closest("[data-actions-menu]")) return;
+      setOpenMenuId(null);
+    };
+    document.addEventListener("click", close);
+    return () => document.removeEventListener("click", close);
+  }, [openMenuId]);
 
   const filtered = useMemo(() => {
     return users.filter((u) => {
@@ -683,30 +695,149 @@ export default function UsersPage() {
           <div className="flex items-center justify-center py-16">
             <LoadingSpinner text="Carregando usuários..." />
           </div>
+        ) : filtered.length === 0 ? (
+          <div className="p-8 text-center">
+            <p className="text-slate-600 dark:text-slate-300 text-sm font-medium">
+              {filters.search || filters.area || filters.role || filters.status
+                ? "Nenhum usuário encontrado com os filtros aplicados"
+                : "Nenhum usuário cadastrado"}
+            </p>
+          </div>
         ) : (
-          <div className="overflow-x-auto overflow-y-hidden">
-            <table className="w-full table-fixed divide-y divide-slate-200 dark:divide-slate-600/80">
-              <thead>
-                <tr className="border-b border-slate-200 dark:border-slate-600/80 bg-slate-50/90 dark:bg-slate-700/80">
-                  {isAdmin && (
-                    <th className="pl-4 pr-1 py-3.5 text-left w-9 shrink-0" aria-label="Selecionar">
-                      <span className="sr-only">Selecionar</span>
-                    </th>
-                  )}
-                  <th className="px-3 py-3.5 text-left text-sm font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider min-w-0">Empresa</th>
-                  <th className="px-3 py-3.5 text-left text-sm font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider min-w-0">Usuário</th>
-                  <th className="px-3 py-3.5 text-left text-sm font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider min-w-0">Email</th>
-                  <th className="px-3 py-3.5 text-left text-sm font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider shrink-0 whitespace-nowrap">Função</th>
-                  <th className="px-3 py-3.5 text-left text-sm font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider min-w-0">Área</th>
-                  <th className="px-3 py-3.5 text-left text-sm font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider shrink-0 whitespace-nowrap">Status</th>
-                  <th className="px-3 py-3.5 text-left text-sm font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider shrink-0 whitespace-nowrap">Logins</th>
-                  <th className="px-3 py-3.5 text-left text-sm font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider shrink-0 whitespace-nowrap">Login / Logout</th>
-                  {isAdmin && (
-                    <th className="px-3 py-3.5 pr-4 text-right text-sm font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider shrink-0">Ações</th>
-                  )}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-200 dark:divide-slate-600/60 bg-white dark:bg-slate-800/30">
+          <>
+            {/* Layout em cards (mobile/tablet pequeno) */}
+            <div className="block md:hidden p-4 space-y-3">
+              {filtered.map((u) => (
+                <div
+                  key={u.id}
+                  className={`rounded-xl border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800/50 p-4 shadow-sm transition-shadow hover:shadow-md ${
+                    !u.active ? "opacity-75" : ""
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    {isAdmin && (
+                      <div className="pt-0.5 shrink-0">
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(u.id)}
+                          onChange={() => toggleSelectOne(u.id)}
+                          className="rounded border-slate-300 text-brand-600 focus:ring-brand-500 h-4 w-4"
+                          aria-label={u.nome}
+                        />
+                      </div>
+                    )}
+                    <div className="w-10 h-10 rounded-full bg-brand-100 dark:bg-brand-500/25 border border-brand-200 dark:border-brand-500/40 flex items-center justify-center flex-shrink-0">
+                      <span className="text-sm font-bold text-brand-800 dark:text-brand-200">
+                        {u.nome.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2 gap-y-1">
+                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">{u.nome}</p>
+                        <Badge variant={getRoleVariant(u.role)} size="sm">
+                          {u.role === "ADMIN" ? "Admin" : u.role === "LEADER" ? "Líder" : "Usuário"}
+                        </Badge>
+                        <Badge variant={u.active ? "green" : "slate"} size="sm">
+                          {u.active ? "Ativo" : "Inativo"}
+                        </Badge>
+                      </div>
+                      <p className="text-sm text-slate-600 dark:text-slate-300 truncate mt-0.5" title={u.email}>{u.email}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                        {(u.tenantName ?? tenant?.name) || "—"} · {u.area}
+                        {filters.from && filters.to && (
+                          <> · Logins: {loginCounts[u.id] ?? 0}</>
+                        )}
+                      </p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                        Login: {formatDateTime(u.lastLoginAt)} · Logout: {formatDateTime(u.lastLogoutAt)}
+                      </p>
+                      {u.mustChangePassword && (
+                        <p className="text-xs font-medium text-amber-700 dark:text-amber-300 mt-1">Aguardando senha</p>
+                      )}
+                      {u.canDelete && (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 dark:text-emerald-300 mt-0.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Pode excluir
+                        </span>
+                      )}
+                    </div>
+                    {isAdmin && (
+                      <div className="relative shrink-0" data-actions-menu onClick={(e) => e.stopPropagation()}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenMenuId((prev) => (prev === u.id ? null : u.id));
+                          }}
+                          title="Ações"
+                          aria-label={`Ações para ${u.nome}`}
+                          aria-expanded={openMenuId === u.id}
+                          className="text-slate-600 dark:text-slate-300"
+                        >
+                          <MoreVertical size={20} />
+                        </Button>
+                        {openMenuId === u.id && (
+                          <div
+                            className="absolute right-0 top-full z-[100] mt-1 min-w-[200px] rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 py-1 shadow-xl"
+                            role="menu"
+                            aria-label="Menu de ações"
+                          >
+                            {isMasterAdmin && (
+                              <button
+                                type="button"
+                                role="menuitem"
+                                onClick={() => { handleViewAs(u); setOpenMenuId(null); }}
+                                disabled={!!impersonatingId}
+                                className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50"
+                              >
+                                {impersonatingId === u.id ? <span className="w-4 h-4 border-2 border-brand-500 border-t-transparent rounded-full animate-spin shrink-0" /> : <Eye size={16} className="shrink-0" />}
+                                Ver como este usuário
+                              </button>
+                            )}
+                            <button type="button" role="menuitem" onClick={() => { setEditUser(u); setModalOpen(true); setOpenMenuId(null); }} className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700">
+                              <Edit2 size={16} className="shrink-0" /> Editar
+                            </button>
+                            <button type="button" role="menuitem" onClick={() => { handleSendResetEmail(u); setOpenMenuId(null); }} disabled={sendingResetId === u.id} className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50">
+                              {sendingResetId === u.id ? <span className="w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin shrink-0" /> : <Key size={16} className="shrink-0" />}
+                              Enviar código por e-mail
+                            </button>
+                            <button type="button" role="menuitem" onClick={() => { setToggleTarget(u); setOpenMenuId(null); }} className={`flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm w-full ${u.active ? "text-rose-700 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-900/20" : "text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"}`}>
+                              {u.active ? <UserX size={16} className="shrink-0" /> : <UserCheck size={16} className="shrink-0" />}
+                              {u.active ? "Desativar" : "Ativar"}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Tabela (desktop md+) */}
+            <div className="hidden md:block overflow-x-auto overflow-y-visible">
+              <table className="w-full min-w-[640px] divide-y divide-slate-200 dark:divide-slate-600/80">
+                <thead>
+                  <tr className="sticky top-0 z-10 border-b border-slate-200 dark:border-slate-600/80 bg-slate-50/95 dark:bg-slate-800/95 backdrop-blur-sm shadow-[0_1px_0_0_rgba(0,0,0,0.05)] dark:shadow-[0_1px_0_0_rgba(255,255,255,0.06)]">
+                    {isAdmin && (
+                      <th className="pl-4 pr-2 py-3.5 text-left w-10 shrink-0" aria-label="Selecionar">
+                        <span className="sr-only">Selecionar</span>
+                      </th>
+                    )}
+                    <th className="px-3 py-3.5 text-left text-xs font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider min-w-0 w-[20%]">Usuário</th>
+                    <th className="px-3 py-3.5 text-left text-xs font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider min-w-0 w-[18%]">Email</th>
+                    <th className="px-3 py-3.5 text-left text-xs font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider shrink-0 whitespace-nowrap w-[10%]">Função</th>
+                    <th className="px-3 py-3.5 text-left text-xs font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider shrink-0 whitespace-nowrap w-[10%]">Status</th>
+                    <th className="hidden lg:table-cell px-3 py-3.5 text-left text-xs font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider min-w-0 w-[12%]">Empresa</th>
+                    <th className="hidden lg:table-cell px-3 py-3.5 text-left text-xs font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider min-w-0 w-[8%]">Área</th>
+                    <th className="hidden lg:table-cell px-3 py-3.5 text-left text-xs font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider shrink-0 whitespace-nowrap w-[6%]">Logins</th>
+                    <th className="hidden lg:table-cell px-3 py-3.5 text-left text-xs font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider shrink-0 whitespace-nowrap w-[14%]">Acesso</th>
+                    {isAdmin && (
+                      <th className="px-3 py-3.5 pr-4 text-right text-xs font-semibold text-slate-700 dark:text-slate-200 uppercase tracking-wider shrink-0 w-14">Ações</th>
+                    )}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-200 dark:divide-slate-600/60 bg-white dark:bg-slate-800/30">
                 {filtered.map((u) => (
                   <tr
                     key={u.id}
@@ -715,25 +846,17 @@ export default function UsersPage() {
                     }`}
                   >
                     {isAdmin && (
-                      <td className="pl-4 pr-1 py-3 align-middle">
+                      <td className="pl-4 pr-2 py-3.5 align-middle">
                         <input
                           type="checkbox"
                           checked={selectedIds.has(u.id)}
                           onChange={() => toggleSelectOne(u.id)}
-                          className="rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+                          className="rounded border-slate-300 text-brand-600 focus:ring-brand-500 h-4 w-4"
                           aria-label={u.nome}
                         />
                       </td>
                     )}
                     <td className={`px-3 py-3.5 align-middle min-w-0 ${!isAdmin && "pl-4"}`}>
-                      <div className="flex items-center gap-2 min-w-0">
-                        <Building2 size={14} className="text-slate-500 dark:text-slate-400 flex-shrink-0" />
-                        <span className="text-sm font-medium text-slate-800 dark:text-slate-100 truncate leading-snug" title={(u.tenantName ?? tenant?.name) || undefined}>
-                          {(u.tenantName ?? tenant?.name) || "—"}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-3 py-3.5 align-middle min-w-0">
                       <div className="flex items-center gap-2 min-w-0">
                         <div className="w-8 h-8 rounded-full bg-brand-100 dark:bg-brand-500/25 border border-brand-200 dark:border-brand-500/40 flex items-center justify-center flex-shrink-0">
                           <span className="text-sm font-bold text-brand-800 dark:text-brand-200">
@@ -745,7 +868,7 @@ export default function UsersPage() {
                           {u.canDelete && (
                             <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 dark:text-emerald-300 mt-0.5">
                               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-                              <span className="truncate">Pode excluir</span>
+                              Pode excluir
                             </span>
                           )}
                         </div>
@@ -755,19 +878,12 @@ export default function UsersPage() {
                       <span className="text-sm font-medium text-slate-800 dark:text-slate-100 truncate block leading-snug" title={u.email}>{u.email}</span>
                     </td>
                     <td className="px-3 py-3.5 align-middle shrink-0">
-                      <Badge variant={getRoleVariant(u.role)}>
-                        {u.role === "ADMIN"
-                          ? "Administrador"
-                          : u.role === "LEADER"
-                            ? "Líder"
-                            : "Usuário"}
+                      <Badge variant={getRoleVariant(u.role)} size="sm">
+                        {u.role === "ADMIN" ? "Admin" : u.role === "LEADER" ? "Líder" : "Usuário"}
                       </Badge>
                     </td>
-                    <td className="px-3 py-3.5 align-middle min-w-0">
-                      <span className="text-sm font-medium text-slate-800 dark:text-slate-100 truncate block leading-snug" title={u.area}>{u.area}</span>
-                    </td>
                     <td className="px-3 py-3.5 align-middle shrink-0">
-                      <Badge variant={u.active ? "green" : "slate"}>
+                      <Badge variant={u.active ? "green" : "slate"} size="sm">
                         {u.active ? "Ativo" : "Inativo"}
                       </Badge>
                       {u.mustChangePassword && (
@@ -776,74 +892,122 @@ export default function UsersPage() {
                         </div>
                       )}
                     </td>
-                    <td className="px-3 py-3.5 align-middle shrink-0">
+                    <td className="hidden lg:table-cell px-3 py-3.5 align-middle min-w-0">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <Building2 size={14} className="text-slate-500 dark:text-slate-400 flex-shrink-0" />
+                        <span className="text-sm font-medium text-slate-800 dark:text-slate-100 truncate" title={(u.tenantName ?? tenant?.name) || undefined}>
+                          {(u.tenantName ?? tenant?.name) || "—"}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="hidden lg:table-cell px-3 py-3.5 align-middle min-w-0">
+                      <span className="text-sm font-medium text-slate-800 dark:text-slate-100 truncate block" title={u.area}>{u.area}</span>
+                    </td>
+                    <td className="hidden lg:table-cell px-3 py-3.5 align-middle shrink-0">
                       <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">
-                        {filters.from && filters.to
-                          ? loginCounts[u.id] ?? 0
-                          : "—"}
+                        {filters.from && filters.to ? loginCounts[u.id] ?? 0 : "—"}
                       </span>
                     </td>
-                    <td className="px-3 py-3.5 align-middle min-w-0">
-                      <div className="flex flex-col gap-1 text-sm text-slate-700 dark:text-slate-200 leading-snug">
-                        <span className="truncate" title={u.lastLoginAt ?? undefined}>Login: {formatDateTime(u.lastLoginAt)}</span>
-                        <span className="truncate" title={u.lastLogoutAt ?? undefined}>Logout: {formatDateTime(u.lastLogoutAt)}</span>
+                    <td className="hidden lg:table-cell px-3 py-3.5 align-middle min-w-0">
+                      <div className="flex flex-col gap-0.5 text-xs text-slate-700 dark:text-slate-200 leading-snug">
+                        <span className="truncate" title={u.lastLoginAt ?? undefined}>E: {formatDateTime(u.lastLoginAt)}</span>
+                        <span className="truncate" title={u.lastLogoutAt ?? undefined}>S: {formatDateTime(u.lastLogoutAt)}</span>
                       </div>
                     </td>
                     {isAdmin && (
                       <td className="px-3 pr-4 py-3.5 align-middle shrink-0">
-                        <div className="flex items-center justify-end gap-1">
-                          {isMasterAdmin && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleViewAs(u)}
-                              disabled={!!impersonatingId}
-                              loading={impersonatingId === u.id}
-                              title="Ver como este usuário (somente leitura)"
-                              className="hover:text-brand-700 hover:bg-brand-50"
-                            >
-                              <Eye size={13} />
-                            </Button>
-                          )}
+                        <div className="relative flex justify-end" data-actions-menu onClick={(e) => e.stopPropagation()}>
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => {
-                              setEditUser(u);
-                              setModalOpen(true);
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setOpenMenuId((prev) => (prev === u.id ? null : u.id));
                             }}
-                            title="Editar"
+                            title="Ações"
+                            aria-label={`Ações para ${u.nome}`}
+                            aria-expanded={openMenuId === u.id}
+                            className="text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-700"
                           >
-                            <Edit2 size={13} />
+                            <MoreVertical size={18} />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleSendResetEmail(u)}
-                            disabled={sendingResetId === u.id}
-                            loading={sendingResetId === u.id}
-                            title="Enviar código por e-mail"
-                            className="hover:text-amber-700 hover:bg-amber-50"
-                          >
-                            <Key size={13} />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setToggleTarget(u)}
-                            title={u.active ? "Desativar" : "Ativar"}
-                            className={
-                              u.active
-                                ? "hover:text-rose-700 hover:bg-rose-50"
-                                : "hover:text-emerald-700 hover:bg-emerald-50"
-                            }
-                          >
-                            {u.active ? (
-                              <UserX size={13} />
-                            ) : (
-                              <UserCheck size={13} />
-                            )}
-                          </Button>
+                          {openMenuId === u.id && (
+                            <div
+                              className="absolute right-0 top-full z-[100] mt-1 min-w-[200px] rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 py-1 shadow-xl"
+                              role="menu"
+                              aria-label="Menu de ações"
+                            >
+                              {isMasterAdmin && (
+                                <button
+                                  type="button"
+                                  role="menuitem"
+                                  onClick={() => {
+                                    handleViewAs(u);
+                                    setOpenMenuId(null);
+                                  }}
+                                  disabled={!!impersonatingId}
+                                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  {impersonatingId === u.id ? (
+                                    <span className="w-4 h-4 border-2 border-brand-500 border-t-transparent rounded-full animate-spin shrink-0" />
+                                  ) : (
+                                    <Eye size={16} className="shrink-0" />
+                                  )}
+                                  Ver como este usuário
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                role="menuitem"
+                                onClick={() => {
+                                  setEditUser(u);
+                                  setModalOpen(true);
+                                  setOpenMenuId(null);
+                                }}
+                                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700"
+                              >
+                                <Edit2 size={16} className="shrink-0" />
+                                Editar
+                              </button>
+                              <button
+                                type="button"
+                                role="menuitem"
+                                onClick={() => {
+                                  handleSendResetEmail(u);
+                                  setOpenMenuId(null);
+                                }}
+                                disabled={sendingResetId === u.id}
+                                className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                {sendingResetId === u.id ? (
+                                  <span className="w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin shrink-0" />
+                                ) : (
+                                  <Key size={16} className="shrink-0" />
+                                )}
+                                Enviar código por e-mail
+                              </button>
+                              <button
+                                type="button"
+                                role="menuitem"
+                                onClick={() => {
+                                  setToggleTarget(u);
+                                  setOpenMenuId(null);
+                                }}
+                                className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm w-full ${
+                                  u.active
+                                    ? "text-rose-700 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-900/20"
+                                    : "text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+                                }`}
+                              >
+                                {u.active ? (
+                                  <UserX size={16} className="shrink-0" />
+                                ) : (
+                                  <UserCheck size={16} className="shrink-0" />
+                                )}
+                                {u.active ? "Desativar" : "Ativar"}
+                              </button>
+                            </div>
+                          )}
                         </div>
                       </td>
                     )}
@@ -851,14 +1015,8 @@ export default function UsersPage() {
                 ))}
               </tbody>
             </table>
-            {filtered.length === 0 && (
-              <div className="text-center py-12 text-slate-600 dark:text-slate-300 text-sm font-medium">
-                {filters.search || filters.area || filters.role || filters.status
-                  ? "Nenhum usuário encontrado com os filtros aplicados"
-                  : "Nenhum usuário cadastrado"}
-              </div>
-            )}
-          </div>
+            </div>
+          </>
         )}
       </Card>
 
