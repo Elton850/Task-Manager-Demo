@@ -123,9 +123,11 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
         loginError.meta = payload.meta;
         throw loginError;
       }
-      // Redirecionamento sempre conforme a URL atual: system → /login; tenant → /:tenant/login
+      // Redirecionamento: em modo subdomínio (produção) o path é sempre /login; em path-based (staging/local) é /:tenant/login ou /login
       const currentTenant = getTenantSlugFromUrl();
-      const loginPath = currentTenant === "system" ? "/login" : `/${currentTenant}/login`;
+      const loginPath = isSubdomainMode()
+        ? "/login"
+        : (currentTenant === "system" ? "/login" : `/${currentTenant}/login`);
       if (window.location.pathname !== loginPath) {
         window.location.replace(loginPath);
       }
