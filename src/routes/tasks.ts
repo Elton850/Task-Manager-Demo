@@ -748,6 +748,113 @@ router.post("/:id/duplicate", async (req: Request, res: Response): Promise<void>
   }
 });
 
+// POST /api/tasks/:id/duplicate-bulk — replica tarefa (e subtarefas) para as datas escolhidas (Leader escolhe datas; prazo = data)
+router.post("/:id/duplicate-bulk", async (req: Request, res: Response): Promise<void> => {
+  try {
+    const user = req.user!;
+    const tenantId = req.tenantId!;
+    const { id } = req.params;
+    const body = req.body as { dates?: string[] };
+
+    if (user.role === "USER") {
+      res.status(403).json({ error: "Sem permissão para replicar tarefas em massa.", code: "FORBIDDEN" });
+      return;
+    }
+
+    const task = await db.prepare("SELECT * FROM tasks WHERE id = ? AND tenant_id = ? AND deleted_at IS NULL")
+      .get(id, tenantId) as TaskDbRow | undefined;
+
+    if (!task) {
+      res.status(404).json({ error: "Tarefa não encontrada.", code: "NOT_FOUND" });
+      return;
+    }
+
+    if (task.parent_task_id) {
+      res.status(400).json({ error: "Replicação em massa aplica-se apenas à tarefa principal. Selecione a tarefa principal (não a subtarefa).", code: "VALIDATION" });
+      return;
+    }
+
+    if (!await canManageTask(user, task)) {
+      res.status(403).json({ error: "Sem permissão para replicar esta tarefa.", code: "FORBIDDEN" });
+      return;
+    }
+
+    const rawList = Array.isArray(body.dates) ? body.dates : [];
+    const dateRegex = /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
+    const targetDates = [...new Set(rawList.map((d: unknown) => String(d ?? "").trim()).filter((d: string) => dateRegex.test(d)))];
+    if (targetDates.length === 0) {
+      res.status(400).json({ error: "Informe ao menos uma data (YYYY-MM-DD) para replicar.", code: "VALIDATION" });
+      return;
+    }
+
+    const subtaskRows = await db.prepare(`
+      SELECT * FROM tasks WHERE parent_task_id = ? AND tenant_id = ? AND deleted_at IS NULL ORDER BY created_at ASC
+    `).all(id, tenantId) as TaskDbRow[];
+
+    const now = nowIso();
+    const createdTasks: TaskDbRow[] = [];
+
+    for (const targetDate of targetDates) {
+      const competenciaYm = targetDate.slice(0, 7);
+      const mainId = uuidv4();
+
+      await db.prepare(`
+        INSERT INTO tasks (id, tenant_id, competencia_ym, recorrencia, tipo, atividade,
+          responsavel_email, responsavel_nome, area, prazo, realizado, status, observacoes,
+          created_at, created_by, updated_at, updated_by, prazo_modified_by, realizado_por, parent_task_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL)
+      `).run(
+        mainId, tenantId, competenciaYm, task.recorrencia, task.tipo, task.atividade,
+        task.responsavel_email, task.responsavel_nome, task.area,
+        targetDate, calcStatus(targetDate, null), task.observacoes || null,
+        now, user.email, now, user.email
+      );
+
+      const newMain = await db.prepare("SELECT * FROM tasks WHERE id = ?").get(mainId) as TaskDbRow;
+      createdTasks.push(newMain);
+
+      for (const sub of subtaskRows) {
+        const subId = uuidv4();
+        const subStatus = calcStatus(targetDate, null);
+
+        await db.prepare(`
+          INSERT INTO tasks (id, tenant_id, competencia_ym, recorrencia, tipo, atividade,
+            responsavel_email, responsavel_nome, area, prazo, realizado, status, observacoes,
+            created_at, created_by, updated_at, updated_by, prazo_modified_by, realizado_por, parent_task_id)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, NULL, NULL, ?)
+        `).run(
+          subId, tenantId, competenciaYm, sub.recorrencia, sub.tipo, sub.atividade,
+          sub.responsavel_email, sub.responsavel_nome, sub.area,
+          targetDate, subStatus, sub.observacoes || null,
+          now, user.email, now, user.email, mainId
+        );
+        const newSub = await db.prepare("SELECT * FROM tasks WHERE id = ?").get(subId) as TaskDbRow;
+        createdTasks.push(newSub);
+      }
+    }
+
+    const emailToName = await getNamesForEmails(
+      tenantId,
+      createdTasks.flatMap(t => [t.prazo_modified_by, t.realizado_por].filter(Boolean) as string[])
+    );
+    const tasksResponse = createdTasks
+      .filter(t => !t.parent_task_id)
+      .map(main => {
+        const subs = createdTasks.filter(s => s.parent_task_id === main.id);
+        const evidences: EvidenceDbRow[] = [];
+        return rowToTask(main, evidences, emailToName, { subtaskCount: subs.length });
+      });
+
+    res.status(201).json({
+      created: createdTasks.length,
+      tasks: tasksResponse,
+    });
+  } catch (err) {
+    const msg = getClientErrorMessage(err, "Erro ao replicar tarefa para as datas.");
+    res.status(500).json({ error: msg, code: "INTERNAL" });
+  }
+});
+
 const MAX_EVIDENCE_SIZE = 10 * 1024 * 1024;
 const uploadsBaseDir = path.resolve(process.cwd(), "data", "uploads");
 

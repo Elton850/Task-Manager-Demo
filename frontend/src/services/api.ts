@@ -234,6 +234,10 @@ export const tasksApi = {
 
   duplicate: (id: string) => post<{ task: Task }>(`/tasks/${id}/duplicate`),
 
+  /** Replica a tarefa (e subtarefas) para as datas informadas (YYYY-MM-DD). Prazo de cada cópia = data. Apenas tarefa principal. */
+  duplicateBulk: (id: string, dates: string[]) =>
+    post<{ created: number; tasks: Task[] }>(`/tasks/${id}/duplicate-bulk`, { dates }),
+
   listSubtasks: (id: string) => get<{ tasks: Task[] }>(`/tasks/${id}/subtasks`),
   listEvidences: (id: string) => get<{ evidences: TaskEvidence[] }>(`/tasks/${id}/evidences`),
 

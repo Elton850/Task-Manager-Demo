@@ -181,6 +181,25 @@ export interface ResponsavelStats {
   emAndamento: number;
   emAtraso: number;
   concluidoEmAtraso: number;
+  /** Concluído em Atraso com justificativa aprovada */
+  concluidoEmAtrasoJustificado?: number;
+  /** Concluído em Atraso com justificativa pendente */
+  concluidoEmAtrasoPendente?: number;
+  /** Concluído em Atraso sem justificativa (none/refused/blocked) */
+  concluidoEmAtrasoSemJustificativa?: number;
+}
+
+/** Métricas agregadas por área (visão do Leader/Admin). */
+export interface AreaStats {
+  area: string;
+  total: number;
+  concluido: number;
+  emAndamento: number;
+  emAtraso: number;
+  concluidoEmAtraso: number;
+  concluidoEmAtrasoJustificado: number;
+  concluidoEmAtrasoPendente: number;
+  concluidoEmAtrasoSemJustificativa: number;
 }
 
 export interface PerformanceSummary {
@@ -189,7 +208,15 @@ export interface PerformanceSummary {
   concluido: number;
   emAtraso: number;
   concluidoEmAtraso: number;
+  /** Concluído em Atraso com justificativa aprovada */
+  concluidoEmAtrasoJustificado: number;
+  /** Concluído em Atraso com justificativa pendente */
+  concluidoEmAtrasoPendente: number;
+  /** Concluído em Atraso sem justificativa (none/refused/blocked) */
+  concluidoEmAtrasoSemJustificativa: number;
   byResponsavel: ResponsavelStats[];
+  /** Visão por área (apenas para Leader/Admin). */
+  byArea?: AreaStats[];
   lastUpdated: string;
 }
 

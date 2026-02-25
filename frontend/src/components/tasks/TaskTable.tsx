@@ -1,5 +1,5 @@
-import React, { useMemo } from "react";
-import { Edit2, Trash2, Copy, ChevronUp, ChevronDown, Paperclip, CheckCircle, Info, Layers } from "lucide-react";
+import React, { useMemo, useState, useEffect } from "react";
+import { Edit2, Trash2, Copy, CopyPlus, ChevronUp, ChevronDown, Paperclip, CheckCircle, Info, Layers, MoreVertical } from "lucide-react";
 import Badge, { getStatusVariant } from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
@@ -14,14 +14,26 @@ interface TaskTableProps {
   onEdit: (task: Task) => void;
   onDelete: (task: Task) => void;
   onDuplicate?: (task: Task) => void;
+  onBulkDuplicate?: (task: Task) => void;
   onMarkComplete?: (task: Task) => void;
 }
 
-function TaskTableInner({ tasks, loading, onEdit, onDelete, onDuplicate, onMarkComplete }: TaskTableProps) {
+function TaskTableInner({ tasks, loading, onEdit, onDelete, onDuplicate, onBulkDuplicate, onMarkComplete }: TaskTableProps) {
   const { user } = useAuth();
   const [sortField, setSortField] = React.useState<SortField>("competenciaYm");
   const [sortDir, setSortDir] = React.useState<"asc" | "desc">("desc");
   const [markingId, setMarkingId] = React.useState<string | null>(null);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!openMenuId) return;
+    const close = (e: MouseEvent) => {
+      if ((e.target as Element).closest("[data-actions-menu]")) return;
+      setOpenMenuId(null);
+    };
+    document.addEventListener("click", close);
+    return () => document.removeEventListener("click", close);
+  }, [openMenuId]);
 
   const handleSort = (field: SortField) => {
     if (field === sortField) setSortDir(d => (d === "asc" ? "desc" : "asc"));
@@ -104,7 +116,7 @@ function TaskTableInner({ tasks, loading, onEdit, onDelete, onDuplicate, onMarkC
   };
 
   return (
-    <div className="overflow-x-auto overflow-y-hidden -mx-4 sm:mx-0 rounded-xl border border-slate-200/80 dark:border-slate-600/80 bg-white dark:bg-slate-800/80 shadow-sm dark:shadow-none touch-pan-x">
+    <div className="overflow-x-auto overflow-y-visible -mx-4 sm:mx-0 rounded-xl border border-slate-200/80 dark:border-slate-600/80 bg-white dark:bg-slate-800/80 shadow-sm dark:shadow-none touch-pan-x">
       <table className="min-w-full" role="table" aria-label="Lista de tarefas">
         <thead>
           <tr className="border-b border-slate-200 dark:border-slate-600/80 bg-slate-50/90 dark:bg-slate-700/80">
@@ -242,7 +254,8 @@ function TaskTableInner({ tasks, loading, onEdit, onDelete, onDuplicate, onMarkC
                 </div>
               </td>
               <td className="px-4 py-4 text-right whitespace-nowrap align-middle pr-5">
-                <div className="flex items-center justify-end gap-0.5">
+                <div className="flex items-center justify-end gap-1">
+                  {/* Concluir: ação primária sempre visível quando aplicável */}
                   {canMarkComplete(task) && (
                     <button
                       type="button"
@@ -255,44 +268,73 @@ function TaskTableInner({ tasks, loading, onEdit, onDelete, onDuplicate, onMarkC
                       {markingId === task.id ? (
                         <span className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin block" />
                       ) : (
-                        <CheckCircle size={16} strokeWidth={2} />
+                        <CheckCircle size={18} strokeWidth={2} />
                       )}
                     </button>
                   )}
-                  {canDuplicate && onDuplicate && (
+                  {/* Menu de ações (mesmo padrão da guia Usuários) */}
+                  <div className="relative shrink-0" data-actions-menu onClick={(e) => e.stopPropagation()}>
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => onDuplicate(task)}
-                      aria-label={`Duplicar tarefa: ${task.atividade}`}
-                      title="Duplicar"
-                      className="opacity-70 hover:opacity-100"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setOpenMenuId((prev) => (prev === task.id ? null : task.id));
+                      }}
+                      title="Ações"
+                      aria-label={`Ações da tarefa: ${task.atividade}`}
+                      aria-expanded={openMenuId === task.id}
+                      className="text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-700"
                     >
-                      <Copy size={14} />
+                      <MoreVertical size={18} />
                     </Button>
-                  )}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onEdit(task)}
-                    aria-label={`Editar tarefa: ${task.atividade}`}
-                    title="Editar"
-                    className="opacity-70 hover:opacity-100"
-                  >
-                    <Edit2 size={14} />
-                  </Button>
-                  {(user?.role !== "USER" || user.canDelete) && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => onDelete(task)}
-                      aria-label={`Excluir tarefa: ${task.atividade}`}
-                      title="Excluir"
-                      className="opacity-70 hover:opacity-100 hover:text-rose-600 hover:bg-rose-50"
-                    >
-                      <Trash2 size={14} />
-                    </Button>
-                  )}
+                    {openMenuId === task.id && (
+                      <div
+                        className="absolute right-0 top-full z-[100] mt-1 min-w-[200px] rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 py-1 shadow-xl"
+                        role="menu"
+                        aria-label="Menu de ações"
+                      >
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => { onEdit(task); setOpenMenuId(null); }}
+                          className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700"
+                        >
+                          <Edit2 size={16} className="shrink-0" /> Editar
+                        </button>
+                        {canDuplicate && onDuplicate && (
+                          <button
+                            type="button"
+                            role="menuitem"
+                            onClick={() => { onDuplicate(task); setOpenMenuId(null); }}
+                            className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700"
+                          >
+                            <Copy size={16} className="shrink-0" /> Duplicar (um período)
+                          </button>
+                        )}
+                        {canDuplicate && onBulkDuplicate && !task.parentTaskId && (
+                          <button
+                            type="button"
+                            role="menuitem"
+                            onClick={() => { onBulkDuplicate(task); setOpenMenuId(null); }}
+                            className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700"
+                          >
+                            <CopyPlus size={16} className="shrink-0" /> Replicar para vários períodos
+                          </button>
+                        )}
+                        {(user?.role !== "USER" || user?.canDelete) && (
+                          <button
+                            type="button"
+                            role="menuitem"
+                            onClick={() => { onDelete(task); setOpenMenuId(null); }}
+                            className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-rose-700 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-900/20"
+                          >
+                            <Trash2 size={16} className="shrink-0" /> Excluir
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </td>
             </tr>

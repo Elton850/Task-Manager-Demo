@@ -5,6 +5,7 @@ import Card from "@/components/ui/Card";
 import TaskTable from "@/components/tasks/TaskTable";
 import TaskFilters from "@/components/tasks/TaskFilters";
 import TaskModal from "@/components/tasks/TaskModal";
+import BulkDuplicateModal from "@/components/tasks/BulkDuplicateModal";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
@@ -40,6 +41,7 @@ export default function TasksPage() {
   const [completing, setCompleting] = useState(false);
   const [duplicateTarget, setDuplicateTarget] = useState<Task | null>(null);
   const [duplicating, setDuplicating] = useState(false);
+  const [bulkDuplicateTarget, setBulkDuplicateTarget] = useState<Task | null>(null);
 
   const [canCreateTask, setCanCreateTask] = useState(true);
   const [createBlockedReason, setCreateBlockedReason] = useState("");
@@ -191,6 +193,11 @@ export default function TasksPage() {
     }
   };
 
+  const handleBulkDuplicateSuccess = (created: number) => {
+    load();
+    toast(`${created} tarefa(s) criada(s) nas datas escolhidas.`, "success");
+  };
+
   const todayYmd = () => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -306,9 +313,18 @@ export default function TasksPage() {
           }}
           onDelete={task => setDeleteTarget(task)}
           onDuplicate={task => setDuplicateTarget(task)}
+          onBulkDuplicate={task => setBulkDuplicateTarget(task)}
           onMarkComplete={task => setCompleteTarget(task)}
         />
       </Card>
+
+      <BulkDuplicateModal
+        open={!!bulkDuplicateTarget}
+        task={bulkDuplicateTarget}
+        onClose={() => setBulkDuplicateTarget(null)}
+        onSuccess={handleBulkDuplicateSuccess}
+        onRequest={(id, competenciaYm) => tasksApi.duplicateBulk(id, competenciaYm)}
+      />
 
       <TaskModal
         open={modalOpen}
