@@ -700,8 +700,7 @@ export default function UsersPage() {
                   <th className="px-4 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Área</th>
                   <th className="px-4 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Status</th>
                   <th className="px-4 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider whitespace-nowrap">Logins (período)</th>
-                  <th className="px-4 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider whitespace-nowrap">Último login</th>
-                  <th className="px-4 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider whitespace-nowrap">Último logout</th>
+                  <th className="px-4 py-3.5 text-left text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider whitespace-nowrap">Login / Logout</th>
                   {isAdmin && (
                     <th className="px-4 py-3.5 pr-5 text-right text-xs font-semibold text-slate-600 dark:text-slate-300 uppercase tracking-wider">Ações</th>
                   )}
@@ -778,11 +777,11 @@ export default function UsersPage() {
                           : "—"}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-300" title={u.lastLoginAt ?? undefined}>
-                      {formatDateTime(u.lastLoginAt)}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-300" title={u.lastLogoutAt ?? undefined}>
-                      {formatDateTime(u.lastLogoutAt)}
+                    <td className="px-4 py-3 min-w-0">
+                      <div className="flex flex-col gap-0.5 text-xs text-slate-600 dark:text-slate-300">
+                        <span title={u.lastLoginAt ?? undefined}>Login: {formatDateTime(u.lastLoginAt)}</span>
+                        <span title={u.lastLogoutAt ?? undefined}>Logout: {formatDateTime(u.lastLogoutAt)}</span>
+                      </div>
                     </td>
                     {isAdmin && (
                       <td className="pl-4 pr-5 py-3">
