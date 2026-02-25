@@ -17,6 +17,8 @@ interface LookupManagerProps {
   tenantSlug?: string;
   /** Lista de empresas para o modal "Copiar de outra empresa" (slug + name). */
   companies?: { slug: string; name: string }[];
+  /** Quando true, exibe apenas Áreas com layout otimizado para cadastro pelo desenvolvedor. */
+  onlyAreas?: boolean;
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -25,7 +27,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   TIPO: "Tipos de Tarefa",
 };
 
-export default function LookupManager({ items, onRefresh, onLookupRenamed, tenantSlug, companies = [] }: LookupManagerProps) {
+export default function LookupManager({ items, onRefresh, onLookupRenamed, tenantSlug, companies = [], onlyAreas = false }: LookupManagerProps) {
   const { toast } = useToast();
   const [newValue, setNewValue] = useState<Record<string, string>>({});
   const [editId, setEditId] = useState<string | null>(null);
@@ -41,7 +43,10 @@ export default function LookupManager({ items, onRefresh, onLookupRenamed, tenan
     return acc;
   }, {});
 
-  const categories = Object.keys(grouped).sort();
+  const categories = onlyAreas
+    ? (Object.keys(grouped).includes("AREA") ? Object.keys(grouped).sort() : ["AREA"])
+    : Object.keys(grouped).sort();
+  if (onlyAreas && !grouped.AREA) grouped.AREA = [];
 
   const handleAdd = async (category: string) => {
     const val = (newValue[category] || "").trim();
@@ -127,6 +132,86 @@ export default function LookupManager({ items, onRefresh, onLookupRenamed, tenan
   };
 
   const copyOptions = companies.filter(c => c.slug !== tenantSlug);
+  const isOnlyAreas = onlyAreas || (categories.length === 1 && categories[0] === "AREA");
+
+  const renderCategory = (category: string) => (
+    <div key={category}>
+      {!isOnlyAreas && (
+        <h3 className="text-sm font-semibold text-slate-800 mb-3">{CATEGORY_LABELS[category] || category}</h3>
+      )}
+      <div className={`flex flex-wrap gap-2 ${isOnlyAreas ? "p-4 sm:p-5" : "mb-4 p-3"} bg-slate-50 rounded-lg border border-slate-200 min-h-[60px]`}>
+        {grouped[category].map(item => (
+          <div
+            key={item.id}
+            className={`group relative inline-flex items-center gap-1.5 rounded-lg bg-white border border-slate-300 hover:border-slate-400 transition-all ${isOnlyAreas ? "px-4 py-2" : "px-3 py-1.5"}`}
+          >
+            {editId === item.id ? (
+              <>
+                <Input
+                  value={editValue}
+                  onChange={e => setEditValue(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === "Enter") handleRename(item.id);
+                    if (e.key === "Escape") setEditId(null);
+                  }}
+                  className={isOnlyAreas ? "h-8 text-sm w-40" : "h-6 text-xs w-32"}
+                  autoFocus
+                />
+                <Button variant="ghost" size="sm" onClick={() => handleRename(item.id)} loading={loading === `rename-${item.id}`} className="p-0.5">
+                  <Check size={12} className="text-emerald-700" />
+                </Button>
+                <Button variant="ghost" size="sm" onClick={() => setEditId(null)} className="p-0.5">
+                  <X size={12} />
+                </Button>
+              </>
+            ) : (
+              <>
+                <span className={`text-slate-800 font-medium ${isOnlyAreas ? "text-base" : "text-sm"}`}>{item.value}</span>
+                <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
+                  <button
+                    type="button"
+                    onClick={() => { setEditId(item.id); setEditValue(item.value); }}
+                    className="p-1 h-6 w-6 rounded-md text-slate-600 hover:text-brand-700 hover:bg-brand-50 transition-colors flex items-center justify-center"
+                    title="Editar"
+                  >
+                    <Edit2 size={14} className="text-current" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDeleteTarget({ id: item.id, value: item.value })}
+                    disabled={loading === `delete-${item.id}`}
+                    className="p-1 h-6 w-6 rounded-md text-slate-600 hover:text-rose-700 hover:bg-rose-50 transition-colors flex items-center justify-center disabled:opacity-50"
+                    title="Remover"
+                  >
+                    {loading === `delete-${item.id}` ? (
+                      <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Trash2 size={14} className="text-current" />
+                    )}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        ))}
+        {grouped[category].length === 0 && (
+          <div className={`text-slate-500 italic self-center ${isOnlyAreas ? "text-sm" : "text-xs"}`}>Nenhuma área cadastrada. Adicione abaixo.</div>
+        )}
+      </div>
+      <div className={`flex gap-2 ${isOnlyAreas ? "mt-4 flex-col sm:flex-row sm:items-center" : ""}`}>
+        <Input
+          value={newValue[category] || ""}
+          onChange={e => setNewValue(p => ({ ...p, [category]: e.target.value }))}
+          onKeyDown={e => e.key === "Enter" && handleAdd(category)}
+          placeholder={isOnlyAreas ? "Nome da nova área (ex.: TI, Financeiro, RH)" : `Novo ${CATEGORY_LABELS[category]?.slice(0, -1).toLowerCase() || "valor"}...`}
+          className={isOnlyAreas ? "flex-1 h-10 text-sm sm:max-w-md" : "flex-1 h-9 text-sm"}
+        />
+        <Button size={isOnlyAreas ? "md" : "sm"} onClick={() => handleAdd(category)} loading={loading === `add-${category}`} icon={<Plus size={14} />}>
+          {isOnlyAreas ? "Adicionar área" : "Adicionar"}
+        </Button>
+      </div>
+    </div>
+  );
 
   return (
     <div className="space-y-6">
@@ -138,86 +223,13 @@ export default function LookupManager({ items, onRefresh, onLookupRenamed, tenan
         </div>
       )}
 
-      {categories.map(category => (
-        <div key={category}>
-          <h3 className="text-sm font-semibold text-slate-800 mb-3">{CATEGORY_LABELS[category] || category}</h3>
+      {isOnlyAreas && (
+        <p className="text-sm text-slate-600 -mt-1">
+          Cadastre aqui as áreas disponíveis. Recorrências e tipos de tarefa são configurados pelo Leader na aba <strong>Regras por Área</strong>.
+        </p>
+      )}
 
-          {/* Grid layout for better visualization */}
-          <div className="flex flex-wrap gap-2 mb-4 p-3 bg-slate-50 rounded-lg border border-slate-200 min-h-[60px]">
-            {grouped[category].map(item => (
-              <div
-                key={item.id}
-                className="group relative inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-slate-300 hover:border-slate-400 transition-all"
-              >
-                {editId === item.id ? (
-                  <>
-                    <Input
-                      value={editValue}
-                      onChange={e => setEditValue(e.target.value)}
-                      onKeyDown={e => {
-                        if (e.key === "Enter") handleRename(item.id);
-                        if (e.key === "Escape") setEditId(null);
-                      }}
-                      className="h-6 text-xs w-32"
-                      autoFocus
-                    />
-                    <Button variant="ghost" size="sm" onClick={() => handleRename(item.id)} loading={loading === `rename-${item.id}`} className="p-0.5">
-                      <Check size={12} className="text-emerald-700" />
-                    </Button>
-                    <Button variant="ghost" size="sm" onClick={() => setEditId(null)} className="p-0.5">
-                      <X size={12} />
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <span className="text-sm text-slate-800 font-medium">{item.value}</span>
-                    <div className="flex items-center gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
-                      <button
-                        type="button"
-                        onClick={() => { setEditId(item.id); setEditValue(item.value); }}
-                        className="p-1 h-6 w-6 rounded-md text-slate-600 hover:text-brand-700 hover:bg-brand-50 transition-colors flex items-center justify-center"
-                        title="Editar"
-                      >
-                        <Edit2 size={14} className="text-current" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setDeleteTarget({ id: item.id, value: item.value })}
-                        disabled={loading === `delete-${item.id}`}
-                        className="p-1 h-6 w-6 rounded-md text-slate-600 hover:text-rose-700 hover:bg-rose-50 transition-colors flex items-center justify-center disabled:opacity-50"
-                        title="Remover"
-                      >
-                        {loading === `delete-${item.id}` ? (
-                          <span className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                        ) : (
-                          <Trash2 size={14} className="text-current" />
-                        )}
-                      </button>
-                    </div>
-                  </>
-                )}
-              </div>
-            ))}
-            {grouped[category].length === 0 && (
-              <div className="text-xs text-slate-500 italic self-center">Nenhum valor cadastrado</div>
-            )}
-          </div>
-
-          {/* Add new value */}
-          <div className="flex gap-2">
-            <Input
-              value={newValue[category] || ""}
-              onChange={e => setNewValue(p => ({ ...p, [category]: e.target.value }))}
-              onKeyDown={e => e.key === "Enter" && handleAdd(category)}
-              placeholder={`Novo ${CATEGORY_LABELS[category]?.slice(0, -1).toLowerCase() || "valor"}...`}
-              className="flex-1 h-9 text-sm"
-            />
-            <Button size="sm" onClick={() => handleAdd(category)} loading={loading === `add-${category}`} icon={<Plus size={14} />}>
-              Adicionar
-            </Button>
-          </div>
-        </div>
-      ))}
+      {categories.map(renderCategory)}
 
       <ConfirmDialog
         open={!!deleteTarget}
@@ -248,7 +260,9 @@ export default function LookupManager({ items, onRefresh, onLookupRenamed, tenan
       >
         <div className="space-y-3">
           <p className="text-sm text-slate-700">
-            As listas de valores da empresa selecionada substituirão as atuais (áreas, recorrências, tipos).
+            {onlyAreas
+              ? "As áreas da empresa selecionada substituirão as atuais."
+              : "As listas de valores da empresa selecionada substituirão as atuais (áreas, recorrências, tipos)."}
           </p>
           <select
             value={copySourceSlug}

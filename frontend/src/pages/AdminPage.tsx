@@ -11,6 +11,9 @@ import type { Lookups, LookupItem, Rule, TenantListItem } from "@/types";
 
 type Tab = "lookups" | "rules";
 
+/** Em Configurações exibimos apenas Áreas; Tipos de Recorrência e Tipos de Tarefas são definidos pelo Leader nas Regras por Área. */
+const CONFIG_LOOKUP_CATEGORY = "AREA";
+
 const isMasterAdmin = (user: { role: string } | null, tenant: { slug: string } | null) =>
   !!(user?.role === "ADMIN" && tenant?.slug === "system");
 
@@ -121,7 +124,7 @@ export default function AdminPage() {
   }, [load]);
 
   const tabs = [
-    ...(user?.role === "ADMIN" ? [{ id: "lookups" as Tab, label: "Listas de Valores", icon: <List size={15} /> }] : []),
+    ...(user?.role === "ADMIN" ? [{ id: "lookups" as Tab, label: "Áreas", icon: <List size={15} /> }] : []),
     { id: "rules" as Tab, label: "Regras de Área", icon: <Shield size={15} /> },
   ];
 
@@ -192,15 +195,16 @@ export default function AdminPage() {
       {showCompanyContent && tab === "lookups" && user?.role === "ADMIN" && (
         <Card>
           <CardHeader
-            title="Listas de Valores"
-            subtitle={masterAdmin ? `Opções para a empresa selecionada (${companies.find(c => c.slug === selectedTenantSlug)?.name ?? selectedTenantSlug})` : "Gerencie as opções disponíveis nos formulários de tarefas"}
+            title="Áreas"
+            subtitle={masterAdmin ? `Cadastre as áreas da empresa (${companies.find(c => c.slug === selectedTenantSlug)?.name ?? selectedTenantSlug}). Recorrências e tipos de tarefa são definidos pelo Leader em Regras por Área.` : "Cadastro exclusivo do desenvolvedor. Recorrências e tipos de tarefa são definidos pelo Leader na aba Regras por Área."}
           />
           <LookupManager
-            items={lookupItems}
+            items={lookupItems.filter(i => i.category === CONFIG_LOOKUP_CATEGORY)}
             onRefresh={refreshLookups}
             onLookupRenamed={handleLookupRenamed}
             tenantSlug={masterAdmin ? selectedTenantSlug : undefined}
             companies={masterAdmin ? companies.map(c => ({ slug: c.slug, name: c.name })) : undefined}
+            onlyAreas
           />
         </Card>
       )}
