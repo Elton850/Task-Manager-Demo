@@ -131,6 +131,12 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
         loginError.meta = payload.meta;
         throw loginError;
       }
+      // Na página de erro não redirecionar para login — deixar o usuário na tela de erro (ex.: staging após empresa inexistente)
+      if (typeof window !== "undefined" && window.location.pathname.startsWith("/erro")) {
+        const error = new Error("Sessão expirada") as Error & { code?: string };
+        error.code = "UNAUTHORIZED";
+        throw error;
+      }
       // Redirecionamento: em modo subdomínio (produção) o path é sempre /login; em path-based (staging/local) é /:tenant/login ou /login
       const currentTenant = getTenantSlugFromUrl();
       const loginPath = isSubdomainMode()
