@@ -229,11 +229,16 @@ export default function RulesManager({ rules, lookups, onRefresh, tenantSlug }: 
                   <Button type="button" variant="outline" size="sm" icon={<Download size={14} />} onClick={() => loadDefaultRecorrencias(area)} disabled={saving === area}>
                     Carregar tipos padrão
                   </Button>
-                  {(defaultRecorrenciasByArea[area]?.length ?? 0) > 0 && (
-                    <Button type="button" variant="outline" size="sm" icon={<Filter size={14} />} onClick={() => removeOnlyDefaultRecorrencias(area)} disabled={saving === area}>
-                      Excluir apenas tipos padrão
-                    </Button>
-                  )}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    icon={<Filter size={14} />}
+                    onClick={() => removeOnlyDefaultRecorrencias(area)}
+                    disabled={saving === area || (defaultRecorrenciasByArea[area]?.length ?? 0) === 0}
+                  >
+                    Excluir apenas tipos padrão
+                  </Button>
                 </div>
                 <div className="flex flex-wrap gap-2 items-end mb-2">
                   <Input
@@ -283,11 +288,16 @@ export default function RulesManager({ rules, lookups, onRefresh, tenantSlug }: 
                 <Button type="button" variant="outline" size="sm" icon={<Download size={14} />} onClick={() => loadDefaultTipos(area)} disabled={saving === area}>
                   Carregar tipos padrão
                 </Button>
-                {(defaultTiposByArea[area]?.length ?? 0) > 0 && (
-                  <Button type="button" variant="outline" size="sm" icon={<Filter size={14} />} onClick={() => removeOnlyDefaultTipos(area)} disabled={saving === area}>
-                    Excluir apenas tipos padrão
-                  </Button>
-                )}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  icon={<Filter size={14} />}
+                  onClick={() => removeOnlyDefaultTipos(area)}
+                  disabled={saving === area || (defaultTiposByArea[area]?.length ?? 0) === 0}
+                >
+                  Excluir apenas tipos padrão
+                </Button>
               </div>
               <div className="flex flex-wrap gap-2 items-end mb-2">
                 <Input
