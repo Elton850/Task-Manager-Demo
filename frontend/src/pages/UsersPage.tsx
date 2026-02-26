@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { createPortal } from "react-dom";
 import {
   Plus,
   RefreshCw,
@@ -119,6 +120,17 @@ export default function UsersPage() {
   const [bulkResetting, setBulkResetting] = useState(false);
   const [impersonatingId, setImpersonatingId] = useState<string | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [menuOpensUpward, setMenuOpensUpward] = useState(false);
+  const [menuPortalPosition, setMenuPortalPosition] = useState<{ left: number; top?: number; bottom?: number } | null>(null);
+  const MENU_EST_HEIGHT = 240;
+  const MENU_GAP = 8;
+  const MENU_WIDTH = 200;
+  const MENU_PORTAL_BREAKPOINT = 768;
+
+  const closeMenu = () => {
+    setOpenMenuId(null);
+    setMenuPortalPosition(null);
+  };
 
   const set = (field: keyof UserFilters, value: string) =>
     setFilters((f) => ({ ...f, [field]: value }));
@@ -170,8 +182,8 @@ export default function UsersPage() {
   useEffect(() => {
     if (!openMenuId) return;
     const close = (e: MouseEvent) => {
-      if ((e.target as Element).closest("[data-actions-menu]")) return;
-      setOpenMenuId(null);
+      if ((e.target as Element).closest("[data-actions-menu]") || (e.target as Element).closest("[data-menu-portal]")) return;
+      closeMenu();
     };
     document.addEventListener("click", close);
     return () => document.removeEventListener("click", close);
@@ -767,18 +779,33 @@ export default function UsersPage() {
                           size="sm"
                           onClick={(e) => {
                             e.stopPropagation();
-                            setOpenMenuId((prev) => (prev === u.id ? null : u.id));
+                            if (openMenuId === u.id) {
+                              closeMenu();
+                              return;
+                            }
+                            const rect = e.currentTarget.getBoundingClientRect();
+                            const spaceBelow = typeof window !== "undefined" ? window.innerHeight - rect.bottom - MENU_GAP : MENU_EST_HEIGHT;
+                            const opensUp = spaceBelow < MENU_EST_HEIGHT;
+                            setMenuOpensUpward(opensUp);
+                            const usePortal = typeof window !== "undefined" && window.innerWidth < MENU_PORTAL_BREAKPOINT;
+                            if (usePortal) {
+                              const left = Math.max(MENU_GAP, Math.min(rect.right - MENU_WIDTH, window.innerWidth - MENU_WIDTH - MENU_GAP));
+                              setMenuPortalPosition(opensUp ? { left, bottom: window.innerHeight - rect.top + MENU_GAP } : { left, top: rect.bottom + MENU_GAP });
+                            } else {
+                              setMenuPortalPosition(null);
+                            }
+                            setOpenMenuId(u.id);
                           }}
                           title="Ações"
                           aria-label={`Ações para ${u.nome}`}
                           aria-expanded={openMenuId === u.id}
-                          className="text-slate-600 dark:text-slate-300"
+                          className="text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-700"
                         >
                           <MoreVertical size={20} />
                         </Button>
-                        {openMenuId === u.id && (
+                        {openMenuId === u.id && !menuPortalPosition && (
                           <div
-                            className="absolute right-0 top-full z-[100] mt-1 min-w-[200px] rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 py-1 shadow-xl"
+                            className={`absolute right-0 z-[100] min-w-[200px] rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 py-1 shadow-xl ${menuOpensUpward ? "bottom-full mb-1" : "top-full mt-1"}`}
                             role="menu"
                             aria-label="Menu de ações"
                           >
@@ -786,7 +813,7 @@ export default function UsersPage() {
                               <button
                                 type="button"
                                 role="menuitem"
-                                onClick={() => { handleViewAs(u); setOpenMenuId(null); }}
+                                onClick={() => { handleViewAs(u); closeMenu(); }}
                                 disabled={!!impersonatingId}
                                 className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50"
                               >
@@ -794,14 +821,14 @@ export default function UsersPage() {
                                 Ver como este usuário
                               </button>
                             )}
-                            <button type="button" role="menuitem" onClick={() => { setEditUser(u); setModalOpen(true); setOpenMenuId(null); }} className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700">
+                            <button type="button" role="menuitem" onClick={() => { setEditUser(u); setModalOpen(true); closeMenu(); }} className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700">
                               <Edit2 size={16} className="shrink-0" /> Editar
                             </button>
-                            <button type="button" role="menuitem" onClick={() => { handleSendResetEmail(u); setOpenMenuId(null); }} disabled={sendingResetId === u.id} className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50">
+                            <button type="button" role="menuitem" onClick={() => { handleSendResetEmail(u); closeMenu(); }} disabled={sendingResetId === u.id} className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50">
                               {sendingResetId === u.id ? <span className="w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin shrink-0" /> : <Key size={16} className="shrink-0" />}
                               Enviar código por e-mail
                             </button>
-                            <button type="button" role="menuitem" onClick={() => { setToggleTarget(u); setOpenMenuId(null); }} className={`flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm w-full ${u.active ? "text-rose-700 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-900/20" : "text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"}`}>
+                            <button type="button" role="menuitem" onClick={() => { setToggleTarget(u); closeMenu(); }} className={`flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm w-full ${u.active ? "text-rose-700 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-900/20" : "text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"}`}>
                               {u.active ? <UserX size={16} className="shrink-0" /> : <UserCheck size={16} className="shrink-0" />}
                               {u.active ? "Desativar" : "Ativar"}
                             </button>
@@ -916,13 +943,29 @@ export default function UsersPage() {
                     </td>
                     {isAdmin && (
                       <td className="px-3 pr-4 py-3.5 align-middle shrink-0">
+                        {/* Menu de ações (mesmo padrão da tabela de Tarefas): inline, fecha ao clicar fora, abre para cima se faltar espaço */}
                         <div className="relative flex justify-end" data-actions-menu onClick={(e) => e.stopPropagation()}>
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={(e) => {
                               e.stopPropagation();
-                              setOpenMenuId((prev) => (prev === u.id ? null : u.id));
+                              if (openMenuId === u.id) {
+                                closeMenu();
+                                return;
+                              }
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              const spaceBelow = typeof window !== "undefined" ? window.innerHeight - rect.bottom - MENU_GAP : MENU_EST_HEIGHT;
+                              const opensUp = spaceBelow < MENU_EST_HEIGHT;
+                              setMenuOpensUpward(opensUp);
+                              const usePortal = typeof window !== "undefined" && window.innerWidth < MENU_PORTAL_BREAKPOINT;
+                              if (usePortal) {
+                                const left = Math.max(MENU_GAP, Math.min(rect.right - MENU_WIDTH, window.innerWidth - MENU_WIDTH - MENU_GAP));
+                                setMenuPortalPosition(opensUp ? { left, bottom: window.innerHeight - rect.top + MENU_GAP } : { left, top: rect.bottom + MENU_GAP });
+                              } else {
+                                setMenuPortalPosition(null);
+                              }
+                              setOpenMenuId(u.id);
                             }}
                             title="Ações"
                             aria-label={`Ações para ${u.nome}`}
@@ -931,9 +974,9 @@ export default function UsersPage() {
                           >
                             <MoreVertical size={18} />
                           </Button>
-                          {openMenuId === u.id && (
+                          {openMenuId === u.id && !menuPortalPosition && (
                             <div
-                              className="absolute right-0 top-full z-[100] mt-1 min-w-[200px] rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 py-1 shadow-xl"
+                              className={`absolute right-0 z-[100] min-w-[200px] rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 py-1 shadow-xl ${menuOpensUpward ? "bottom-full mb-1" : "top-full mt-1"}`}
                               role="menu"
                               aria-label="Menu de ações"
                             >
@@ -943,7 +986,7 @@ export default function UsersPage() {
                                   role="menuitem"
                                   onClick={() => {
                                     handleViewAs(u);
-                                    setOpenMenuId(null);
+                                    closeMenu();
                                   }}
                                   disabled={!!impersonatingId}
                                   className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -962,7 +1005,7 @@ export default function UsersPage() {
                                 onClick={() => {
                                   setEditUser(u);
                                   setModalOpen(true);
-                                  setOpenMenuId(null);
+                                  closeMenu();
                                 }}
                                 className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700"
                               >
@@ -974,7 +1017,7 @@ export default function UsersPage() {
                                 role="menuitem"
                                 onClick={() => {
                                   handleSendResetEmail(u);
-                                  setOpenMenuId(null);
+                                  closeMenu();
                                 }}
                                 disabled={sendingResetId === u.id}
                                 className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -991,7 +1034,7 @@ export default function UsersPage() {
                                 role="menuitem"
                                 onClick={() => {
                                   setToggleTarget(u);
-                                  setOpenMenuId(null);
+                                  closeMenu();
                                 }}
                                 className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm w-full ${
                                   u.active
@@ -1077,6 +1120,44 @@ export default function UsersPage() {
         onConfirm={handleBulkReset}
         onCancel={() => setBulkResetTargetCount(null)}
       />
+
+      {/* Em telas &lt; 768px: menu em portal para não ficar cortado */}
+      {openMenuId && menuPortalPosition && (() => {
+        const u = filtered.find((us) => us.id === openMenuId);
+        if (!u || typeof document === "undefined") return null;
+        const style: React.CSSProperties = { position: "fixed", left: menuPortalPosition.left, width: MENU_WIDTH, zIndex: 9999 };
+        if (menuPortalPosition.top != null) style.top = menuPortalPosition.top;
+        if (menuPortalPosition.bottom != null) style.bottom = menuPortalPosition.bottom;
+        const menuEl = (
+          <div
+            data-menu-portal
+            role="menu"
+            aria-label="Menu de ações"
+            className="min-w-[200px] rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 py-1 shadow-xl"
+            style={style}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {isMasterAdmin && (
+              <button type="button" role="menuitem" onClick={() => { handleViewAs(u); closeMenu(); }} disabled={!!impersonatingId} className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50">
+                {impersonatingId === u.id ? <span className="w-4 h-4 border-2 border-brand-500 border-t-transparent rounded-full animate-spin shrink-0" /> : <Eye size={16} className="shrink-0" />}
+                Ver como este usuário
+              </button>
+            )}
+            <button type="button" role="menuitem" onClick={() => { setEditUser(u); setModalOpen(true); closeMenu(); }} className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700">
+              <Edit2 size={16} className="shrink-0" /> Editar
+            </button>
+            <button type="button" role="menuitem" onClick={() => { handleSendResetEmail(u); closeMenu(); }} disabled={sendingResetId === u.id} className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-50">
+              {sendingResetId === u.id ? <span className="w-4 h-4 border-2 border-amber-500 border-t-transparent rounded-full animate-spin shrink-0" /> : <Key size={16} className="shrink-0" />}
+              Enviar código por e-mail
+            </button>
+            <button type="button" role="menuitem" onClick={() => { setToggleTarget(u); closeMenu(); }} className={`flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm w-full ${u.active ? "text-rose-700 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-900/20" : "text-emerald-700 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"}`}>
+              {u.active ? <UserX size={16} className="shrink-0" /> : <UserCheck size={16} className="shrink-0" />}
+              {u.active ? "Desativar" : "Ativar"}
+            </button>
+          </div>
+        );
+        return createPortal(menuEl, document.body);
+      })()}
     </div>
   );
 }
