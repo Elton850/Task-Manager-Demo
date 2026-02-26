@@ -489,7 +489,7 @@ export default function CalendarPage() {
       {holidayModal && (
         <HolidayModal
           open
-          holiday={holidayModal.kind === "edit" ? holidayModal.holiday : null}
+          holiday={holidayModal.kind === "edit" ? (holidayModal.holiday ?? null) : null}
           initialDate={holidayModal.kind === "create" ? holidayModal.date : undefined}
           onClose={() => setHolidayModal(null)}
           onSave={handleHolidaySave}
