@@ -220,6 +220,27 @@ export interface PerformanceSummary {
   lastUpdated: string;
 }
 
+export type HolidayType = "national" | "state" | "municipal" | "company";
+export type HolidaySource = "api" | "manual";
+
+export interface Holiday {
+  id: string;
+  tenantId: string;
+  date: string;
+  name: string;
+  type: HolidayType;
+  source: HolidaySource;
+  sourceProvider?: string;
+  sourceId?: string;
+  active: boolean;
+  metadataJson?: string;
+  createdAt: string;
+  createdBy: string;
+  updatedAt: string;
+  updatedBy: string;
+  lastSyncedAt?: string;
+}
+
 export const STATUS_COLORS: Record<string, string> = {
   "Em Andamento": "blue",
   "Concluído": "green",

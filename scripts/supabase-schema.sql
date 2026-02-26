@@ -164,6 +164,25 @@ CREATE TABLE IF NOT EXISTS justification_evidences (
   uploaded_by       TEXT NOT NULL
 );
 
+-- ─── holidays (feriados: API + manual, multi-tenant) ───────────────────────
+CREATE TABLE IF NOT EXISTS holidays (
+  id               TEXT PRIMARY KEY,
+  tenant_id        TEXT NOT NULL REFERENCES tenants(id),
+  date             TEXT NOT NULL,
+  name             TEXT NOT NULL,
+  type             TEXT NOT NULL CHECK (type IN ('national','state','municipal','company')),
+  source           TEXT NOT NULL CHECK (source IN ('api','manual')),
+  source_provider  TEXT,
+  source_id        TEXT,
+  active           INTEGER NOT NULL DEFAULT 1,
+  metadata_json    TEXT,
+  created_at       TEXT NOT NULL DEFAULT (now() AT TIME ZONE 'UTC')::TEXT,
+  created_by       TEXT NOT NULL,
+  updated_at       TEXT NOT NULL DEFAULT (now() AT TIME ZONE 'UTC')::TEXT,
+  updated_by       TEXT NOT NULL,
+  last_synced_at   TEXT
+);
+
 -- =============================================================================
 -- ÍNDICES
 -- =============================================================================
@@ -184,6 +203,8 @@ CREATE INDEX IF NOT EXISTS idx_justifications_tenant  ON task_justifications(ten
 CREATE INDEX IF NOT EXISTS idx_justifications_task    ON task_justifications(task_id);
 CREATE INDEX IF NOT EXISTS idx_justifications_status  ON task_justifications(tenant_id, status);
 CREATE INDEX IF NOT EXISTS idx_just_evidence_just     ON justification_evidences(justification_id);
+CREATE INDEX IF NOT EXISTS idx_holidays_tenant_date   ON holidays(tenant_id, date);
+CREATE INDEX IF NOT EXISTS idx_holidays_tenant_source ON holidays(tenant_id, source);
 
 -- =============================================================================
 -- TENANT "system" (SYSTEM_TENANT_ID)
@@ -218,6 +239,7 @@ ALTER TABLE task_evidences       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE login_events         ENABLE ROW LEVEL SECURITY;
 ALTER TABLE task_justifications  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE justification_evidences ENABLE ROW LEVEL SECURITY;
+ALTER TABLE holidays ENABLE ROW LEVEL SECURITY;
 
 -- Política padrão: nega acesso via anon key (o backend usa service role).
 -- Se você precisar de acesso via anon key no frontend, adicione políticas

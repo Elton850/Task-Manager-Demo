@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { Lock, CheckCircle } from "lucide-react";
 import CalendarGrid from "@/components/calendar/CalendarGrid";
 import DayPanel from "@/components/calendar/DayPanel";
+import HolidayModal from "@/components/calendar/HolidayModal";
 import TaskModal from "@/components/tasks/TaskModal";
 import Card from "@/components/ui/Card";
 import Badge, { getStatusVariant } from "@/components/ui/Badge";
@@ -10,8 +11,8 @@ import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/contexts/ToastContext";
-import { tasksApi, usersApi, lookupsApi, rulesApi } from "@/services/api";
-import type { Task, Lookups, User, Rule } from "@/types";
+import { tasksApi, usersApi, lookupsApi, rulesApi, holidaysApi } from "@/services/api";
+import type { Task, Lookups, User, Rule, Holiday } from "@/types";
 
 function toYmd(date: Date): string {
   return date.toISOString().slice(0, 10);
@@ -42,6 +43,10 @@ export default function CalendarPage() {
   const [rules, setRules] = useState<Rule[]>([]);
   const [completeTarget, setCompleteTarget] = useState<Task | null>(null);
   const [completing, setCompleting] = useState(false);
+  const [holidays, setHolidays] = useState<Holiday[]>([]);
+  const [holidaySyncLoading, setHolidaySyncLoading] = useState(false);
+  const [holidayModal, setHolidayModal] = useState<{ kind: "create" | "edit"; date?: string; holiday?: Holiday } | null>(null);
+  const [holidaySaveLoading, setHolidaySaveLoading] = useState(false);
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -112,6 +117,13 @@ export default function CalendarPage() {
     setTasks(allTasks.filter(t => t.competenciaYm === ymStr));
   }, [allTasks, year, month]);
 
+  useEffect(() => {
+    const from = `${year}-${String(month + 1).padStart(2, "0")}-01`;
+    const lastDay = new Date(year, month + 1, 0).getDate();
+    const to = `${year}-${String(month + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+    holidaysApi.list(from, to).then(r => setHolidays(r.holidays)).catch(() => setHolidays([]));
+  }, [year, month]);
+
   const goToPrev = () => {
     if (month === 0) {
       setYear(y => y - 1);
@@ -176,6 +188,75 @@ export default function CalendarPage() {
     }
     return Array.from(map.entries()).sort((a, b) => b[1] - a[1]).slice(0, 5);
   }, [tasks]);
+
+  const holidaysByDay = useMemo(() => {
+    const map = new Map<number, Holiday[]>();
+    for (const h of holidays) {
+      const d = new Date(h.date + "T00:00:00");
+      if (d.getFullYear() === year && d.getMonth() === month) {
+        const day = d.getDate();
+        if (!map.has(day)) map.set(day, []);
+        map.get(day)!.push(h);
+      }
+    }
+    return map;
+  }, [holidays, year, month]);
+
+  const dayHolidays = useMemo(() => {
+    if (!selectedDay) return [];
+    return holidays.filter(h => {
+      const d = new Date(h.date + "T00:00:00");
+      return d.getFullYear() === year && d.getMonth() === month && d.getDate() === selectedDay;
+    });
+  }, [holidays, selectedDay, year, month]);
+
+  const refreshHolidays = useCallback(() => {
+    const from = `${year}-${String(month + 1).padStart(2, "0")}-01`;
+    const lastDay = new Date(year, month + 1, 0).getDate();
+    const to = `${year}-${String(month + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+    holidaysApi.list(from, to).then(r => setHolidays(r.holidays)).catch(() => {});
+  }, [year, month]);
+
+  const handleHolidaySync = useCallback(async () => {
+    setHolidaySyncLoading(true);
+    try {
+      await holidaysApi.sync(year);
+      toast("Feriados sincronizados com sucesso.", "success");
+      refreshHolidays();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Erro ao sincronizar feriados.", "error");
+    } finally {
+      setHolidaySyncLoading(false);
+    }
+  }, [year, toast, refreshHolidays]);
+
+  const handleHolidaySave = useCallback(async (data: { date: string; name: string; type: string }) => {
+    setHolidaySaveLoading(true);
+    try {
+      if (holidayModal?.kind === "edit" && holidayModal.holiday) {
+        const { holiday } = await holidaysApi.update(holidayModal.holiday.id, data);
+        setHolidays(prev => prev.map(h => (h.id === holiday.id ? holiday : h)));
+        toast("Feriado atualizado.", "success");
+      } else {
+        const { holiday } = await holidaysApi.create(data);
+        setHolidays(prev => [...prev, holiday]);
+        toast("Feriado criado.", "success");
+      }
+    } finally {
+      setHolidaySaveLoading(false);
+    }
+  }, [holidayModal, toast]);
+
+  const handleHolidayDelete = useCallback(async (id: string) => {
+    try {
+      await holidaysApi.delete(id);
+      setHolidays(prev => prev.filter(h => h.id !== id));
+      setHolidayModal(prev => (prev?.holiday?.id === id ? null : prev));
+      toast("Feriado excluído.", "success");
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Erro ao excluir.", "error");
+    }
+  }, []);
 
   const upsertTask = (updated: Task) => {
     setAllTasks(prev => {
@@ -275,11 +356,25 @@ export default function CalendarPage() {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-4 gap-3">
-        <div className="xl:col-span-3">
+        <div className="xl:col-span-3 space-y-2">
+          {user?.role === "ADMIN" && (
+            <div className="flex justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleHolidaySync}
+                loading={holidaySyncLoading}
+                disabled={holidaySyncLoading}
+              >
+                Sincronizar feriados
+              </Button>
+            </div>
+          )}
           <CalendarGrid
             year={year}
             month={month}
             tasks={tasks}
+            holidaysByDay={holidaysByDay}
             selectedDay={selectedDay}
             canCreateTask={canCreateTask}
             createBlockedReason={createBlockedReason}
@@ -322,6 +417,8 @@ export default function CalendarPage() {
               month={month}
               year={year}
               tasks={dayTasks}
+              holidays={dayHolidays}
+              isAdmin={user?.role === "ADMIN"}
               canCreateTask={canCreateTask}
               createBlockedReason={createBlockedReason}
               onClose={() => setSelectedDay(null)}
@@ -329,6 +426,9 @@ export default function CalendarPage() {
               onEditTask={task => setEditTask(task)}
               onMarkComplete={task => setCompleteTarget(task)}
               canMarkComplete={canMarkComplete}
+              onAddHoliday={() => setHolidayModal({ kind: "create", date: `${year}-${String(month + 1).padStart(2, "0")}-${String(selectedDay).padStart(2, "0")}` })}
+              onEditHoliday={holiday => setHolidayModal({ kind: "edit", holiday })}
+              onDeleteHoliday={handleHolidayDelete}
             />
           )}
         </div>
@@ -385,6 +485,17 @@ export default function CalendarPage() {
         onConfirm={handleMarkComplete}
         onCancel={() => setCompleteTarget(null)}
       />
+
+      {holidayModal && (
+        <HolidayModal
+          open
+          holiday={holidayModal.kind === "edit" ? holidayModal.holiday : null}
+          initialDate={holidayModal.kind === "create" ? holidayModal.date : undefined}
+          onClose={() => setHolidayModal(null)}
+          onSave={handleHolidaySave}
+          loading={holidaySaveLoading}
+        />
+      )}
 
       {(editTask || createDate) && (
         <TaskModal

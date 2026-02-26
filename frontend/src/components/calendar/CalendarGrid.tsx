@@ -1,12 +1,13 @@
 import React, { useMemo } from "react";
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, CalendarDays } from "lucide-react";
 import Button from "@/components/ui/Button";
-import type { Task } from "@/types";
+import type { Task, Holiday } from "@/types";
 
 interface CalendarGridProps {
   year: number;
   month: number;
   tasks: Task[];
+  holidaysByDay?: Map<number, Holiday[]>;
   selectedDay: number | null;
   canCreateTask: boolean;
   createBlockedReason?: string;
@@ -35,6 +36,7 @@ export default function CalendarGrid({
   year,
   month,
   tasks,
+  holidaysByDay = new Map(),
   selectedDay,
   canCreateTask,
   createBlockedReason,
@@ -122,11 +124,13 @@ export default function CalendarGrid({
           }
 
           const dayTasks = tasksByDay.get(day) || [];
+          const dayHolidays = holidaysByDay.get(day) || [];
           const isToday = isCurrentMonth && today.getDate() === day;
           const isSelected = selectedDay === day;
           const hasOverdue = dayTasks.some(t => t.status === "Em Atraso");
           const count = dayTasks.length;
           const stats = statusByDay.get(day) ?? { andamento: 0, atraso: 0, concluido: 0 };
+          const holidayTitles = dayHolidays.map(h => h.name).join(", ");
 
           return (
             <div
@@ -148,7 +152,18 @@ export default function CalendarGrid({
                   >
                     {day}
                   </span>
-                  {count > 0 && <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">{count}</span>}
+                  <div className="flex items-center gap-1">
+                    {dayHolidays.length > 0 && (
+                      <span
+                        className="text-amber-600 dark:text-amber-400"
+                        title={holidayTitles}
+                        aria-label={`Feriado(s): ${holidayTitles}`}
+                      >
+                        <CalendarDays size={12} />
+                      </span>
+                    )}
+                    {count > 0 && <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">{count}</span>}
+                  </div>
                 </div>
 
                 <div className="mt-auto space-y-1.5">
@@ -203,6 +218,10 @@ export default function CalendarGrid({
         <div className="flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full bg-emerald-500" />
           <span className="text-xs text-slate-600 dark:text-slate-300">Concluído</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <CalendarDays size={12} className="text-amber-600 dark:text-amber-400" />
+          <span className="text-xs text-slate-600 dark:text-slate-300">Feriado</span>
         </div>
         {!canCreateTask && (
           <span className="text-xs text-amber-700 dark:text-amber-400" title={createBlockedReason}>

@@ -18,6 +18,7 @@ import lookupRoutes from "./routes/lookups";
 import ruleRoutes from "./routes/rules";
 import tenantRoutes from "./routes/tenants";
 import systemRoutes from "./routes/system";
+import holidayRoutes from "./routes/holidays";
 
 // Initialize DB schema on startup (SQLite: schema criado aqui; Supabase: schema já criado via supabase-schema.sql)
 import "./db";
@@ -199,6 +200,7 @@ app.use("/api/lookups", lookupRoutes);
 app.use("/api/rules", ruleRoutes);
 app.use("/api/tenants", tenantRoutes);
 app.use("/api/system", systemRoutes);
+app.use("/api/holidays", holidayRoutes);
 
 // ── Serve React frontend in production ───────────────────────────────────────
 if (IS_PROD) {
@@ -240,6 +242,10 @@ if (process.env.NODE_ENV !== "test") {
         if (!IS_PROD) {
           console.log(`   Frontend: http://localhost:5173`);
         }
+        try {
+          const { startHolidaySyncJob } = require("./jobs/holiday-sync-job");
+          startHolidaySyncJob();
+        } catch (_) { /* job opcional */ }
       });
     })
     .catch((err) => {

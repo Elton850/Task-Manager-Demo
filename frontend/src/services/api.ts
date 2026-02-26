@@ -11,6 +11,7 @@ import type {
   TaskEvidence,
   TaskJustification,
   JustificationMineItem,
+  Holiday,
 } from "@/types";
 
 let csrfToken = "";
@@ -266,6 +267,18 @@ export const justificationsApi = {
   review: (id: string, action: "approve" | "refuse" | "refuse_and_block", reviewComment?: string) =>
     put<{ justification: TaskJustification }>(`/justifications/${id}/review`, { action, reviewComment }),
   unblockTask: (taskId: string) => put<{ ok: boolean }>(`/justifications/task/${taskId}/unblock`),
+};
+
+export const holidaysApi = {
+  list: (from: string, to: string) =>
+    get<{ holidays: Holiday[] }>(`/holidays?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`),
+  create: (data: { date: string; name: string; type: string }) =>
+    post<{ holiday: Holiday }>("/holidays", data),
+  update: (id: string, data: { date?: string; name?: string; type?: string }) =>
+    put<{ holiday: Holiday }>(`/holidays/${id}`, data),
+  delete: (id: string) => del<{ ok: boolean }>(`/holidays/${id}`),
+  sync: (year?: number, provider?: string) =>
+    post<{ ok: boolean; year: number; provider: string; inserted: number; updated: number }>("/holidays/sync", { year, provider }),
 };
 
 export interface PendingJustificationItem {

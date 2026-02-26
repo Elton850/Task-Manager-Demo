@@ -321,3 +321,91 @@ describe("Segurança - Autorização (role)", () => {
     expect(res.body.code).toBe("FORBIDDEN");
   });
 });
+
+describe("Feriados (holidays)", () => {
+  let adminCookie: string;
+  let csrfTokenVal: string;
+  let adminToken: string;
+  let userToken: string;
+
+  beforeAll(async () => {
+    await ensureDemoTenant();
+    const demo = await Promise.resolve(
+      db.prepare("SELECT id FROM tenants WHERE slug = ?").get(DEMO_SLUG)
+    ) as { id: string } | undefined;
+    if (!demo) throw new Error("Tenant demo não encontrado.");
+    adminToken = signToken({
+      id: "admin-holidays",
+      email: "admin@demo.com",
+      nome: "Admin",
+      role: "ADMIN",
+      area: "TI",
+      canDelete: true,
+      tenantId: demo.id,
+    });
+    userToken = signToken({
+      id: "user-holidays",
+      email: "user@demo.com",
+      nome: "User",
+      role: "USER",
+      area: "TI",
+      canDelete: false,
+      tenantId: demo.id,
+    });
+  });
+
+  beforeEach(async () => {
+    const csrf = await getCsrfCookieAndToken();
+    adminCookie = `auth_token=${adminToken}; ${csrf.cookie}`;
+    csrfTokenVal = csrf.token;
+  });
+
+  it("GET /api/holidays com from e to retorna 200 e array holidays", async () => {
+    const res = await request(app)
+      .get("/api/holidays?from=2024-01-01&to=2024-01-31")
+      .set("Host", "localhost")
+      .set("X-Tenant-Slug", DEMO_SLUG)
+      .set("Cookie", adminCookie)
+      .set("X-CSRF-Token", csrfTokenVal);
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body.holidays)).toBe(true);
+  });
+
+  it("GET /api/holidays sem from/to retorna 400", async () => {
+    const res = await request(app)
+      .get("/api/holidays")
+      .set("Host", "localhost")
+      .set("X-Tenant-Slug", DEMO_SLUG)
+      .set("Cookie", `auth_token=${adminToken}`)
+      .set("X-CSRF-Token", csrfTokenVal);
+    expect(res.status).toBe(400);
+  });
+
+  it("POST /api/holidays como USER retorna 403", async () => {
+    const csrf = await getCsrfCookieAndToken();
+    const res = await request(app)
+      .post("/api/holidays")
+      .set("Host", "localhost")
+      .set("X-Tenant-Slug", DEMO_SLUG)
+      .set("Cookie", `auth_token=${userToken}; ${csrf.cookie}`)
+      .set("X-CSRF-Token", csrf.token)
+      .set("Content-Type", "application/json")
+      .send({ date: "2024-12-25", name: "Natal", type: "national" });
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe("FORBIDDEN");
+  });
+
+  it("POST /api/holidays/sync como USER retorna 403", async () => {
+    const csrf = await getCsrfCookieAndToken();
+    const res = await request(app)
+      .post("/api/holidays/sync")
+      .set("Host", "localhost")
+      .set("X-Tenant-Slug", DEMO_SLUG)
+      .set("Cookie", `auth_token=${userToken}; ${csrf.cookie}`)
+      .set("X-CSRF-Token", csrf.token)
+      .set("Content-Type", "application/json")
+      .send({ year: 2024 });
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe("FORBIDDEN");
+  });
+});
