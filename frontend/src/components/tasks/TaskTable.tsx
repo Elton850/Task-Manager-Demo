@@ -8,7 +8,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import type { Task } from "@/types";
 
 const MENU_WIDTH = 220;
-const MENU_GAP = 4;
+const MENU_GAP = 8;
+/** Altura aproximada do dropdown (4 itens) para decidir abrir para cima ou para baixo */
+const MENU_ESTIMATED_HEIGHT = 220;
 
 type SortField = "competenciaYm" | "prazo" | "status" | "area" | "responsavelNome" | "recorrencia";
 
@@ -302,26 +304,32 @@ function TaskTableInner({ tasks, loading, onEdit, onDelete, onDuplicate, onBulkD
         </tbody>
       </table>
 
-      {/* Menu fixo em portal: fica na frente e não rola com a tabela */}
+      {/* Menu fixo em portal: estático onde abriu, nunca cortado; abre para cima se faltar espaço abaixo */}
       {openMenu && (() => {
         const task = sorted.find(t => t.id === openMenu.taskId);
         if (!task) return null;
         const { rect } = openMenu;
-        const left = Math.max(MENU_GAP, Math.min(rect.right - MENU_WIDTH, rect.left));
-        const top = rect.bottom + MENU_GAP;
+        const left = Math.max(MENU_GAP, Math.min(rect.right - MENU_WIDTH, window.innerWidth - MENU_WIDTH - MENU_GAP));
+        const spaceBelow = window.innerHeight - rect.bottom - MENU_GAP;
+        const openUpward = spaceBelow < MENU_ESTIMATED_HEIGHT;
+        const style: React.CSSProperties = {
+          position: "fixed",
+          left,
+          width: MENU_WIDTH,
+          zIndex: 9999,
+        };
+        if (openUpward) {
+          style.bottom = window.innerHeight - rect.top + MENU_GAP;
+        } else {
+          style.top = rect.bottom + MENU_GAP;
+        }
         const menuEl = (
           <div
             data-fixed-menu
             role="menu"
             aria-label="Menu de ações"
             className="min-w-[200px] rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 py-1 shadow-xl"
-            style={{
-              position: "fixed",
-              left,
-              top,
-              width: MENU_WIDTH,
-              zIndex: 9999,
-            }}
+            style={style}
             onClick={e => e.stopPropagation()}
           >
             <button
