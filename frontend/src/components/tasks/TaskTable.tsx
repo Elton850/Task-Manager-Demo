@@ -1,16 +1,10 @@
 import React, { useMemo, useState, useEffect } from "react";
-import { createPortal } from "react-dom";
 import { Edit2, Trash2, Copy, CopyPlus, ChevronUp, ChevronDown, Paperclip, CheckCircle, Info, Layers, MoreVertical } from "lucide-react";
 import Badge, { getStatusVariant } from "@/components/ui/Badge";
 import Button from "@/components/ui/Button";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import { useAuth } from "@/contexts/AuthContext";
 import type { Task } from "@/types";
-
-const MENU_WIDTH = 220;
-const MENU_GAP = 8;
-/** Altura aproximada do dropdown (4 itens) para decidir abrir para cima ou para baixo */
-const MENU_ESTIMATED_HEIGHT = 220;
 
 type SortField = "competenciaYm" | "prazo" | "status" | "area" | "responsavelNome" | "recorrencia";
 
@@ -29,18 +23,17 @@ function TaskTableInner({ tasks, loading, onEdit, onDelete, onDuplicate, onBulkD
   const [sortField, setSortField] = React.useState<SortField>("competenciaYm");
   const [sortDir, setSortDir] = React.useState<"asc" | "desc">("desc");
   const [markingId, setMarkingId] = React.useState<string | null>(null);
-  const [openMenu, setOpenMenu] = useState<{ taskId: string; rect: { top: number; left: number; right: number; bottom: number } } | null>(null);
-  const openMenuId = openMenu?.taskId ?? null;
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!openMenu) return;
+    if (!openMenuId) return;
     const close = (e: MouseEvent) => {
-      if ((e.target as Element).closest("[data-actions-menu]") || (e.target as Element).closest("[data-fixed-menu]")) return;
-      setOpenMenu(null);
+      if ((e.target as Element).closest("[data-actions-menu]")) return;
+      setOpenMenuId(null);
     };
     document.addEventListener("click", close);
     return () => document.removeEventListener("click", close);
-  }, [openMenu]);
+  }, [openMenuId]);
 
   const handleSort = (field: SortField) => {
     if (field === sortField) setSortDir(d => (d === "asc" ? "desc" : "asc"));
@@ -279,15 +272,14 @@ function TaskTableInner({ tasks, loading, onEdit, onDelete, onDuplicate, onBulkD
                       )}
                     </button>
                   )}
-                  {/* Menu de ações: renderizado em portal com position fixed para não rolar com a tabela */}
-                  <div className="shrink-0" data-actions-menu onClick={(e) => e.stopPropagation()}>
+                  {/* Menu de ações: posição absoluta na célula — rola junto com a tabela, estático em relação à linha */}
+                  <div className="relative shrink-0" data-actions-menu onClick={(e) => e.stopPropagation()}>
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={(e) => {
                         e.stopPropagation();
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        setOpenMenu(prev => (prev?.taskId === task.id ? null : { taskId: task.id, rect: { top: rect.top, left: rect.left, right: rect.right, bottom: rect.bottom } }));
+                        setOpenMenuId(prev => (prev === task.id ? null : task.id));
                       }}
                       title="Ações"
                       aria-label={`Ações da tarefa: ${task.atividade}`}
@@ -296,6 +288,52 @@ function TaskTableInner({ tasks, loading, onEdit, onDelete, onDuplicate, onBulkD
                     >
                       <MoreVertical size={18} />
                     </Button>
+                    {openMenuId === task.id && (
+                      <div
+                        className="absolute right-0 top-full z-[100] mt-1 min-w-[200px] rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 py-1 shadow-xl"
+                        role="menu"
+                        aria-label="Menu de ações"
+                      >
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => { onEdit(task); setOpenMenuId(null); }}
+                          className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700"
+                        >
+                          <Edit2 size={16} className="shrink-0" /> Editar
+                        </button>
+                        {canDuplicate && onDuplicate && (
+                          <button
+                            type="button"
+                            role="menuitem"
+                            onClick={() => { onDuplicate(task); setOpenMenuId(null); }}
+                            className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700"
+                          >
+                            <Copy size={16} className="shrink-0" /> Duplicar (um período)
+                          </button>
+                        )}
+                        {canDuplicate && onBulkDuplicate && !task.parentTaskId && (
+                          <button
+                            type="button"
+                            role="menuitem"
+                            onClick={() => { onBulkDuplicate(task); setOpenMenuId(null); }}
+                            className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700"
+                          >
+                            <CopyPlus size={16} className="shrink-0" /> Replicar para datas escolhidas
+                          </button>
+                        )}
+                        {(user?.role !== "USER" || user?.canDelete) && (
+                          <button
+                            type="button"
+                            role="menuitem"
+                            onClick={() => { onDelete(task); setOpenMenuId(null); }}
+                            className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-rose-700 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-900/20"
+                          >
+                            <Trash2 size={16} className="shrink-0" /> Excluir
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               </td>
@@ -303,77 +341,6 @@ function TaskTableInner({ tasks, loading, onEdit, onDelete, onDuplicate, onBulkD
           ))}
         </tbody>
       </table>
-
-      {/* Menu fixo em portal: estático onde abriu, nunca cortado; abre para cima se faltar espaço abaixo */}
-      {openMenu && (() => {
-        const task = sorted.find(t => t.id === openMenu.taskId);
-        if (!task) return null;
-        const { rect } = openMenu;
-        const left = Math.max(MENU_GAP, Math.min(rect.right - MENU_WIDTH, window.innerWidth - MENU_WIDTH - MENU_GAP));
-        const spaceBelow = window.innerHeight - rect.bottom - MENU_GAP;
-        const openUpward = spaceBelow < MENU_ESTIMATED_HEIGHT;
-        const style: React.CSSProperties = {
-          position: "fixed",
-          left,
-          width: MENU_WIDTH,
-          zIndex: 9999,
-        };
-        if (openUpward) {
-          style.bottom = window.innerHeight - rect.top + MENU_GAP;
-        } else {
-          style.top = rect.bottom + MENU_GAP;
-        }
-        const menuEl = (
-          <div
-            data-fixed-menu
-            role="menu"
-            aria-label="Menu de ações"
-            className="min-w-[200px] rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 py-1 shadow-xl"
-            style={style}
-            onClick={e => e.stopPropagation()}
-          >
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => { onEdit(task); setOpenMenu(null); }}
-              className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700"
-            >
-              <Edit2 size={16} className="shrink-0" /> Editar
-            </button>
-            {canDuplicate && onDuplicate && (
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => { onDuplicate(task); setOpenMenu(null); }}
-                className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700"
-              >
-                <Copy size={16} className="shrink-0" /> Duplicar (um período)
-              </button>
-            )}
-            {canDuplicate && onBulkDuplicate && !task.parentTaskId && (
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => { onBulkDuplicate(task); setOpenMenu(null); }}
-                className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700"
-              >
-                <CopyPlus size={16} className="shrink-0" /> Replicar para datas escolhidas
-              </button>
-            )}
-            {(user?.role !== "USER" || user?.canDelete) && (
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => { onDelete(task); setOpenMenu(null); }}
-                className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-rose-700 dark:text-rose-300 hover:bg-rose-50 dark:hover:bg-rose-900/20"
-              >
-                <Trash2 size={16} className="shrink-0" /> Excluir
-              </button>
-            )}
-          </div>
-        );
-        return typeof document !== "undefined" ? createPortal(menuEl, document.body) : null;
-      })()}
     </div>
   );
 }
