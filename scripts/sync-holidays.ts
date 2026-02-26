@@ -1,14 +1,15 @@
 /**
  * Sincroniza feriados da API (BrasilAPI / Nager.Date) para todos os tenants ativos.
- * Pode ser executado manualmente sem subir o servidor nem usar a interface.
  *
  * Uso:
- *   npm run sync:holidays           — sincroniza ano atual e próximo para todos os tenants
- *   npm run sync:holidays -- 2025   — sincroniza apenas 2025
- *
- * Requer .env carregado (dotenv/config). Funciona com DB_PROVIDER=sqlite ou supabase.
+ *   npm run sync:holidays              — usa .env
+ *   npm run sync:holidays:prod          — usa .env.production (Supabase produção)
+ *   npm run sync:holidays:staging       — usa .env.staging (Supabase staging)
+ *   npm run sync:holidays:prod -- 2025  — produção, apenas 2025
  */
-import "dotenv/config";
+// Carrega env antes de qualquer import que use process.env (ex.: db)
+require("dotenv").config({ path: process.env.DOTENV_CONFIG_PATH || ".env" });
+
 import * as holidaySync from "../src/services/holiday-sync";
 
 const SYSTEM_USER = "script-sync";

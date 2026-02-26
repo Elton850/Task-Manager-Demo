@@ -68,9 +68,16 @@ A sincronização **não** é feita pela interface: use o **job automático** (q
 
 ### Script (sync sob demanda)
 
-- No servidor: `npm run sync:holidays` — sincroniza ano atual e próximo para todos os tenants.
-- Para um ano específico: `npm run sync:holidays -- 2025`.
-- Use para carga inicial ou quando quiser forçar uma atualização sem esperar o job.
+O projeto usa **dois envs**: `.env.production` e `.env.staging`. Use o comando do ambiente certo:
+
+| Comando | Env usado | Uso |
+|--------|-----------|-----|
+| `npm run sync:holidays` | `.env` | Local / quando o `.env` já está correto |
+| `npm run sync:holidays:prod` | `.env.production` | **Supabase produção** |
+| `npm run sync:holidays:staging` | `.env.staging` | **Supabase staging** |
+
+- Sem argumento: sincroniza ano atual e próximo. Com ano: `npm run sync:holidays:prod -- 2025`.
+- No servidor, rode **uma vez para produção** e **uma vez para staging** (cada um no seu deploy ou trocando o comando).
 
 ### CRUD de feriados (ADMIN)
 

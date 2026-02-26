@@ -25,6 +25,8 @@
     "validate:supabase": "node -r dotenv/config scripts/validate-env-supabase.js",
     "sync:system-admin": "ts-node -r dotenv/config scripts/sync-system-admin.ts",
     "sync:holidays": "ts-node -r dotenv/config scripts/sync-holidays.ts",
+    "sync:holidays:prod": "DOTENV_CONFIG_PATH=.env.production ts-node scripts/sync-holidays.ts",
+    "sync:holidays:staging": "DOTENV_CONFIG_PATH=.env.staging ts-node scripts/sync-holidays.ts",
     "set-user-password": "ts-node -r dotenv/config scripts/set-user-password.ts",
     "migrate:supabase": "ts-node -r dotenv/config scripts/migrate-sqlite-to-supabase.ts",
     "staging:clean": "ts-node -r dotenv/config scripts/clean-supabase.ts",
