@@ -52,18 +52,25 @@
 
 ## 6. Uso e configuração
 
-### Sincronização manual (ADMIN)
+### Sincronização (job e script apenas)
 
-1. Acesse o **Calendário**.
-2. Clique em **Sincronizar feriados** (botão visível apenas para ADMIN).
-3. Os feriados nacionais do **ano do mês exibido** são importados da BrasilAPI (ou Nager.Date em fallback) e gravados no banco do tenant atual. Não remove nem altera feriados manuais.
+A sincronização **não** é feita pela interface: use o **job automático** (quando `HOLIDAY_SYNC_ENABLED=true`) e/ou o **script** no servidor.
+
+- **Job:** ao subir o servidor com a env ativa, o sync roda diariamente ~03:00 (ano atual + próximo) para todos os tenants.
+- **Script (sob demanda):** no servidor, execute `npm run sync:holidays` para ano atual e próximo, ou `npm run sync:holidays -- 2025` para um ano específico. Funciona com o banco configurado no `.env` (SQLite ou Supabase).
 
 ### Job automático
 
-- Habilitar: defina `HOLIDAY_SYNC_ENABLED=true` (ou `1`) no ambiente.
-- O job roda **uma vez por dia**, por volta das **03:00** (hora local). Sincroniza **ano atual** e **ano seguinte** para todos os tenants ativos.
+- Habilitar: defina `HOLIDAY_SYNC_ENABLED=true` (ou `1`) no `.env` do ambiente (ex.: `.env.production`, `.env.staging`).
+- **Ativar o job:** basta subir o servidor (ex.: `npm start` ou processo PM2/systemd). O job é registrado após o `listen` e passa a rodar **uma vez por dia**, por volta das **03:00** (hora local). Sincroniza **ano atual** e **ano seguinte** para todos os tenants ativos.
 - Em ambiente de **teste** (`NODE_ENV=test`) o job não é iniciado.
 - Log opcional no console: `[holiday-sync] Concluído: N tenant(s), X feriado(s) inseridos/atualizados.`
+
+### Script (sync sob demanda)
+
+- No servidor: `npm run sync:holidays` — sincroniza ano atual e próximo para todos os tenants.
+- Para um ano específico: `npm run sync:holidays -- 2025`.
+- Use para carga inicial ou quando quiser forçar uma atualização sem esperar o job.
 
 ### CRUD de feriados (ADMIN)
 

@@ -44,7 +44,6 @@ export default function CalendarPage() {
   const [completeTarget, setCompleteTarget] = useState<Task | null>(null);
   const [completing, setCompleting] = useState(false);
   const [holidays, setHolidays] = useState<Holiday[]>([]);
-  const [holidaySyncLoading, setHolidaySyncLoading] = useState(false);
   const [holidayModal, setHolidayModal] = useState<{ kind: "create" | "edit"; date?: string; holiday?: Holiday } | null>(null);
   const [holidaySaveLoading, setHolidaySaveLoading] = useState(false);
 
@@ -217,19 +216,6 @@ export default function CalendarPage() {
     holidaysApi.list(from, to).then(r => setHolidays(r.holidays)).catch(() => {});
   }, [year, month]);
 
-  const handleHolidaySync = useCallback(async () => {
-    setHolidaySyncLoading(true);
-    try {
-      await holidaysApi.sync(year);
-      toast("Feriados sincronizados com sucesso.", "success");
-      refreshHolidays();
-    } catch (err) {
-      toast(err instanceof Error ? err.message : "Erro ao sincronizar feriados.", "error");
-    } finally {
-      setHolidaySyncLoading(false);
-    }
-  }, [year, toast, refreshHolidays]);
-
   const handleHolidaySave = useCallback(async (data: { date: string; name: string; type: string }) => {
     setHolidaySaveLoading(true);
     try {
@@ -356,20 +342,7 @@ export default function CalendarPage() {
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-4 gap-3">
-        <div className="xl:col-span-3 space-y-2">
-          {user?.role === "ADMIN" && (
-            <div className="flex justify-end">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleHolidaySync}
-                loading={holidaySyncLoading}
-                disabled={holidaySyncLoading}
-              >
-                Sincronizar feriados
-              </Button>
-            </div>
-          )}
+        <div className="xl:col-span-3">
           <CalendarGrid
             year={year}
             month={month}
