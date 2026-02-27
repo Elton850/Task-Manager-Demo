@@ -40,8 +40,8 @@ export function useNotificationData(basePath: string): { items: NotificationItem
     }
     setLoading(true);
     const list: NotificationItem[] = [];
-    const tasksPath = basePath ? `${basePath}/tasks` : "/tasks";
-    const justPath = basePath ? `${basePath}/justificativas` : "/justificativas";
+    const tasksSegment = "/tasks";
+    const justSegment = "/justificativas";
     try {
       if (user.role === "USER") {
         const countsRes = await tasksApi.notificationCounts();
@@ -53,7 +53,7 @@ export function useNotificationData(basePath: string): { items: NotificationItem
             variant: "danger",
             title: "Atividade em atraso",
             summary: overdue === 1 ? "1 atividade em atraso" : `${overdue} atividades em atraso`,
-            link: tasksPath,
+            link: `${tasksSegment}?open=overdue`,
           });
         }
         if (dueToday > 0) {
@@ -62,7 +62,7 @@ export function useNotificationData(basePath: string): { items: NotificationItem
             variant: "warning",
             title: "Atividades a vencer hoje",
             summary: dueToday === 1 ? "1 atividade vence hoje" : `${dueToday} atividades vencem hoje`,
-            link: tasksPath,
+            link: `${tasksSegment}?open=dueToday`,
           });
         }
         if (dueTomorrow > 0) {
@@ -72,7 +72,7 @@ export function useNotificationData(basePath: string): { items: NotificationItem
             title: "Atividades a vencer amanhã",
             summary:
               dueTomorrow === 1 ? "1 atividade vence amanhã" : `${dueTomorrow} atividades vencem amanhã`,
-            link: tasksPath,
+            link: `${tasksSegment}?open=dueTomorrow`,
           });
         }
       } else if (user.role === "LEADER" || user.role === "ADMIN") {
@@ -88,7 +88,7 @@ export function useNotificationData(basePath: string): { items: NotificationItem
             variant: "danger",
             title: "Atividade em atraso",
             summary: overdue === 1 ? "1 atividade em atraso" : `${overdue} atividades em atraso`,
-            link: tasksPath,
+            link: `${tasksSegment}?open=overdue`,
           });
         }
         if (dueToday > 0) {
@@ -97,7 +97,7 @@ export function useNotificationData(basePath: string): { items: NotificationItem
             variant: "warning",
             title: "Atividades a vencer hoje",
             summary: dueToday === 1 ? "1 atividade vence hoje" : `${dueToday} atividades vencem hoje`,
-            link: tasksPath,
+            link: `${tasksSegment}?open=dueToday`,
           });
         }
         if (dueTomorrow > 0) {
@@ -109,7 +109,7 @@ export function useNotificationData(basePath: string): { items: NotificationItem
               dueTomorrow === 1
                 ? "1 atividade vence amanhã"
                 : `${dueTomorrow} atividades vencem amanhã`,
-            link: tasksPath,
+            link: `${tasksSegment}?open=dueTomorrow`,
           });
         }
         const pendingCount = pendingRes.items.length;
@@ -122,7 +122,7 @@ export function useNotificationData(basePath: string): { items: NotificationItem
               pendingCount === 1
                 ? "1 justificativa aguardando análise"
                 : `${pendingCount} justificativas aguardando análise`,
-            link: justPath,
+            link: justSegment,
           });
         }
       }

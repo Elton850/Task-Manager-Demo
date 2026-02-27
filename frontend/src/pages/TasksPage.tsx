@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Plus, RefreshCw, Lock, FileDown } from "lucide-react";
 import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
@@ -21,9 +22,21 @@ const DEFAULT_FILTERS: Filters = {
   competenciaYm: "",
 };
 
+function todayYmd(): string {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function tomorrowYmd(): string {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 export default function TasksPage() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [tasks, setTasks] = useState<Task[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -105,6 +118,31 @@ export default function TasksPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    if (loading || tasks.length === 0) return;
+    const open = searchParams.get("open");
+    if (!open || !["overdue", "dueToday", "dueTomorrow"].includes(open)) return;
+
+    const today = todayYmd();
+    const tomorrow = tomorrowYmd();
+    const first =
+      open === "overdue"
+        ? tasks.find(t => t.status !== "Concluído" && t.prazo && t.prazo < today)
+        : open === "dueToday"
+          ? tasks.find(t => t.prazo === today)
+          : tasks.find(t => t.prazo === tomorrow);
+
+    if (first) {
+      setEditTask(first);
+      setModalOpen(true);
+    }
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      next.delete("open");
+      return next;
+    }, { replace: true });
+  }, [loading, tasks, searchParams, setSearchParams]);
 
   const filteredTasks = useMemo(() => {
     return tasks.filter(t => {
@@ -196,11 +234,6 @@ export default function TasksPage() {
   const handleBulkDuplicateSuccess = (created: number) => {
     load();
     toast(`${created} tarefa(s) criada(s) nas datas escolhidas.`, "success");
-  };
-
-  const todayYmd = () => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   };
 
   const handleMarkComplete = async () => {

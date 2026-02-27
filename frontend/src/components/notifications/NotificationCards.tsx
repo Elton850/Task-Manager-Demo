@@ -40,7 +40,8 @@ function NotificationBalloon({
   const [startBar, setStartBar] = useState(false);
   const location = useLocation();
   const href = basePath ? basePath + item.link : item.link;
-  const isActive = location.pathname === href;
+  const pathOnly = href.split("?")[0];
+  const isActive = location.pathname === pathOnly;
   const style = variantBalloon[item.variant];
 
   useEffect(() => {
