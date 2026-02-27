@@ -83,13 +83,20 @@ export function getTenantSlugFromUrl(): string {
   return seg;
 }
 
+/** Promessa em voo para evitar múltiplas chamadas simultâneas a /api/csrf. */
+let fetchCsrfInFlight: Promise<void> | null = null;
+
 async function fetchCsrf(): Promise<void> {
-  const res = await fetch("/api/csrf");
-  const data = await res.json();
-  csrfToken = data.csrfToken;
+  if (fetchCsrfInFlight) return fetchCsrfInFlight;
+  fetchCsrfInFlight = (async () => {
+    const res = await fetch("/api/csrf", { credentials: "include" });
+    const data = await res.json();
+    csrfToken = data.csrfToken;
+  })().finally(() => { fetchCsrfInFlight = null; });
+  return fetchCsrfInFlight;
 }
 
-async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+async function request<T>(method: string, path: string, body?: unknown, isRetry = false): Promise<T> {
   if (!csrfToken && method !== "GET") {
     await fetchCsrf();
   }
@@ -114,6 +121,12 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 
   if (!res.ok) {
     const payload = data as { error?: string; code?: string; meta?: unknown };
+    // Token CSRF expirou ou ficou fora de sincronia (ex.: staging após navegação). Renova e tenta uma única vez.
+    if (res.status === 403 && payload.code === "CSRF_INVALID" && method !== "GET" && !isRetry) {
+      csrfToken = "";
+      await fetchCsrf();
+      return request<T>(method, path, body, true);
+    }
     if (res.status === 404 && payload.code === "TENANT_NOT_FOUND") {
       if (typeof window !== "undefined" && !window.location.pathname.startsWith("/erro")) {
         window.location.replace(`${window.location.origin}/erro?tipo=empresa`);

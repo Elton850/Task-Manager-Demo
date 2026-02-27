@@ -313,7 +313,7 @@ router.post("/:id/logo", optionalAuth, async (req: Request, res: Response): Prom
       res.status(404).json({ error: "Empresa não encontrada.", code: "NOT_FOUND" });
       return;
     }
-    const { fileName, mimeType, contentBase64 } = req.body || {};
+    const { mimeType, contentBase64 } = req.body || {};
     const mime = (String(mimeType || "").toLowerCase().split(";")[0].trim()) || "image/jpeg";
     if (!LOGO_MIMES.has(mime)) {
       res.status(400).json({ error: "Use imagem JPEG, PNG, GIF ou WebP.", code: "INVALID_MIME" });
@@ -354,7 +354,7 @@ router.post("/:id/logo", optionalAuth, async (req: Request, res: Response): Prom
       storedPath = path.relative(process.cwd(), absolutePath).replaceAll("\\", "/");
     }
 
-    await db.prepare("UPDATE tenants SET logo_path = ?, logo_updated_at = datetime('now') WHERE id = ?").run(storedPath, tenantId);
+    await db.prepare("UPDATE tenants SET logo_path = ?, logo_updated_at = ? WHERE id = ?").run(storedPath, nowIso(), tenantId);
     res.json({ ok: true, logoPath: storedPath });
   } catch {
     res.status(500).json({ error: "Erro ao salvar logo.", code: "INTERNAL" });
@@ -383,7 +383,7 @@ router.delete("/:id/logo", optionalAuth, async (req: Request, res: Response): Pr
           fs.unlinkSync(absolutePath);
         }
       }
-      await db.prepare("UPDATE tenants SET logo_path = NULL, logo_updated_at = datetime('now') WHERE id = ?").run(tenantId);
+      await db.prepare("UPDATE tenants SET logo_path = NULL, logo_updated_at = ? WHERE id = ?").run(nowIso(), tenantId);
     }
     res.json({ ok: true });
   } catch {
