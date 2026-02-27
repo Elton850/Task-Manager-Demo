@@ -184,6 +184,18 @@ CREATE TABLE IF NOT EXISTS holidays (
   last_synced_at   TEXT
 );
 
+-- ─── holiday_sync_runs (log de execução do job de sync de feriados) ─────────
+CREATE TABLE IF NOT EXISTS holiday_sync_runs (
+  id              TEXT PRIMARY KEY,
+  started_at      TEXT NOT NULL,
+  finished_at     TEXT,
+  status          TEXT NOT NULL CHECK (status IN ('running','success','failure')),
+  error_message   TEXT,
+  tenants_count   INTEGER NOT NULL DEFAULT 0,
+  inserted_total  INTEGER NOT NULL DEFAULT 0,
+  updated_total   INTEGER NOT NULL DEFAULT 0
+);
+
 -- =============================================================================
 -- ÍNDICES
 -- =============================================================================
@@ -206,6 +218,7 @@ CREATE INDEX IF NOT EXISTS idx_justifications_status  ON task_justifications(ten
 CREATE INDEX IF NOT EXISTS idx_just_evidence_just     ON justification_evidences(justification_id);
 CREATE INDEX IF NOT EXISTS idx_holidays_tenant_date   ON holidays(tenant_id, date);
 CREATE INDEX IF NOT EXISTS idx_holidays_tenant_source ON holidays(tenant_id, source);
+CREATE INDEX IF NOT EXISTS idx_holiday_sync_runs_started ON holiday_sync_runs(started_at);
 
 -- =============================================================================
 -- TENANT "system" (SYSTEM_TENANT_ID)
@@ -241,6 +254,7 @@ ALTER TABLE login_events         ENABLE ROW LEVEL SECURITY;
 ALTER TABLE task_justifications  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE justification_evidences ENABLE ROW LEVEL SECURITY;
 ALTER TABLE holidays ENABLE ROW LEVEL SECURITY;
+ALTER TABLE holiday_sync_runs ENABLE ROW LEVEL SECURITY;
 
 -- Política padrão: nega acesso via anon key (o backend usa service role).
 -- Se você precisar de acesso via anon key no frontend, adicione políticas

@@ -273,6 +273,23 @@ try {
   rawDb.exec("CREATE INDEX IF NOT EXISTS idx_holidays_tenant_source ON holidays(tenant_id, source)");
 } catch { /* ignorar */ }
 
+// ─── holiday_sync_runs (log de execução do job de sync de feriados) ───────────
+try {
+  rawDb.exec(`
+    CREATE TABLE IF NOT EXISTS holiday_sync_runs (
+      id               TEXT PRIMARY KEY,
+      started_at       TEXT NOT NULL,
+      finished_at      TEXT,
+      status           TEXT NOT NULL CHECK (status IN ('running','success','failure')),
+      error_message    TEXT,
+      tenants_count    INTEGER NOT NULL DEFAULT 0,
+      inserted_total   INTEGER NOT NULL DEFAULT 0,
+      updated_total    INTEGER NOT NULL DEFAULT 0
+    )
+  `);
+  rawDb.exec("CREATE INDEX IF NOT EXISTS idx_holiday_sync_runs_started ON holiday_sync_runs(started_at)");
+} catch { /* ignorar */ }
+
 // ─── Adapter wrapper ─────────────────────────────────────────────────────────
 // Envolve DatabaseSync na interface DbAdapter para que o código do index.ts
 // possa retornar o mesmo objeto tanto para SQLite quanto para PostgreSQL.

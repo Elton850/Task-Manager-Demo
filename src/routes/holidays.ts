@@ -8,6 +8,7 @@ import { requireAuth, requireRole } from "../middleware/auth";
 import { mustString, optStr, getClientErrorMessage } from "../utils";
 import * as holidaysService from "../services/holidays";
 import * as holidaySync from "../services/holiday-sync";
+import * as holidaySyncRunLog from "../services/holiday-sync-run-log";
 
 const router = Router();
 router.use(requireAuth);
@@ -132,6 +133,32 @@ router.delete("/:id", requireRole("ADMIN"), async (req: Request, res: Response):
     res.status(200).json({ ok: true });
   } catch (err) {
     const msg = getClientErrorMessage(err, "Erro ao excluir feriado.");
+    res.status(500).json({ error: msg, code: "INTERNAL" });
+  }
+});
+
+// GET /api/holidays/sync/status — última execução do job de sync (ADMIN)
+router.get("/sync/status", requireRole("ADMIN"), async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const lastRun = await holidaySyncRunLog.getLastSyncRun();
+    if (!lastRun) {
+      res.json({ lastRun: null });
+      return;
+    }
+    res.json({
+      lastRun: {
+        id: lastRun.id,
+        startedAt: lastRun.startedAt,
+        finishedAt: lastRun.finishedAt,
+        status: lastRun.status,
+        errorMessage: lastRun.errorMessage,
+        tenantsCount: lastRun.tenantsCount,
+        insertedTotal: lastRun.insertedTotal,
+        updatedTotal: lastRun.updatedTotal,
+      },
+    });
+  } catch (err) {
+    const msg = getClientErrorMessage(err, "Erro ao obter status do sync.");
     res.status(500).json({ error: msg, code: "INTERNAL" });
   }
 });
