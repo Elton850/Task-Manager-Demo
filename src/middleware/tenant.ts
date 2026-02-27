@@ -50,19 +50,19 @@ function isIPv4(hostWithoutPort: string): boolean {
 /** Valida Host header para mitigar Host Header Attack. localhost/127.0.0.1 sempre válidos (testes locais). Em prod, IPv4 é aceito (acesso por IP → tenant system). Se ALLOWED_HOST_PATTERN estiver definido, exige match para hosts que não sejam IP. */
 function validateHost(host: string): boolean {
   if (!host || typeof host !== "string") return false;
-  const h = host.split(":")[0].toLowerCase().trim();
-  if (h.length > 253 || /[^a-z0-9.-]/.test(h)) return false; // caracteres inválidos
-  if (h === "localhost" || h === "127.0.0.1") return true; // sempre aceitar para testes locais (staging/prod no PC)
-  if (isIPv4(h)) return true; // acesso por IP (ex.: antes do DNS) → tratado como tenant system
+  const hostWithoutPort = host.split(":")[0].toLowerCase().trim();
+  if (hostWithoutPort.length > 253 || /[^a-z0-9.-]/.test(hostWithoutPort)) return false; // caracteres inválidos
+  if (hostWithoutPort === "localhost" || hostWithoutPort === "127.0.0.1") return true; // sempre aceitar para testes locais (staging/prod no PC)
+  if (isIPv4(hostWithoutPort)) return true; // acesso por IP (ex.: antes do DNS) → tratado como tenant system
   if (process.env.NODE_ENV === "test") return false; // em teste só localhost/127.0.0.1 são válidos (já aceitos acima)
   // Staging path-based: aceita APENAS o host exato (ex.: staging.fluxiva.com.br).
   // Sem curinga de subdomínio — staging agora usa um único host com path por empresa.
   if (IS_STAGING) {
-    return !STAGING_HOST || h === STAGING_HOST;
+    return !STAGING_HOST || hostWithoutPort === STAGING_HOST;
   }
   if (IS_PROD && ALLOWED_HOST_PATTERN) {
     try {
-      return new RegExp(ALLOWED_HOST_PATTERN).test(h);
+      return new RegExp(ALLOWED_HOST_PATTERN).test(hostWithoutPort);
     } catch {
       return false;
     }
@@ -119,7 +119,7 @@ export function rejectInvalidHost(req: Request, res: Response, next: NextFunctio
 }
 
 export function tenantMiddleware(req: Request, res: Response, next: NextFunction): void {
-  const p = (req.path || "").replace(/^\/api/, "") || "/";
+  const pathWithoutApi = (req.path || "").replace(/^\/api/, "") || "/";
   const { slug: resolvedSlug, hostInvalid } = resolveTenantSlug(req);
 
   if (hostInvalid) {
@@ -127,7 +127,7 @@ export function tenantMiddleware(req: Request, res: Response, next: NextFunction
     return;
   }
 
-  if (p === "/csrf" || p === "/health") return next();
+  if (pathWithoutApi === "/csrf" || pathWithoutApi === "/health") return next();
 
   let slug = resolvedSlug;
   // Admin Mestre pode acessar sem tenant na URL: tratamos como tenant "system"

@@ -13,6 +13,8 @@ import {
   deleteFile,
   BUCKET_EVIDENCES,
 } from "../services/supabase-storage";
+import { MAX_EVIDENCE_SIZE, uploadsBaseDir, ALLOWED_MIME_TYPES } from "../constants/uploads";
+import { sanitizeFileName, parseBase64Payload } from "../services/upload-utils";
 
 const router = Router();
 router.use(requireAuth);
@@ -855,27 +857,6 @@ router.post("/:id/duplicate-bulk", async (req: Request, res: Response): Promise<
   }
 });
 
-const MAX_EVIDENCE_SIZE = 10 * 1024 * 1024;
-const uploadsBaseDir = path.resolve(process.cwd(), "data", "uploads");
-
-const ALLOWED_MIME_TYPES = new Set([
-  "application/pdf", "application/octet-stream",
-  "image/jpeg", "image/png", "image/gif", "image/webp",
-  "text/plain", "text/csv",
-  "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-]);
-
-function sanitizeFileName(name: string): string {
-  return name.replace(/[^\w.\-]/g, "_").slice(0, 120) || "arquivo";
-}
-
-function parseBase64Payload(input: string): string {
-  const trimmed = input.trim();
-  const idx = trimmed.indexOf("base64,");
-  if (idx >= 0) return trimmed.slice(idx + 7);
-  return trimmed;
-}
 
 // GET /api/tasks/:id/evidences
 router.get("/:id/evidences", async (req: Request, res: Response): Promise<void> => {
@@ -1064,8 +1045,7 @@ router.get("/:id/evidences/:evidenceId/download", async (req: Request, res: Resp
     } else {
       // Arquivo em disco (registros antigos)
       const absolutePath = path.resolve(process.cwd(), evidence.file_path);
-      const uploadsBase = path.resolve(process.cwd(), "data", "uploads");
-      if (!absolutePath.startsWith(uploadsBase + path.sep) && absolutePath !== uploadsBase) {
+      if (!absolutePath.startsWith(uploadsBaseDir + path.sep) && absolutePath !== uploadsBaseDir) {
         res.status(400).json({ error: "Caminho de arquivo inválido.", code: "INVALID_PATH" });
         return;
       }

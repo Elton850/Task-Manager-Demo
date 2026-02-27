@@ -16,8 +16,8 @@ const nodeEnv = process.env.NODE_ENV;
 
 if (nodeEnv === "staging") {
   const stagingPath = path.resolve(cwd, ".env.staging");
-  const r = dotenv.config({ path: stagingPath, override: true });
-  if (r.error) {
+  const envLoadResult = dotenv.config({ path: stagingPath, override: true });
+  if (envLoadResult.error) {
     console.error("[load-env] .env.staging obrigatório em staging. Não encontrado:", stagingPath);
     process.exit(1);
   }

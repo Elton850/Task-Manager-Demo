@@ -29,8 +29,8 @@ const DB_PROVIDER = (process.env.DB_PROVIDER || "sqlite").toLowerCase().trim();
 
 // Confirmação explícita em staging: DB e credenciais vêm só de .env.staging
 if (process.env.NODE_ENV === "staging" && DB_PROVIDER === "supabase") {
-  const u = process.env.SUPABASE_DB_URL ?? "";
-  console.log("[startup] Staging ativo: DB e admin vêm de .env.staging. SUPABASE_DB_URL:", u ? `${u.length} chars` : "ausente");
+  const supabaseDbUrl = process.env.SUPABASE_DB_URL ?? "";
+  console.log("[startup] Staging ativo: DB e admin vêm de .env.staging. SUPABASE_DB_URL:", supabaseDbUrl ? `${supabaseDbUrl.length} chars` : "ausente");
 }
 
 // ── Validação de variáveis Supabase ao arranque ───────────────────────────────
@@ -245,7 +245,9 @@ if (process.env.NODE_ENV !== "test") {
         try {
           const { startHolidaySyncJob } = require("./jobs/holiday-sync-job");
           startHolidaySyncJob();
-        } catch (_) { /* job opcional */ }
+        } catch (jobErr) {
+          console.warn("[startup] holiday-sync-job não pôde ser iniciado (opcional):", jobErr instanceof Error ? jobErr.message : jobErr);
+        }
       });
     })
     .catch((err) => {

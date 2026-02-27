@@ -15,9 +15,9 @@ import {
   deleteFile,
   BUCKET_LOGOS,
 } from "../services/supabase-storage";
+import { uploadsBaseDir } from "../constants/uploads";
 
 const router = Router();
-const uploadsBaseDir = path.resolve(process.cwd(), "data", "uploads");
 const TENANT_LOGOS_DIR = "tenants";
 const LOGO_MAX_SIZE = 2 * 1024 * 1024; // 2MB
 const LOGO_MIMES = new Set(["image/jpeg", "image/png", "image/gif", "image/webp"]);

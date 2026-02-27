@@ -13,21 +13,13 @@ import {
   deleteFile,
   BUCKET_EVIDENCES,
 } from "../services/supabase-storage";
+import { MAX_EVIDENCE_SIZE, uploadsBaseDir, ALLOWED_MIME_TYPES } from "../constants/uploads";
+import { sanitizeFileName, parseBase64Payload } from "../services/upload-utils";
 
 const router = Router();
 router.use(requireAuth);
 
-const MAX_EVIDENCE_SIZE = 10 * 1024 * 1024;
-const uploadsBaseDir = path.resolve(process.cwd(), "data", "uploads");
 const JUSTIFICATION_UPLOAD_DIR = "justification_evidences";
-
-const ALLOWED_MIME_TYPES = new Set([
-  "application/pdf", "application/octet-stream",
-  "image/jpeg", "image/png", "image/gif", "image/webp",
-  "text/plain", "text/csv",
-  "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "application/vnd.ms-excel", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-]);
 
 interface TaskRow {
   id: string;
@@ -69,16 +61,6 @@ interface JustificationEvidenceRow {
   uploaded_by: string;
 }
 
-function sanitizeFileName(name: string): string {
-  return name.replace(/[^\w.\-]/g, "_").slice(0, 120) || "arquivo";
-}
-
-function parseBase64Payload(input: string): string {
-  const trimmed = input.trim();
-  const idx = trimmed.indexOf("base64,");
-  if (idx >= 0) return trimmed.slice(idx + 7);
-  return trimmed;
-}
 
 type JustificationStatus = "none" | "pending" | "approved" | "refused" | "blocked";
 
@@ -600,8 +582,7 @@ router.get("/:id/evidences/:eid/download", async (req: Request, res: Response): 
     } else {
       // Arquivo em disco (registros antigos)
       const absolutePath = path.resolve(process.cwd(), ev.file_path);
-      const baseDir = path.resolve(process.cwd(), "data", "uploads");
-      if (!absolutePath.startsWith(baseDir + path.sep) && absolutePath !== baseDir) {
+      if (!absolutePath.startsWith(uploadsBaseDir + path.sep) && absolutePath !== uploadsBaseDir) {
         res.status(400).json({ error: "Caminho inválido.", code: "INVALID_PATH" });
         return;
       }
@@ -656,8 +637,7 @@ router.delete("/:id/evidences/:eid", async (req: Request, res: Response): Promis
     } else {
       // Arquivo em disco (registros antigos) — validar path para evitar path traversal
       const absolutePath = path.resolve(process.cwd(), ev.file_path);
-      const allowedBase = path.resolve(process.cwd(), "data", "uploads");
-      if (!absolutePath.startsWith(allowedBase + path.sep) && absolutePath !== allowedBase) {
+      if (!absolutePath.startsWith(uploadsBaseDir + path.sep) && absolutePath !== uploadsBaseDir) {
         res.status(400).json({ error: "Caminho de arquivo inválido.", code: "VALIDATION" });
         return;
       }

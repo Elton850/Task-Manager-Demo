@@ -1,18 +1,4 @@
-/** Segmentos de rota que NÃO são slug de empresa (Admin Mestre usa sem prefixo). */
-const RESERVED_SEGMENTS = new Set([
-  "login",
-  "calendar",
-  "tasks",
-  "performance",
-  "users",
-  "admin",
-  "empresa",
-  "empresas",
-  "justificativas",
-  "sistema",
-  "logs-acesso",
-  "erro",
-]);
+import { RESERVED_SEGMENTS } from "@/constants/routes";
 
 /**
  * Extrai o tenant do pathname.

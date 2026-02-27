@@ -31,16 +31,16 @@ export function safeLowerEmail(email: string): string {
 }
 
 export function calcStatus(prazo: string | null | undefined, realizado: string | null | undefined): string {
-  const p = prazo?.trim() || "";
-  const r = realizado?.trim() || "";
+  const prazoNorm = prazo?.trim() || "";
+  const realizadoNorm = realizado?.trim() || "";
 
-  if (r) {
-    return !p || r <= p ? "Concluído" : "Concluído em Atraso";
+  if (realizadoNorm) {
+    return !prazoNorm || realizadoNorm <= prazoNorm ? "Concluído" : "Concluído em Atraso";
   }
-  if (!p) return "Em Andamento";
+  if (!prazoNorm) return "Em Andamento";
 
   const today = todayStr();
-  return today > p ? "Em Atraso" : "Em Andamento";
+  return today > prazoNorm ? "Em Atraso" : "Em Andamento";
 }
 
 export function optStr(v: unknown): string {

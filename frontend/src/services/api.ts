@@ -13,6 +13,7 @@ import type {
   JustificationMineItem,
   Holiday,
 } from "@/types";
+import { RESERVED_SEGMENTS } from "@/constants/routes";
 
 let csrfToken = "";
 let tenantSlug = "";
@@ -26,8 +27,6 @@ export function clearCsrfToken(): void {
   csrfToken = "";
 }
 
-const RESERVED_SEGMENTS = new Set(["login", "calendar", "tasks", "performance", "users", "admin", "empresa", "empresas", "justificativas", "sistema", "logs-acesso", "erro"]);
-
 /**
  * True quando o tenant vem do hostname (modo subdomínio): produção (empresa.fluxiva.com.br)
  * ou subdomínios locais de desenvolvimento (sistema.localhost, empresa-alpha.localhost).
@@ -39,11 +38,11 @@ const RESERVED_SEGMENTS = new Set(["login", "calendar", "tasks", "performance", 
  */
 function isSubdomainMode(): boolean {
   if (typeof window === "undefined") return false;
-  const h = window.location.hostname;
-  if (!h || h === "localhost" || h === "127.0.0.1") return false;
-  if (h.endsWith(".localhost") || h.endsWith(".127.0.0.1")) return true;
+  const hostname = window.location.hostname;
+  if (!hostname || hostname === "localhost" || hostname === "127.0.0.1") return false;
+  if (hostname.endsWith(".localhost") || hostname.endsWith(".127.0.0.1")) return true;
   // Staging path-based: staging.fluxiva.com.br (4 partes, começa com "staging") → modo path
-  const parts = h.split(".");
+  const parts = hostname.split(".");
   if (parts.length === 4 && parts[0] === "staging") return false;
   return parts.length >= 3;
 }
@@ -58,10 +57,10 @@ export function getTenantSlugFromUrl(): string {
   // 1. Subdomínio: produção ou desenvolvimento com *.localhost / *.127.0.0.1
   //    (staging.fluxiva.com.br retorna false em isSubdomainMode → cai no path-based abaixo)
   if (isSubdomainMode()) {
-    const h = window.location.hostname;
-    const parts = h.split(".");
+    const hostname = window.location.hostname;
+    const parts = hostname.split(".");
     const sub = (parts[0] || "").toLowerCase();
-    if (h.endsWith(".localhost") || h.endsWith(".127.0.0.1")) return sub === "sistema" ? "system" : sub;
+    if (hostname.endsWith(".localhost") || hostname.endsWith(".127.0.0.1")) return sub === "sistema" ? "system" : sub;
     if (parts.length === 3) return "system"; // domínio raiz (ex.: fluxiva.com.br)
     return sub === "sistema" ? "system" : sub; // subdomínio de empresa
   }
