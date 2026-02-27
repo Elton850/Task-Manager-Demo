@@ -5,6 +5,7 @@ import path from "path";
 import db from "../db";
 import { requireAuth } from "../middleware/auth";
 import { mustString, optStr, nowIso, calcStatus, getClientErrorMessage } from "../utils";
+import { assertCompetenciaYm, assertDateFormat } from "../validation";
 import {
   shouldUseStorage,
   isStorageKey,
@@ -423,6 +424,7 @@ router.post("/", async (req: Request, res: Response): Promise<void> => {
         responsavelNome = respUser.nome;
         area = respUser.area;
         competenciaYm = mustString(body.competenciaYm, "Competência");
+        assertCompetenciaYm(competenciaYm, "Competência");
         recorrencia = mustString(body.recorrencia, "Recorrência");
         tipo = mustString(body.tipo, "Tipo");
       } else {
@@ -430,6 +432,7 @@ router.post("/", async (req: Request, res: Response): Promise<void> => {
         responsavelNome = user.nome;
         area = user.area;
         competenciaYm = mustString(body.competenciaYm, "Competência");
+        assertCompetenciaYm(competenciaYm, "Competência");
         recorrencia = mustString(body.recorrencia, "Recorrência");
         tipo = mustString(body.tipo, "Tipo");
         const rule = await db.prepare("SELECT allowed_recorrencias, custom_recorrencias FROM rules WHERE tenant_id = ? AND area = ?")
@@ -460,6 +463,8 @@ router.post("/", async (req: Request, res: Response): Promise<void> => {
       prazo = optStr(body.prazo) || null;
       realizado = optStr(body.realizado) || null;
     }
+    if (prazo) assertDateFormat(prazo, "Prazo");
+    if (realizado) assertDateFormat(realizado, "Data de realização");
     const observacoes = optStr(body.observacoes);
 
     if (observacoes.length > 1000) {
@@ -579,6 +584,18 @@ router.put("/:id", async (req: Request, res: Response): Promise<void> => {
         });
         return;
       }
+    }
+
+    if (prazo) assertDateFormat(prazo, "Prazo");
+    if (realizado) assertDateFormat(realizado, "Data de realização");
+    assertCompetenciaYm(competenciaYm, "Competência");
+    if (atividade.length > 200) {
+      res.status(400).json({ error: "Atividade muito longa (máx 200 caracteres).", code: "VALIDATION" });
+      return;
+    }
+    if (observacoes && observacoes.length > 1000) {
+      res.status(400).json({ error: "Observações muito longas (máx 1000 caracteres).", code: "VALIDATION" });
+      return;
     }
 
     const status = calcStatus(prazo, realizado);

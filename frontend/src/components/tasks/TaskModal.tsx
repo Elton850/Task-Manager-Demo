@@ -435,6 +435,7 @@ export default function TaskModal({
           onChange={e => set("atividade", e.target.value)}
           placeholder="Descreva a atividade..."
           rows={3}
+          maxLength={200}
           error={errors.atividade}
           hint={!isUserOnlyObservacoes && !isReadOnlyTask ? `${form.atividade.length}/200 caracteres` : undefined}
           disabled={isUserOnlyObservacoes || isReadOnlyTask}
@@ -471,6 +472,7 @@ export default function TaskModal({
           onChange={e => set("observacoes", e.target.value)}
           placeholder="Observações opcionais..."
           rows={2}
+          maxLength={1000}
           error={errors.observacoes}
           hint={form.observacoes ? `${form.observacoes.length}/1000 caracteres` : undefined}
           disabled={isReadOnlyTask}

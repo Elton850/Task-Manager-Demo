@@ -43,6 +43,10 @@ export default function CompanyPage() {
       toast("Informe o nome da empresa", "error");
       return;
     }
+    if (trimmed.length > 200) {
+      toast("Nome da empresa deve ter no máximo 200 caracteres.", "error");
+      return;
+    }
     setSaving(true);
     try {
       await tenantApi.updateCurrent(trimmed);
@@ -84,6 +88,7 @@ export default function CompanyPage() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Ex.: Minha Empresa Ltda"
+            maxLength={200}
           />
           <div className="rounded-lg bg-slate-50 border border-slate-200 p-3">
             <p className="text-xs font-medium text-slate-500 mb-1">Identificador (URL)</p>

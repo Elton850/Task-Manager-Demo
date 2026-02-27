@@ -5,6 +5,7 @@ import crypto from "crypto";
 import db from "../db";
 import { signToken, requireAuth, AuthError } from "../middleware/auth";
 import { safeLowerEmail, toBool, nowIso, isSecureRequest } from "../utils";
+import { isValidEmail, assertResetCode, assertPasswordMinLength } from "../validation";
 import { sendResetCodeEmail } from "../services/email";
 import type { AuthUser } from "../types";
 
@@ -55,6 +56,10 @@ router.post("/login", async (req: Request, res: Response): Promise<void> => {
     }
 
     const email = safeLowerEmail(emailRaw);
+    if (!isValidEmail(email)) {
+      res.status(400).json({ error: "E-mail em formato inválido.", code: "INVALID_EMAIL" });
+      return;
+    }
     const tenantId = req.tenantId!;
 
     const row = await db.prepare("SELECT * FROM users WHERE tenant_id = ? AND email = ?")
@@ -118,6 +123,10 @@ router.post("/request-reset", async (req: Request, res: Response): Promise<void>
     }
 
     const email = safeLowerEmail(emailRaw);
+    if (!isValidEmail(email)) {
+      res.status(400).json({ message: "E-mail em formato inválido." });
+      return;
+    }
     const tenantId = req.tenantId!;
 
     const row = await db.prepare("SELECT id, nome, active FROM users WHERE tenant_id = ? AND email = ?")
@@ -163,6 +172,18 @@ router.post("/reset", async (req: Request, res: Response): Promise<void> => {
     }
 
     const email = safeLowerEmail(emailRaw);
+    if (!isValidEmail(email)) {
+      res.status(400).json({ error: "E-mail em formato inválido.", code: "INVALID_EMAIL" });
+      return;
+    }
+    try {
+      assertResetCode(String(codeRaw ?? ""));
+      assertPasswordMinLength(String(newPassword ?? ""), 6);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "Dados inválidos.";
+      res.status(400).json({ error: msg, code: "VALIDATION" });
+      return;
+    }
     const code = String(codeRaw).trim();
     const tenantId = req.tenantId!;
 
@@ -185,11 +206,7 @@ router.post("/reset", async (req: Request, res: Response): Promise<void> => {
     const ok = await bcrypt.compare(code, hash);
     if (!ok) throw new AuthError("RESET_BAD_CODE", "Código inválido.");
 
-    if (String(newPassword).trim().length < 6) {
-      throw new AuthError("WEAK_PASSWORD", "Senha muito curta (mínimo 6 caracteres).");
-    }
-
-    const passwordHash = await bcrypt.hash(newPassword, 12);
+    const passwordHash = await bcrypt.hash(String(newPassword).trim(), 12);
 
     await db.prepare(`
       UPDATE users SET password_hash = ?, must_change_password = 0,

@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from "uuid";
 import db, { SYSTEM_TENANT_ID } from "../db";
 import { requireAuth, requireRole } from "../middleware/auth";
 import { safeLowerEmail, nowIso } from "../utils";
+import { isValidEmail, assertMaxLength } from "../validation";
 
 const router = Router();
 router.use(requireAuth);
@@ -150,6 +151,17 @@ router.post("/", requireRole("ADMIN"), async (req: Request, res: Response): Prom
     }
 
     const email = safeLowerEmail(emailRaw);
+    if (!isValidEmail(email)) {
+      res.status(400).json({ error: "E-mail em formato inválido.", code: "INVALID_EMAIL" });
+      return;
+    }
+    try {
+      assertMaxLength(String(nome).trim(), 200, "Nome");
+      assertMaxLength(String(area).trim(), 100, "Área");
+    } catch (e) {
+      res.status(400).json({ error: e instanceof Error ? e.message : "Dados inválidos.", code: "VALIDATION" });
+      return;
+    }
     const isTargetSystem = targetTenantId === SYSTEM_TENANT_ID;
 
     const existing = await db.prepare("SELECT id FROM users WHERE tenant_id = ? AND email = ?").get(targetTenantId, email);
@@ -203,15 +215,22 @@ router.put("/:id", requireRole("ADMIN"), async (req: Request, res: Response): Pr
       res.status(400).json({ error: "Nas empresas só são permitidos Usuário e Líder.", code: "INVALID_ROLE" });
       return;
     }
+    try {
+      if (nome !== undefined && nome !== null) assertMaxLength(String(nome).trim(), 200, "Nome");
+      if (area !== undefined && area !== null) assertMaxLength(String(area).trim(), 100, "Área");
+    } catch (e) {
+      res.status(400).json({ error: e instanceof Error ? e.message : "Dados inválidos.", code: "VALIDATION" });
+      return;
+    }
 
     await db.prepare(`
       UPDATE users SET
         nome = ?, role = ?, area = ?, can_delete = ?
       WHERE id = ?
     `).run(
-      nome || existing.nome,
+      (nome !== undefined && nome !== null ? String(nome).trim() : existing.nome) || existing.nome,
       role || existing.role,
-      area || existing.area,
+      (area !== undefined && area !== null ? String(area).trim() : existing.area) || existing.area,
       canDelete !== undefined ? (canDelete ? 1 : 0) : existing.can_delete,
       id
     );

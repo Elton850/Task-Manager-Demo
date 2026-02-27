@@ -71,10 +71,12 @@ export default function UserModal({ open, user, lookups, companyName, companies,
   const validate = () => {
     const errs: Record<string, string> = {};
     if (!form.nome.trim()) errs.nome = "Nome é obrigatório";
+    else if (form.nome.trim().length > 200) errs.nome = "Nome deve ter no máximo 200 caracteres";
     if (!isEdit && !form.email.trim()) errs.email = "Email é obrigatório";
-    if (!isEdit && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errs.email = "Email inválido";
+    else if (!isEdit && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) errs.email = "Email inválido";
     if (!form.role) errs.role = "Função é obrigatória";
     if (!form.area) errs.area = "Área é obrigatória";
+    else if (form.area.length > 100) errs.area = "Área deve ter no máximo 100 caracteres";
     if (!isEdit && companies && companies.length > 0 && !form.tenantSlug) errs.tenantSlug = "Selecione a empresa";
     setErrors(errs);
     return Object.keys(errs).length === 0;
@@ -82,7 +84,13 @@ export default function UserModal({ open, user, lookups, companyName, companies,
 
   const handleSubmit = async () => {
     if (!validate()) return;
-    const payload: Partial<User> & { tenantSlug?: string } = { nome: form.nome, email: form.email, role: form.role as User["role"], area: form.area, canDelete: form.canDelete };
+    const payload: Partial<User> & { tenantSlug?: string } = {
+      nome: form.nome.trim(),
+      email: form.email.trim().toLowerCase(),
+      role: form.role as User["role"],
+      area: form.area.trim(),
+      canDelete: form.canDelete,
+    };
     if (!isEdit && form.tenantSlug) payload.tenantSlug = form.tenantSlug;
     await onSave(payload);
   };
@@ -142,6 +150,7 @@ export default function UserModal({ open, user, lookups, companyName, companies,
           value={form.nome}
           onChange={e => set("nome", e.target.value)}
           placeholder="Nome do usuário"
+          maxLength={200}
           error={errors.nome}
         />
 

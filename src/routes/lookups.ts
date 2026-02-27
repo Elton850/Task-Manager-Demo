@@ -108,6 +108,10 @@ router.post("/for-tenant", requireRole("ADMIN"), async (req: Request, res: Respo
 
     const cat = String(category).trim().toUpperCase();
     const val = String(value).trim();
+    if (val.length > 100) {
+      res.status(400).json({ error: "Valor deve ter no máximo 100 caracteres.", code: "VALIDATION" });
+      return;
+    }
 
     const existing = await db.prepare("SELECT id FROM lookups WHERE tenant_id = ? AND category = ? AND value = ?")
       .get(tenantId, cat, val);
@@ -167,6 +171,10 @@ router.put("/for-tenant/:id", requireRole("ADMIN"), async (req: Request, res: Re
     }
 
     const newValue = String(value).trim();
+    if (newValue.length > 100) {
+      res.status(400).json({ error: "Valor deve ter no máximo 100 caracteres.", code: "VALIDATION" });
+      return;
+    }
     await db.prepare("UPDATE lookups SET value = ? WHERE id = ? AND tenant_id = ?").run(newValue, id, tenantId);
     if (existing.category === "AREA") {
       await db.prepare("UPDATE tasks SET area = ? WHERE tenant_id = ? AND area = ?").run(newValue, tenantId, existing.value);

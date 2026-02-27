@@ -3,7 +3,14 @@
     "allow": [
       "Bash(npm install:*)",
       "Bash(npm run test:*)",
-      "Bash(npx tsc --noEmit)"
+      "Bash(npx tsc --noEmit)",
+      "Bash(find /c/Users/BENEL/Documents/Task-Manager -type f \\\\\\( -name \"*.ts\" -o -name \"*.tsx\" \\\\\\) ! -path \"*/node_modules/*\" ! -path \"*/dist/*\" ! -path \"*/.git/*\" ! -path \"*/frontend/dist/*\" -exec wc -l {} +)",
+      "Bash(grep \"^import.*path\\\\|^import.*fs\" /c/Users/BENEL/Documents/Task-Manager/src/routes/*.ts)",
+      "Bash(grep -n \"10 \\\\* 1024 \\\\* 1024\\\\|BUCKET_EVIDENCES\\\\|BUCKET_LOGOS\" /c/Users/BENEL/Documents/Task-Manager/src/routes/*.ts)",
+      "Bash(wc -l /c/Users/BENEL/Documents/Task-Manager/src/routes/*.ts /c/Users/BENEL/Documents/Task-Manager/src/middleware/*.ts)",
+      "Bash(xargs wc -l)",
+      "Bash(npm run build)",
+      "Bash(npm run frontend:build)"
     ]
   }
 }

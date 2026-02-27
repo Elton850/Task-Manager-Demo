@@ -6,6 +6,7 @@ import path from "path";
 import db from "../db";
 import { requireAuth, requireRole, optionalAuth } from "../middleware/auth";
 import { nowIso } from "../utils";
+import { assertSlug, assertMaxLength } from "../validation";
 import { getDefaultTiposList } from "../constants/defaultTipos";
 import {
   shouldUseStorage,
@@ -176,7 +177,14 @@ router.patch("/current", requireAuth, requireRole("ADMIN"), async (req: Request,
       res.status(400).json({ error: "Nome da empresa é obrigatório.", code: "MISSING_NAME" });
       return;
     }
-    await db.prepare("UPDATE tenants SET name = ? WHERE id = ?").run(name.trim(), tenant.id);
+    const nameNorm = name.trim();
+    try {
+      assertMaxLength(nameNorm, 200, "Nome da empresa");
+    } catch (e) {
+      res.status(400).json({ error: e instanceof Error ? e.message : "Nome inválido.", code: "VALIDATION" });
+      return;
+    }
+    await db.prepare("UPDATE tenants SET name = ? WHERE id = ?").run(nameNorm, tenant.id);
     res.json({
       tenant: {
         id: tenant.id,
@@ -201,6 +209,15 @@ router.post("/", optionalAuth, async (req: Request, res: Response): Promise<void
       return;
     }
 
+    const nameNorm = String(name).trim();
+    try {
+      assertSlug(String(slug));
+      assertMaxLength(nameNorm, 200, "Nome da empresa");
+    } catch (e) {
+      res.status(400).json({ error: e instanceof Error ? e.message : "Dados inválidos.", code: "VALIDATION" });
+      return;
+    }
+
     const slugNorm = String(slug).trim().toLowerCase().replace(/[^a-z0-9-]/g, "-");
     const existing = await db.prepare("SELECT id FROM tenants WHERE slug = ?").get(slugNorm);
 
@@ -221,7 +238,7 @@ router.post("/", optionalAuth, async (req: Request, res: Response): Promise<void
     await db.exec("BEGIN");
     try {
       await db.prepare("INSERT INTO tenants (id, slug, name, active, created_at) VALUES (?, ?, ?, 1, ?)")
-        .run(tenantId, slugNorm, String(name).trim(), now);
+        .run(tenantId, slugNorm, nameNorm, now);
 
       let order = 0;
       for (const [category, values] of Object.entries(DEFAULT_LOOKUPS)) {
@@ -258,7 +275,7 @@ router.post("/", optionalAuth, async (req: Request, res: Response): Promise<void
       : `/${slugNorm}`;
 
     res.status(201).json({
-      tenant: { id: tenantId, slug: slugNorm, name: String(name).trim() },
+      tenant: { id: tenantId, slug: slugNorm, name: nameNorm },
       accessUrl,
     });
   } catch {
