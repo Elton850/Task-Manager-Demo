@@ -92,3 +92,23 @@
     width: 0%;
   }
 }
+
+/* Login: fundo sofisticado e profissional (sem alterar lógica) */
+.login-page-bg {
+  background: linear-gradient(
+    165deg,
+    #f8fafc 0%,
+    #f1f5f9 28%,
+    #eef2ff 60%,
+    #e2e8f0 100%
+  );
+}
+.dark .login-page-bg {
+  background: linear-gradient(
+    165deg,
+    #0f172a 0%,
+    #1e293b 35%,
+    #1e293b 70%,
+    #0f172a 100%
+  );
+}

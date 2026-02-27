@@ -9,6 +9,7 @@ import { useToast } from "@/contexts/ToastContext";
 import { useBasePath } from "@/contexts/BasePathContext";
 import { authApi, tenantApi, getTenantSlugFromUrl } from "@/services/api";
 import TenantLogo from "@/components/ui/TenantLogo";
+import LoginIllustration from "@/components/login/LoginIllustration";
 
 type Mode = "login" | "requestReset" | "reset";
 
@@ -121,192 +122,263 @@ export default function LoginPage() {
   const showRequestResetForm = mode === "requestReset" && !isAdminLogin;
   const showResetForm = mode === "reset" && !isAdminLogin;
 
+  const formCard = (
+    <div
+      className={`
+        bg-white/95 dark:bg-slate-800/95 backdrop-blur-sm
+        border border-slate-200/90 dark:border-slate-600/70
+        rounded-2xl shadow-2xl shadow-slate-300/30 dark:shadow-black/30
+        ring-1 ring-slate-100 dark:ring-slate-700/50
+        w-full max-w-[420px]
+      `}
+    >
+          <div className="p-8 pb-7">
+            {mode === "login" ? (
+              <form onSubmit={handleLogin} className="space-y-5">
+                <div>
+                  <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100 tracking-tight">
+                    {isAdminLogin ? "Acesso ao sistema" : "Entrar na sua conta"}
+                  </h2>
+                  {!isAdminLogin && (
+                    <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                      Use seu e-mail corporativo para acessar
+                    </p>
+                  )}
+                </div>
+
+                <Input
+                  label="E-mail"
+                  type="email"
+                  required
+                  value={form.email}
+                  onChange={e => set("email", e.target.value)}
+                  placeholder={isAdminLogin ? "" : "seu.email@empresa.com"}
+                  autoComplete="email"
+                  autoFocus
+                />
+
+                <div className="flex flex-col gap-1">
+                  <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Senha <span className="text-rose-500" aria-hidden>*</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showPass ? "text" : "password"}
+                      required
+                      value={form.password}
+                      onChange={e => set("password", e.target.value)}
+                      placeholder="••••••••"
+                      autoComplete="current-password"
+                      className="w-full rounded-lg bg-white dark:bg-slate-700/90 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-100 px-3 py-2.5 text-sm pr-10 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500 transition-colors"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPass(s => !s)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 transition-colors"
+                      aria-label={showPass ? "Ocultar senha" : "Mostrar senha"}
+                    >
+                      {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="pt-1">
+                  <Button type="submit" className="w-full" size="lg" loading={submitting}>
+                    Entrar
+                  </Button>
+                </div>
+
+                {!isAdminLogin && (
+                  <p className="text-center text-xs text-slate-500 dark:text-slate-400 pt-1">
+                    Esqueceu a senha?{" "}
+                    <button
+                      type="button"
+                      onClick={() => { setMode("requestReset"); setResetEmailSent(false); }}
+                      className="text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 font-medium transition-colors underline-offset-2 hover:underline"
+                    >
+                      Redefinir acesso
+                    </button>
+                  </p>
+                )}
+              </form>
+            ) : showRequestResetForm ? (
+              <form onSubmit={handleRequestReset} className="space-y-5">
+                <div>
+                  <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100 tracking-tight">
+                    Redefinir acesso
+                  </h2>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                    Informe o e-mail da conta. Enviaremos um código de verificação (válido por 30 minutos).
+                  </p>
+                </div>
+
+                <Input
+                  label="E-mail"
+                  type="email"
+                  required
+                  value={form.email}
+                  onChange={e => set("email", e.target.value)}
+                  placeholder="seu.email@empresa.com"
+                  autoComplete="email"
+                  autoFocus
+                />
+
+                <div className="pt-1 space-y-3">
+                  <Button type="submit" className="w-full" size="lg" loading={submitting}>
+                    Enviar código por e-mail
+                  </Button>
+                  <button
+                    type="button"
+                    onClick={() => setMode("login")}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 text-sm text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-lg transition-colors border border-slate-200 dark:border-slate-600"
+                  >
+                    <ArrowLeft size={16} />
+                    Voltar
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <form onSubmit={handleReset} className="space-y-5">
+                <div>
+                  <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100 tracking-tight">
+                    {resetInfo?.firstAccess ? "Primeiro acesso" : "Redefinir senha"}
+                  </h2>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+                    Código de verificação e nova senha
+                  </p>
+                </div>
+
+                <Input
+                  label="E-mail"
+                  type="email"
+                  required
+                  value={form.email}
+                  onChange={e => set("email", e.target.value)}
+                  placeholder="email@empresa.com"
+                  readOnly={resetEmailSent}
+                  className={resetEmailSent ? "bg-slate-50 dark:bg-slate-700/50" : undefined}
+                />
+
+                <Input
+                  label="Código"
+                  required
+                  value={form.code}
+                  onChange={e => set("code", e.target.value.toUpperCase())}
+                  placeholder="••••••••"
+                  className="font-mono tracking-wider text-center"
+                  maxLength={8}
+                />
+
+                <Input
+                  label="Nova senha"
+                  type="password"
+                  required
+                  value={form.newPassword}
+                  onChange={e => set("newPassword", e.target.value)}
+                  placeholder="••••••••"
+                  minLength={6}
+                />
+
+                <div className="pt-1 space-y-3">
+                  <Button type="submit" className="w-full" size="lg" loading={submitting}>
+                    Definir senha e entrar
+                  </Button>
+                  <button
+                    type="button"
+                    onClick={() => { setMode("login"); setResetEmailSent(false); }}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 text-sm text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-lg transition-colors border border-slate-200 dark:border-slate-600"
+                  >
+                    <ArrowLeft size={16} />
+                    Voltar
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+  );
+
+  if (isAdminLogin) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden login-page-bg">
+        <div className="absolute top-4 right-4 z-10">
+          <ThemeSwitch />
+        </div>
+        <div className="w-full max-w-[420px] relative z-0">
+          <div className="mt-10">{formCard}</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-100 via-white to-brand-50 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 flex items-center justify-center p-4 relative">
-      <div className="absolute top-4 right-4">
+    <div className="min-h-screen flex flex-col lg:flex-row relative overflow-hidden login-page-bg">
+      <div className="absolute top-4 right-4 z-10 lg:left-4 lg:right-auto">
         <ThemeSwitch />
       </div>
-      <div className="w-full max-w-sm">
-        {!isAdminLogin && (
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center mb-4">
-              <TenantLogo
-                tenantSlug={getTenantSlugFromUrl()}
-                logoVersion={currentTenant?.logoUpdatedAt}
-                alt="Task Manager"
-                size="h-16 w-16"
-                className="rounded-xl shadow-sm"
-              />
+
+      {/* Painel lateral — ilustração + logo + títulos (desktop) */}
+      <aside className="hidden lg:flex lg:w-[50%] lg:min-h-screen flex-col justify-center px-12 xl:px-20 py-12">
+        <div className="max-w-md w-full">
+          <LoginIllustration />
+          <div className="mt-10 flex flex-col">
+            <div className="flex items-center gap-4">
+              <div className="flex-shrink-0 w-16 h-16 rounded-2xl bg-white dark:bg-slate-800/95 shadow-lg shadow-slate-200/60 dark:shadow-slate-900/40 ring-1 ring-slate-200/80 dark:ring-slate-600/60 flex items-center justify-center overflow-hidden">
+                <TenantLogo
+                  tenantSlug={getTenantSlugFromUrl()}
+                  logoVersion={currentTenant?.logoUpdatedAt}
+                  alt="Task Manager"
+                  size="h-11 w-11"
+                  className="rounded-xl border-0"
+                />
+              </div>
+              <div>
+                <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100 tracking-tight">
+                  Task Manager
+                </h1>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
+                  Gestão de tarefas e entregas
+                </p>
+              </div>
             </div>
-            <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 tracking-tight">Task Manager</h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 truncate max-w-[18rem] mx-auto">
+            <p className="mt-4 text-sm text-slate-400 dark:text-slate-500 truncate max-w-xs border-l-2 border-brand-500/50 dark:border-brand-400/50 pl-3">
               {currentTenant?.name ?? (tenant?.name || "Carregando…")}
             </p>
           </div>
-        )}
-
-        <div className={`bg-white dark:bg-slate-800/95 border border-slate-200 dark:border-slate-600/80 rounded-2xl p-6 shadow-xl shadow-brand-100/60 dark:shadow-none ${isAdminLogin ? "mt-8" : ""}`}>
-          {mode === "login" ? (
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div className="mb-2">
-                <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                  {isAdminLogin ? "Acesso" : "Entrar"}
-                </h2>
-                {!isAdminLogin && (
-                  <p className="text-sm text-slate-500 dark:text-slate-400">Faça login na sua conta</p>
-                )}
-              </div>
-
-              <Input
-                label="E-mail"
-                type="email"
-                required
-                value={form.email}
-                onChange={e => set("email", e.target.value)}
-                placeholder={isAdminLogin ? "" : "email@empresa.com"}
-                autoComplete="email"
-                autoFocus
-              />
-
-              <div className="flex flex-col gap-1">
-                <label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                  Senha <span className="text-rose-500">*</span>
-                </label>
-                <div className="relative">
-                  <input
-                    type={showPass ? "text" : "password"}
-                    required
-                    value={form.password}
-                    onChange={e => set("password", e.target.value)}
-                    placeholder="••••••••"
-                    autoComplete="current-password"
-                    className="w-full rounded-lg bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 text-slate-900 dark:text-slate-100 px-3 py-2 text-sm pr-10 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPass(s => !s)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200"
-                    aria-label={showPass ? "Ocultar senha" : "Mostrar senha"}
-                  >
-                    {showPass ? <EyeOff size={15} /> : <Eye size={15} />}
-                  </button>
-                </div>
-              </div>
-
-              <Button type="submit" className="w-full" size="lg" loading={submitting}>
-                Entrar
-              </Button>
-
-              {!isAdminLogin && (
-                <p className="text-xs text-center text-slate-500 dark:text-slate-400">
-                  Esqueceu a senha?{" "}
-                  <button
-                    type="button"
-                    onClick={() => { setMode("requestReset"); setResetEmailSent(false); }}
-                    className="text-brand-600 dark:text-brand-400 hover:text-brand-800 dark:hover:text-brand-300 transition-colors"
-                  >
-                    Redefinir acesso
-                  </button>
-                </p>
-              )}
-            </form>
-          ) : showRequestResetForm ? (
-            <form onSubmit={handleRequestReset} className="space-y-4">
-              <div className="mb-2">
-                <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Redefinir acesso</h2>
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  Informe o e-mail da conta. Enviaremos um código de verificação (válido por 30 minutos).
-                </p>
-              </div>
-
-              <Input
-                label="E-mail"
-                type="email"
-                required
-                value={form.email}
-                onChange={e => set("email", e.target.value)}
-                placeholder="email@empresa.com"
-                autoComplete="email"
-                autoFocus
-              />
-
-              <Button type="submit" className="w-full" size="lg" loading={submitting}>
-                Enviar código por e-mail
-              </Button>
-
-              <button
-                type="button"
-                onClick={() => setMode("login")}
-                className="w-full flex items-center justify-center gap-2 py-2.5 text-sm text-slate-600 dark:text-slate-400 hover:text-brand-700 dark:hover:text-brand-400 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-lg transition-colors border border-transparent hover:border-slate-200 dark:hover:border-slate-600"
-              >
-                <ArrowLeft size={16} />
-                Voltar
-              </button>
-            </form>
-          ) : (
-            <form onSubmit={handleReset} className="space-y-4">
-              <div className="mb-2">
-                <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                  {resetInfo?.firstAccess ? "Primeiro acesso" : "Redefinir senha"}
-                </h2>
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  Código de verificação e nova senha
-                </p>
-              </div>
-
-              <Input
-                label="E-mail"
-                type="email"
-                required
-                value={form.email}
-                onChange={e => set("email", e.target.value)}
-                placeholder="email@empresa.com"
-                readOnly={resetEmailSent}
-                className={resetEmailSent ? "bg-slate-50" : undefined}
-              />
-
-              <Input
-                label="Código"
-                required
-                value={form.code}
-                onChange={e => set("code", e.target.value.toUpperCase())}
-                placeholder="••••••••"
-                className="font-mono tracking-wider text-center"
-                maxLength={8}
-              />
-
-              <Input
-                label="Nova senha"
-                type="password"
-                required
-                value={form.newPassword}
-                onChange={e => set("newPassword", e.target.value)}
-                placeholder="••••••••"
-                minLength={6}
-              />
-
-              <Button type="submit" className="w-full" size="lg" loading={submitting}>
-                Definir senha e entrar
-              </Button>
-
-              <button
-                type="button"
-                onClick={() => { setMode("login"); setResetEmailSent(false); }}
-                className="w-full flex items-center justify-center gap-2 py-2.5 text-sm text-slate-600 dark:text-slate-400 hover:text-brand-700 dark:hover:text-brand-400 hover:bg-slate-50 dark:hover:bg-slate-700/50 rounded-lg transition-colors border border-transparent hover:border-slate-200 dark:hover:border-slate-600"
-              >
-                <ArrowLeft size={16} />
-                Voltar
-              </button>
-            </form>
-          )}
         </div>
+      </aside>
 
-        {!isAdminLogin && (
-          <p className="text-center text-xs text-slate-500 dark:text-slate-400 mt-6">
-            Task Manager v2.0 · Multi-tenant
-          </p>
-        )}
+      {/* Mobile: header com logo e títulos (mesmo padrão visual) */}
+      <div className="lg:hidden pt-6 pb-3 px-4 text-center">
+        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white dark:bg-slate-800/95 shadow-lg ring-1 ring-slate-200/80 dark:ring-slate-600/50 overflow-hidden">
+          <TenantLogo
+            tenantSlug={getTenantSlugFromUrl()}
+            logoVersion={currentTenant?.logoUpdatedAt}
+            alt="Task Manager"
+            size="h-11 w-11"
+            className="rounded-xl border-0"
+          />
+        </div>
+        <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100 tracking-tight mt-3">
+          Task Manager
+        </h1>
+        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+          Gestão de tarefas e entregas
+        </p>
+        <p className="text-xs text-slate-400 dark:text-slate-500 mt-2 truncate max-w-[18rem] mx-auto">
+          {currentTenant?.name ?? (tenant?.name || "Carregando…")}
+        </p>
       </div>
+
+      {/* Área do formulário */}
+      <main className="flex-1 flex items-center justify-center p-4 lg:p-8">
+        <div className="w-full flex flex-col items-center">
+          {formCard}
+          <p className="text-center text-[11px] text-slate-400 dark:text-slate-500 mt-6 tracking-wide">
+            Task Manager · v2.0
+          </p>
+        </div>
+      </main>
     </div>
   );
 }
