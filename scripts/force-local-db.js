@@ -5,3 +5,4 @@
  */
 const path = require("path");
 process.env.SQLITE_DB_PATH = path.resolve(process.cwd(), "data", "taskmanager.db");
+process.env.DB_PROVIDER = "sqlite";

@@ -70,16 +70,36 @@ Os testes dependem do tenant **demo** e do usuário **admin@demo.com**. Use um d
 **Opção A – Seed local (recomendado para dev e testes)**  
 Cria tenant "demo", admin@demo.com e dados de exemplo. Pode limpar tudo e recriar.
 
+O **banco de destino** é definido no comando:
+
 ```bash
-# Criar dados iniciais (demo + admin)
+# Popular banco LOCAL (SQLite em data/taskmanager.db) — padrão
+npm run seed:db
+# ou explicitamente:
+npm run seed:db -- local
+# ou use o atalho:
 npm run seed:local
+
+# Popular Supabase STAGING (usa .env.staging)
+npm run seed:db -- staging
+# ou use o atalho:
+npm run seed:staging
 ```
+
+Requer para staging: `.env.staging` com `DB_PROVIDER=supabase` e `SUPABASE_DB_URL` (e demais variáveis Supabase) apontando para o projeto de staging.
 
 Se quiser **zerar** e recriar depois:
 
 ```bash
-npm run seed:local:clean   # apaga dados
-npm run seed:local        # recria demo + admin
+npm run seed:local:clean   # apaga dados do banco local
+npm run seed:local        # recria demo + admin no local
+# Para staging: npm run seed:staging -- --clean  (depois npm run seed:staging)
+```
+
+Se quiser **popular ao mesmo tempo o banco local e o Supabase de staging** (mesmos dados em ambos):
+
+```bash
+npm run seed:local:and-staging   # 1) popula SQLite (dev)  2) popula Supabase staging (.env.staging)
 ```
 
 **Opção B – Seed antigo (só demo básico)**

@@ -162,6 +162,8 @@ try {
     rawDb.exec("ALTER TABLE users ADD COLUMN last_login_at TEXT");
   if (!userCols.some((c) => c.name === "last_logout_at"))
     rawDb.exec("ALTER TABLE users ADD COLUMN last_logout_at TEXT");
+  if (!userCols.some((c) => c.name === "active_before_tenant_deactivation"))
+    rawDb.exec("ALTER TABLE users ADD COLUMN active_before_tenant_deactivation INTEGER");
 } catch { /* ignorar */ }
 
 try {

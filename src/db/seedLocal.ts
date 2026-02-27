@@ -1,18 +1,22 @@
 /**
- * Seed LOCAL: limpa e repovoa SEMPRE o SQLite em data/taskmanager.db.
+ * Seed LOCAL: limpa e repovoa o banco configurado no env (SQLite ou Supabase).
  *
- * Uso: npm run seed:local       → limpa tudo e insere dados completos
- *      npm run seed:local -- --clean → só limpa (e recria tenant system)
+ * O alvo (local ou staging) é definido no comando via scripts/seed-with-target.js:
  *
- * O script npm usa scripts/force-local-db.js para garantir que o path
- * seja data/taskmanager.db (para migração Supabase ler os mesmos dados).
+ *   npm run seed:db              → popula banco LOCAL (SQLite em data/taskmanager.db)
+ *   npm run seed:db -- local     → idem
+ *   npm run seed:db -- staging   → popula Supabase STAGING (usa .env.staging)
+ *   npm run seed:local           → atalho para seed:db local
+ *   npm run seed:staging         → atalho para seed:db staging
+ *   npm run seed:local -- --clean  → só limpa o banco local (e recria tenant system)
+ *   npm run seed:local:and-staging → popula local e depois staging (em sequência)
  *
  * Conteúdo: tenant system + demo (com evidências e justificativas) + empresa-alpha + empresa-beta.
  */
 import "dotenv/config";
 import path from "path";
 import fs from "fs";
-import db, { SYSTEM_TENANT_ID } from "./sqlite";
+import db, { SYSTEM_TENANT_ID } from "../db";
 import bcrypt from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
 import { seedSystemAdminIfNeeded } from "./seedSystemAdmin";
@@ -20,6 +24,7 @@ import { getDefaultTiposList } from "../constants/defaultTipos";
 
 const DATA_DIR = path.resolve(process.cwd(), "data");
 const DB_PATH = path.join(DATA_DIR, "taskmanager.db");
+const isSupabase = () => process.env.DB_PROVIDER === "supabase";
 const MOCK_PASSWORD = "123456";
 
 const DEFAULT_LOOKUPS: Record<string, string[]> = {
@@ -70,6 +75,7 @@ const TENANTS_SPEC: TenantSpec[] = [
 ];
 
 function isLocalAllowed(): boolean {
+  if (isSupabase()) return true;
   if (process.env.NODE_ENV === "production" && !process.argv.includes("--local")) {
     const resolved = path.resolve(process.cwd(), process.env.SQLITE_DB_PATH || "");
     if (resolved !== path.resolve(process.cwd(), "data", "taskmanager.db")) return false;
@@ -83,22 +89,25 @@ function cleanAll(): void {
     console.error("❌ Limpeza total só é permitida em ambiente local (NODE_ENV !== 'production' ou use --local).");
     process.exit(1);
   }
-  if (!fs.existsSync(DB_PATH)) {
+  if (!isSupabase() && !fs.existsSync(DB_PATH)) {
     console.error("❌ Banco não encontrado em data/taskmanager.db. Abortando.");
     process.exit(1);
   }
 
-  console.log("🧹 Limpando banco em", DB_PATH, "\n");
+  console.log("\n🧹 Limpando banco", isSupabase() ? "(Supabase)" : "em " + DB_PATH, "\n");
   db.exec("BEGIN TRANSACTION");
   try {
     db.prepare("DELETE FROM justification_evidences").run();
     db.prepare("DELETE FROM task_justifications").run();
     db.prepare("DELETE FROM task_evidences").run();
+    // Quebra a auto-referência tasks.parent_task_id → tasks.id para permitir DELETE em qualquer ordem
+    db.prepare("UPDATE tasks SET parent_task_id = NULL WHERE parent_task_id IS NOT NULL").run();
     db.prepare("DELETE FROM tasks").run();
     db.prepare("DELETE FROM rules").run();
     db.prepare("DELETE FROM lookups").run();
     db.prepare("DELETE FROM login_events").run();
     db.prepare("DELETE FROM users").run();
+    db.prepare("DELETE FROM holidays").run();
     db.prepare("DELETE FROM tenants").run();
     db.exec("COMMIT");
     const now = new Date().toISOString();
@@ -336,10 +345,10 @@ function logVerification(): void {
   const ev = Number((db.prepare("SELECT COUNT(*) as c FROM task_evidences").get() as { c: unknown }).c);
   const j = Number((db.prepare("SELECT COUNT(*) as c FROM task_justifications").get() as { c: unknown }).c);
   const je = Number((db.prepare("SELECT COUNT(*) as c FROM justification_evidences").get() as { c: unknown }).c);
-  console.log("\n📊 Verificação no SQLite:");
+  console.log("\n📊 Verificação:");
   console.log("   task_evidences: " + ev + " | task_justifications: " + j + " | justification_evidences: " + je);
   if (ev === 0 || j === 0 || je === 0) {
-    console.log("   ⚠️  Se algum valor for 0, a migração Supabase não terá esses dados. Confira erros acima.");
+    console.log("   ⚠️  Se algum valor for 0, confira erros acima.");
   }
 }
 
@@ -359,8 +368,10 @@ async function main(): Promise<void> {
   await seedSystemAdminIfNeeded();
 
   logVerification();
-  console.log("\n🎉 Seed local concluído! Banco: " + DB_PATH);
-  console.log("\n📋 Para migrar para o Supabase: npm run migrate:supabase");
+  console.log("\n🎉 Seed local concluído! Banco: " + (isSupabase() ? "Supabase (staging)" : DB_PATH));
+  if (!isSupabase()) {
+    console.log("\n📋 Para migrar para o Supabase: npm run migrate:supabase");
+  }
   console.log("   Acesso demo: ?tenant=demo → admin@demo.com (senha definida no seed)");
 }
 

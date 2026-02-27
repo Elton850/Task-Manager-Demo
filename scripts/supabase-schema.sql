@@ -57,6 +57,7 @@ CREATE TABLE IF NOT EXISTS users (
   created_at            TEXT NOT NULL DEFAULT (now() AT TIME ZONE 'UTC')::TEXT,
   last_login_at         TEXT,
   last_logout_at        TEXT,
+  active_before_tenant_deactivation INTEGER,   -- estado ao desativar empresa; restaurado ao reativar
   UNIQUE(tenant_id, email)
 );
 

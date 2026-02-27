@@ -267,16 +267,36 @@ router.post("/", optionalAuth, async (req: Request, res: Response): Promise<void
 });
 
 // PATCH /api/tenants/:id/toggle-active (administrador do sistema ou chave)
+// Ao inativar a empresa: inativa todos os usuários da empresa e guarda quem estava ativo.
+// Ao reativar: reativa apenas os usuários que estavam ativos antes da inativação.
 router.patch("/:id/toggle-active", optionalAuth, async (req: Request, res: Response): Promise<void> => {
   if (!canManageTenants(req, res)) return;
   try {
     const { id } = req.params;
-    const tenant = await db.prepare("SELECT * FROM tenants WHERE id = ?").get(id) as { active: number } | undefined;
+    const tenant = await db.prepare("SELECT id, active, slug FROM tenants WHERE id = ?").get(id) as
+      | { id: string; active: number; slug: string }
+      | undefined;
     if (!tenant) {
       res.status(404).json({ error: "Tenant não encontrado.", code: "NOT_FOUND" });
       return;
     }
-    await db.prepare("UPDATE tenants SET active = ? WHERE id = ?").run(tenant.active === 1 ? 0 : 1, id);
+    if (tenant.slug === SYSTEM_TENANT_SLUG) {
+      res.status(400).json({ error: "Não é permitido inativar o tenant do sistema.", code: "FORBIDDEN" });
+      return;
+    }
+    if (tenant.active === 1) {
+      // Inativar empresa: guardar estado atual de cada usuário e inativar todos
+      await db.prepare(
+        "UPDATE users SET active_before_tenant_deactivation = active, active = 0 WHERE tenant_id = ?"
+      ).run(id);
+      await db.prepare("UPDATE tenants SET active = 0 WHERE id = ?").run(id);
+    } else {
+      // Reativar empresa: reativar somente quem estava ativo antes da inativação
+      await db.prepare(
+        "UPDATE users SET active = active_before_tenant_deactivation, active_before_tenant_deactivation = NULL WHERE tenant_id = ? AND active_before_tenant_deactivation IS NOT NULL"
+      ).run(id);
+      await db.prepare("UPDATE tenants SET active = 1 WHERE id = ?").run(id);
+    }
     res.json({ ok: true });
   } catch {
     res.status(500).json({ error: "Erro.", code: "INTERNAL" });

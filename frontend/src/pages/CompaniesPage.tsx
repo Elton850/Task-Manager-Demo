@@ -4,6 +4,7 @@ import Button from "@/components/ui/Button";
 import Card from "@/components/ui/Card";
 import Input from "@/components/ui/Input";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { useToast } from "@/contexts/ToastContext";
 import { tenantApi } from "@/services/api";
 import type { TenantListItem } from "@/types";
@@ -59,6 +60,8 @@ export default function CompaniesPage() {
   const [logoRemovingId, setLogoRemovingId] = useState<string | null>(null);
   const [logoTargetId, setLogoTargetId] = useState<string | null>(null);
   const [logoVersion, setLogoVersion] = useState<Record<string, number>>({});
+  const [toggleTarget, setToggleTarget] = useState<TenantListItem | null>(null);
+  const [toggleLoading, setToggleLoading] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -75,6 +78,24 @@ export default function CompaniesPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  const handleToggleConfirm = async () => {
+    if (!toggleTarget) return;
+    setToggleLoading(true);
+    try {
+      await tenantApi.toggleActive(toggleTarget.id);
+      toast(
+        toggleTarget.active ? "Empresa e usuários inativados." : "Empresa reativada. Usuários que estavam ativos foram reativados.",
+        "success",
+      );
+      setToggleTarget(null);
+      await load();
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Erro ao alterar status.", "error");
+    } finally {
+      setToggleLoading(false);
+    }
+  };
 
   const handleCopyLink = (slug: string) => {
     const url = getTenantAccessUrl(slug);
@@ -290,15 +311,41 @@ export default function CompaniesPage() {
                       </div>
                     </td>
                     <td className="pl-4 pr-5 py-3">
-                      {t.active ? (
-                        <span className="inline-flex items-center gap-1 text-xs text-emerald-700 dark:text-emerald-400 font-medium">
-                          <CheckCircle size={14} /> Ativa
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400 font-medium">
-                          <XCircle size={14} /> Inativa
-                        </span>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {t.active ? (
+                          <>
+                            <span className="inline-flex items-center gap-1 text-xs text-emerald-700 dark:text-emerald-400 font-medium">
+                              <CheckCircle size={14} /> Ativa
+                            </span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-xs text-amber-700 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-300"
+                              onClick={() => setToggleTarget(t)}
+                              disabled={toggleLoading}
+                              title="Inativar empresa e todos os usuários"
+                            >
+                              Inativar
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <span className="inline-flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400 font-medium">
+                              <XCircle size={14} /> Inativa
+                            </span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-xs text-emerald-700 dark:text-emerald-400 hover:text-emerald-800 dark:hover:text-emerald-300"
+                              onClick={() => setToggleTarget(t)}
+                              disabled={toggleLoading}
+                              title="Reativar empresa (reativa apenas usuários que estavam ativos antes)"
+                            >
+                              Ativar
+                            </Button>
+                          </>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -312,6 +359,23 @@ export default function CompaniesPage() {
           </div>
         )}
       </Card>
+
+      <ConfirmDialog
+        open={!!toggleTarget}
+        title={toggleTarget?.active ? "Inativar empresa" : "Reativar empresa"}
+        message={
+          toggleTarget
+            ? toggleTarget.active
+              ? `Inativar "${toggleTarget.name}"? Todos os usuários (Líderes e Usuários) desta empresa serão inativados e não poderão acessar o sistema até a empresa ser reativada.`
+              : `Reativar "${toggleTarget.name}"? Serão reativados apenas os usuários que estavam ativos antes da inativação.`
+            : ""
+        }
+        confirmLabel={toggleTarget?.active ? "Inativar" : "Ativar"}
+        variant={toggleTarget?.active ? "danger" : "primary"}
+        loading={toggleLoading}
+        onConfirm={handleToggleConfirm}
+        onCancel={() => setToggleTarget(null)}
+      />
     </div>
   );
 }
