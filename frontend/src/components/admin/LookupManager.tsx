@@ -51,10 +51,6 @@ export default function LookupManager({ items, onRefresh, onLookupRenamed, tenan
   const handleAdd = async (category: string) => {
     const val = (newValue[category] || "").trim();
     if (!val) return;
-    if (val.length > 100) {
-      toast("Valor deve ter no máximo 100 caracteres.", "error");
-      return;
-    }
 
     setLoading(`add-${category}`);
     try {
@@ -76,10 +72,6 @@ export default function LookupManager({ items, onRefresh, onLookupRenamed, tenan
   const handleRename = async (id: string) => {
     const val = editValue.trim();
     if (!val) return;
-    if (val.length > 100) {
-      toast("Valor deve ter no máximo 100 caracteres.", "error");
-      return;
-    }
 
     const item = items.find(i => i.id === id);
     if (!item) return;
@@ -163,7 +155,6 @@ export default function LookupManager({ items, onRefresh, onLookupRenamed, tenan
                     if (e.key === "Escape") setEditId(null);
                   }}
                   className={isOnlyAreas ? "h-8 text-sm w-40" : "h-6 text-xs w-32"}
-                  maxLength={100}
                   autoFocus
                 />
                 <Button variant="ghost" size="sm" onClick={() => handleRename(item.id)} loading={loading === `rename-${item.id}`} className="p-0.5">
@@ -214,7 +205,6 @@ export default function LookupManager({ items, onRefresh, onLookupRenamed, tenan
           onKeyDown={e => e.key === "Enter" && handleAdd(category)}
           placeholder={isOnlyAreas ? "Nome da nova área (ex.: TI, Financeiro, RH)" : `Novo ${CATEGORY_LABELS[category]?.slice(0, -1).toLowerCase() || "valor"}...`}
           className={isOnlyAreas ? "flex-1 h-10 text-sm sm:max-w-md" : "flex-1 h-9 text-sm"}
-          maxLength={100}
         />
         <Button size={isOnlyAreas ? "md" : "sm"} onClick={() => handleAdd(category)} loading={loading === `add-${category}`} icon={<Plus size={14} />}>
           {isOnlyAreas ? "Adicionar área" : "Adicionar"}

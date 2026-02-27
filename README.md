@@ -53,6 +53,8 @@ task-manager/
 └── README.md
 ```
 
+**Para IAs e agentes que forem modificar o projeto:** leia e siga o guia em **[docs/GUIA-IA-AGENTES.md](docs/GUIA-IA-AGENTES.md)** (testar antes de executar, verificar com cautela, atenção crítica à base de produção).
+
 ---
 
 ## Requisitos

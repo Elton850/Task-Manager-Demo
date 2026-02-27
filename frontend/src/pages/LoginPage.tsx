@@ -41,15 +41,14 @@ export default function LoginPage() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    const email = form.email?.trim().toLowerCase() ?? "";
-    if (!email || !form.password) {
+    if (!form.email || !form.password) {
       toast("Preencha email e senha", "warning");
       return;
     }
 
     setSubmitting(true);
     try {
-      await login(email, form.password);
+      await login(form.email, form.password);
     } catch (err: unknown) {
       const e = err as Error & { code?: string; meta?: { firstAccess?: boolean } };
       const code = e?.code;
@@ -98,9 +97,7 @@ export default function LoginPage() {
 
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
-    const email = form.email?.trim().toLowerCase() ?? "";
-    const code = form.code?.trim() ?? "";
-    if (!email || !code || !form.newPassword) {
+    if (!form.email || !form.code || !form.newPassword) {
       toast("Preencha todos os campos", "warning");
       return;
     }
@@ -111,7 +108,7 @@ export default function LoginPage() {
 
     setSubmitting(true);
     try {
-      await authApi.reset(email, code, form.newPassword);
+      await authApi.reset(form.email, form.code, form.newPassword);
       await refreshSession();
       toast("Senha definida com sucesso! Bem-vindo(a).", "success");
     } catch (err) {

@@ -108,27 +108,14 @@ export default function CompaniesPage() {
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
-    const slugNorm = form.slug.trim().toLowerCase().replace(/[^a-z0-9-]/g, "-");
-    const nameNorm = form.name.trim();
-    if (!slugNorm || !nameNorm) {
+    const slug = form.slug.trim().toLowerCase().replace(/[^a-z0-9-]/g, "-");
+    if (!slug || !form.name.trim()) {
       toast("Preencha o identificador e o nome da empresa.", "error");
-      return;
-    }
-    if (slugNorm.length > 80) {
-      toast("Identificador deve ter no máximo 80 caracteres.", "error");
-      return;
-    }
-    if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slugNorm)) {
-      toast("Identificador deve conter apenas letras minúsculas, números e hífens (ex.: minha-empresa).", "error");
-      return;
-    }
-    if (nameNorm.length > 200) {
-      toast("Nome da empresa deve ter no máximo 200 caracteres.", "error");
       return;
     }
     setCreating(true);
     try {
-      await tenantApi.create({ slug: slugNorm, name: nameNorm });
+      await tenantApi.create({ slug, name: form.name.trim() });
       toast("Empresa criada. Cadastre os usuários na aba Usuários.", "success");
       setForm({ slug: "", name: "" });
       await load();
@@ -204,15 +191,13 @@ export default function CompaniesPage() {
               label="Identificador (slug)"
               value={form.slug}
               onChange={(e) => setForm((f) => ({ ...f, slug: e.target.value }))}
-              placeholder="minha-empresa"
-              maxLength={80}
+              placeholder="empresax"
             />
             <Input
               label="Nome da empresa"
               value={form.name}
               onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
               placeholder="Empresa X Ltda"
-              maxLength={200}
             />
           </div>
           <p className="text-xs text-slate-600 dark:text-slate-400">

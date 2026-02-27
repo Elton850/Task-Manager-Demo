@@ -4,6 +4,17 @@
 
 ---
 
+## Guia para IAs e agentes (obrigatório em alterações)
+
+| Documento | Conteúdo |
+|-----------|----------|
+| **[GUIA-IA-AGENTES.md](./GUIA-IA-AGENTES.md)** | **Guia de referência para qualquer IA que modifique o projeto.** Regras obrigatórias: testar antes de executar, verificar com cautela, atenção crítica à base de produção. Inclui o **prompt chave** para você referenciar o guia ao pedir alterações. |
+
+**Prompt chave (copie e use ao pedir alterações a uma IA):**  
+*"Antes de qualquer alteração, leia e siga rigorosamente o guia em docs/GUIA-IA-AGENTES.md."*
+
+---
+
 ## Guias operacionais
 
 | Documento | Conteúdo |
@@ -30,6 +41,7 @@
 
 ## Resumo rápido por tarefa
 
+- **IA vai modificar o projeto** → [GUIA-IA-AGENTES.md](./GUIA-IA-AGENTES.md) (use o prompt chave)
 - **Fazer deploy** → [DEPLOY.md](./DEPLOY.md)
 - **Resolver erro no servidor / PM2 / env** → [TROUBLESHOOTING.md](./TROUBLESHOOTING.md)
 - **Configurar .env (dev/staging/prod)** → [ENV-REQUISITOS.md](./ENV-REQUISITOS.md)
