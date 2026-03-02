@@ -19,6 +19,7 @@
 
 | Documento | Conteúdo |
 |-----------|----------|
+| **[COMO-VERIFICAR-JOB-FERIADOS.md](./COMO-VERIFICAR-JOB-FERIADOS.md)** | Passo a passo para leigos: como verificar se o job de feriados rodou e foi bem-sucedido (banco, API, logs). |
 | **[DEPLOY.md](./DEPLOY.md)** | Build e deploy (local + VPS): produção e staging na mesma VPS, PM2, Nginx, .env, checklist. |
 | **[TROUBLESHOOTING.md](./TROUBLESHOOTING.md)** | Problemas comuns: SUPABASE_DB_URL inválida, PM2 errored, SSH connection refused, sudo/hostname, clone Git no VPS. |
 | **[ENV-REQUISITOS.md](./ENV-REQUISITOS.md)** | Variáveis de ambiente por ambiente (dev/staging/prod), arquivos `.env`, Supabase, checklist. |

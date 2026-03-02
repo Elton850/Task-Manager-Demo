@@ -70,21 +70,21 @@ function runSync(): void {
     });
 }
 
-/** Agenda execução diária às 03:00 (hora local). */
+/** Agenda execução diária às 03:00 (hora local). Uma execução por dia. */
 export function startHolidaySyncJob(): void {
   const enabled = process.env.HOLIDAY_SYNC_ENABLED === "true" || process.env.HOLIDAY_SYNC_ENABLED === "1";
   if (!enabled || process.env.NODE_ENV === "test") return;
 
-  let lastRunYear: number | null = null;
+  let lastRunDate: string | null = null; // "YYYY-MM-DD" para rodar só uma vez por dia
   const intervalMs = 60 * 1000; // verificar a cada minuto
 
   setInterval(() => {
     const now = new Date();
     const hour = now.getHours();
     const min = now.getMinutes();
-    const y = now.getFullYear();
-    if (hour === 3 && min < 2 && lastRunYear !== y) {
-      lastRunYear = y;
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    if (hour === 3 && min < 2 && lastRunDate !== today) {
+      lastRunDate = today;
       runSync();
     }
   }, intervalMs);

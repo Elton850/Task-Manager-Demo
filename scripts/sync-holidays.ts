@@ -1,5 +1,6 @@
 /**
  * Sincroniza feriados da API (BrasilAPI / Nager.Date) para todos os tenants ativos.
+ * Registra a execução em holiday_sync_runs para que a "última sincronização" apareça correta.
  *
  * Uso:
  *   npm run sync:holidays              — usa .env
@@ -11,6 +12,7 @@
 require("dotenv").config({ path: process.env.DOTENV_CONFIG_PATH || ".env" });
 
 import * as holidaySync from "../src/services/holiday-sync";
+import * as holidaySyncRunLog from "../src/services/holiday-sync-run-log";
 
 const SYSTEM_USER = "script-sync";
 
@@ -31,9 +33,18 @@ async function main(): Promise<void> {
     process.exit(0);
   }
 
+  let runId: string | null = null;
+  try {
+    runId = await holidaySyncRunLog.logSyncRunStart();
+  } catch {
+    // Tabela holiday_sync_runs pode não existir (deploy antigo)
+  }
+
   const yearsToSync = year === new Date().getFullYear() ? [year, year + 1] : [year];
   let totalInserted = 0;
   let totalUpdated = 0;
+  let hadError = false;
+  let errorMessage = "";
 
   for (const tenantId of tenantIds) {
     for (const y of yearsToSync) {
@@ -42,13 +53,32 @@ async function main(): Promise<void> {
         totalInserted += result.inserted;
         totalUpdated += result.updated;
       } catch (err) {
-        console.error(`[sync-holidays] Erro tenant ${tenantId} ano ${y}:`, err instanceof Error ? err.message : err);
+        hadError = true;
+        const msg = err instanceof Error ? err.message : String(err);
+        errorMessage = msg;
+        console.error(`[sync-holidays] Erro tenant ${tenantId} ano ${y}:`, msg);
       }
     }
   }
 
+  if (runId) {
+    try {
+      if (hadError) {
+        await holidaySyncRunLog.logSyncRunFailure(runId, errorMessage || "Erro durante a sincronização.");
+      } else {
+        await holidaySyncRunLog.logSyncRunSuccess(runId, {
+          tenantsCount: tenantIds.length,
+          insertedTotal: totalInserted,
+          updatedTotal: totalUpdated,
+        });
+      }
+    } catch (logErr) {
+      console.warn("[sync-holidays] Não foi possível registrar resultado em holiday_sync_runs:", logErr);
+    }
+  }
+
   console.log(`[sync-holidays] Concluído: ${tenantIds.length} tenant(s), ${totalInserted} inseridos, ${totalUpdated} atualizados.`);
-  process.exit(0);
+  process.exit(hadError ? 1 : 0);
 }
 
 main();
