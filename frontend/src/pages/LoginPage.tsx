@@ -317,11 +317,11 @@ export default function LoginPage() {
         <ThemeSwitch />
       </div>
 
-      {/* Painel lateral — ilustração + logo + títulos (desktop) */}
-      <aside className="hidden lg:flex lg:w-[50%] lg:min-h-screen flex-col justify-center px-12 xl:px-20 py-12">
-        <div className="max-w-md w-full">
+      {/* Painel lateral — ilustração + logo + títulos (desktop); largura fixa para reduzir gap */}
+      <aside className="hidden lg:flex lg:min-h-screen flex-col justify-center lg:w-[min(50%,28rem)] xl:w-[min(50%,32rem)] shrink-0 px-6 xl:px-10 py-8 xl:py-10">
+        <div className="max-w-sm w-full">
           <LoginIllustration />
-          <div className="mt-10 flex flex-col">
+          <div className="mt-6 xl:mt-8 flex flex-col">
             <div className="flex items-center gap-4">
               <div className="flex-shrink-0 w-16 h-16 rounded-2xl bg-white dark:bg-slate-800/95 shadow-lg shadow-slate-200/60 dark:shadow-slate-900/40 ring-1 ring-slate-200/80 dark:ring-slate-600/60 flex items-center justify-center overflow-hidden">
                 <TenantLogo
@@ -370,9 +370,9 @@ export default function LoginPage() {
         </p>
       </div>
 
-      {/* Área do formulário */}
-      <main className="flex-1 flex items-center justify-center p-4 lg:p-8">
-        <div className="w-full flex flex-col items-center">
+      {/* Área do formulário — padding lateral menor para aproximar do painel */}
+      <main className="flex-1 flex items-center justify-center p-4 lg:py-8 lg:px-6 xl:px-10 min-w-0">
+        <div className="w-full max-w-[420px] flex flex-col items-center">
           {formCard}
           <p className="text-center text-[11px] text-slate-400 dark:text-slate-500 mt-6 tracking-wide">
             Task Manager · v2.0
