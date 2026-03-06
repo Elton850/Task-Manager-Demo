@@ -72,6 +72,33 @@ const PORT = Number(process.env.PORT) || 3000;
 const IS_PROD = process.env.NODE_ENV === "production";
 const IS_STAGING = process.env.NODE_ENV === "staging";
 
+function envInt(name: string, fallback: number): number {
+  const raw = process.env[name];
+  if (!raw) return fallback;
+  const parsed = Number.parseInt(raw, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) return fallback;
+  return parsed;
+}
+
+const RATE_LIMIT_LOGIN_WINDOW_MS = envInt("RATE_LIMIT_LOGIN_WINDOW_MS", 15 * 60 * 1000);
+const RATE_LIMIT_LOGIN_MAX = envInt("RATE_LIMIT_LOGIN_MAX", 20);
+const RATE_LIMIT_RESET_WINDOW_MS = envInt("RATE_LIMIT_RESET_WINDOW_MS", 15 * 60 * 1000);
+const RATE_LIMIT_RESET_MAX = envInt("RATE_LIMIT_RESET_MAX", 10);
+const RATE_LIMIT_API_WINDOW_MS = envInt("RATE_LIMIT_API_WINDOW_MS", 60 * 1000);
+const RATE_LIMIT_API_MAX = envInt("RATE_LIMIT_API_MAX", 300);
+const RATE_LIMIT_CHAT_READ_WINDOW_MS = envInt("RATE_LIMIT_CHAT_READ_WINDOW_MS", 60 * 1000);
+const RATE_LIMIT_CHAT_READ_MAX = envInt("RATE_LIMIT_CHAT_READ_MAX", 300);
+const RATE_LIMIT_CHAT_SEND_WINDOW_MS = envInt("RATE_LIMIT_CHAT_SEND_WINDOW_MS", 60 * 1000);
+const RATE_LIMIT_CHAT_SEND_MAX = envInt("RATE_LIMIT_CHAT_SEND_MAX", 120);
+
+function requestLimiterKey(req: express.Request, scope: string): string {
+  const tenant = req.tenantId ?? "public";
+  const userId = req.user?.id;
+  if (userId) return `${scope}:tenant:${tenant}:user:${userId}`;
+  const ip = req.ip || req.socket.remoteAddress || "unknown";
+  return `${scope}:ip:${ip}`;
+}
+
 // Validação de secrets em produção
 if (IS_PROD) {
   const secret = process.env.JWT_SECRET;
@@ -146,29 +173,43 @@ app.use((req, res, next) => {
 
 // ── Rate Limiting ─────────────────────────────────────────────────────────────
 const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 20,
+  windowMs: RATE_LIMIT_LOGIN_WINDOW_MS,
+  max: RATE_LIMIT_LOGIN_MAX,
+  keyGenerator: (req) => requestLimiterKey(req, "login"),
   message: { error: "Muitas tentativas de login. Tente novamente em 15 minutos.", code: "RATE_LIMITED" },
   standardHeaders: true,
   legacyHeaders: false,
 });
 const resetLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 10,
-  message: { error: "Muitas tentativas de redefinição. Tente novamente em 15 minutos.", code: "RATE_LIMITED" },
+  windowMs: RATE_LIMIT_RESET_WINDOW_MS,
+  max: RATE_LIMIT_RESET_MAX,
+  keyGenerator: (req) => requestLimiterKey(req, "reset"),
+  message: { error: "Muitas tentativas de redefinicao. Tente novamente em 15 minutos.", code: "RATE_LIMITED" },
   standardHeaders: true,
   legacyHeaders: false,
 });
 const apiLimiter = rateLimit({
-  windowMs: 1 * 60 * 1000,
-  max: 120,
-  message: { error: "Muitas requisições. Tente novamente em breve.", code: "RATE_LIMITED" },
+  windowMs: RATE_LIMIT_API_WINDOW_MS,
+  max: RATE_LIMIT_API_MAX,
+  keyGenerator: (req) => requestLimiterKey(req, "api"),
+  skip: (req) => req.path.startsWith("/chat"),
+  message: { error: "Muitas requisicoes. Tente novamente em breve.", code: "RATE_LIMITED" },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+const chatReadLimiter = rateLimit({
+  windowMs: RATE_LIMIT_CHAT_READ_WINDOW_MS,
+  max: RATE_LIMIT_CHAT_READ_MAX,
+  keyGenerator: (req) => requestLimiterKey(req, "chat-read"),
+  skip: (req) => req.method !== "GET",
+  message: { error: "Muitas consultas de chat. Aguarde alguns segundos.", code: "RATE_LIMITED" },
   standardHeaders: true,
   legacyHeaders: false,
 });
 const chatSendLimiter = rateLimit({
-  windowMs: 1 * 60 * 1000,
-  max: 60,
+  windowMs: RATE_LIMIT_CHAT_SEND_WINDOW_MS,
+  max: RATE_LIMIT_CHAT_SEND_MAX,
+  keyGenerator: (req) => requestLimiterKey(req, "chat-send"),
   message: { error: "Muitas mensagens enviadas. Aguarde um momento.", code: "RATE_LIMITED" },
   standardHeaders: true,
   legacyHeaders: false,
@@ -212,6 +253,7 @@ app.use("/api/rules", ruleRoutes);
 app.use("/api/tenants", tenantRoutes);
 app.use("/api/system", systemRoutes);
 app.use("/api/holidays", holidayRoutes);
+app.use("/api/chat", chatReadLimiter);
 app.use("/api/chat/threads/:threadId/messages", chatSendLimiter);
 app.use("/api/chat", chatRoutes);
 

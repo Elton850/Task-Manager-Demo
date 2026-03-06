@@ -35,6 +35,17 @@ router.use(requireAuth);
 
 const MAX_CONTENT_LENGTH = 4000;
 const DEFAULT_PAGE_SIZE = 50;
+const CHAT_THREAD_MIN_INTERVAL_MS = Number.parseInt(
+  process.env.CHAT_THREAD_MIN_INTERVAL_MS || "1000",
+  10,
+);
+const CHAT_THREAD_RATE_CACHE_MAX = Number.parseInt(
+  process.env.CHAT_THREAD_RATE_CACHE_MAX || "50000",
+  10,
+);
+
+// Anti-spam em memória por tenant:user:thread. Para múltiplas instâncias, usar Redis.
+const lastSentAtByUserThread = new Map<string, number>();
 
 // ─── Interfaces internas ──────────────────────────────────────────────────────
 
@@ -141,6 +152,35 @@ function formatMessage(row: MessageRow, senderNome: string) {
 /** Constrói placeholders para IN (?, ?, ...). */
 function placeholders(n: number): string {
   return Array(n).fill("?").join(",");
+}
+
+function canSendInThread(
+  tenantId: string,
+  userId: string,
+  threadId: string,
+): { allowed: boolean; retryAfterMs: number } {
+  const now = Date.now();
+  const key = `${tenantId}:${userId}:${threadId}`;
+  const last = lastSentAtByUserThread.get(key);
+
+  if (typeof last === "number") {
+    const elapsed = now - last;
+    if (elapsed < CHAT_THREAD_MIN_INTERVAL_MS) {
+      return { allowed: false, retryAfterMs: CHAT_THREAD_MIN_INTERVAL_MS - elapsed };
+    }
+  }
+
+  lastSentAtByUserThread.set(key, now);
+
+  // Limpeza simples para evitar crescimento indefinido do mapa em processos longos.
+  if (lastSentAtByUserThread.size > CHAT_THREAD_RATE_CACHE_MAX) {
+    const cutoff = now - CHAT_THREAD_MIN_INTERVAL_MS * 3;
+    for (const [k, ts] of lastSentAtByUserThread) {
+      if (ts < cutoff) lastSentAtByUserThread.delete(k);
+    }
+  }
+
+  return { allowed: true, retryAfterMs: 0 };
 }
 
 // ─── GET /api/chat/unread-count ───────────────────────────────────────────────
@@ -507,6 +547,17 @@ router.get("/threads/:threadId/messages", async (req: Request, res: Response): P
     const participant = await assertParticipant(threadId, userId, tenantId);
     if (!participant) {
       res.status(403).json({ error: "Acesso negado a esta conversa.", code: "FORBIDDEN" });
+      return;
+    }
+
+    const threadRate = canSendInThread(tenantId, userId, threadId);
+    if (!threadRate.allowed) {
+      const retryAfterSec = Math.max(1, Math.ceil(threadRate.retryAfterMs / 1000));
+      res.setHeader("Retry-After", String(retryAfterSec));
+      res.status(429).json({
+        error: "Muitas mensagens nesta conversa em sequência. Aguarde um instante.",
+        code: "RATE_LIMITED",
+      });
       return;
     }
 

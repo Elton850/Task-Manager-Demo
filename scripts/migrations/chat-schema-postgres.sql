@@ -94,3 +94,19 @@ CREATE INDEX IF NOT EXISTS idx_chat_participants_unread
 -- Índice para auditoria de eventos por mensagem/usuário
 CREATE INDEX IF NOT EXISTS idx_chat_events_msg_user_type
   ON chat_message_events(message_id, user_id, event_type);
+
+-- Índices adicionais para reduzir custo de listagem de últimas mensagens e leitura em lote
+CREATE INDEX IF NOT EXISTS idx_chat_messages_thread_visible_latest
+  ON chat_messages(thread_id, deleted_at, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_chat_messages_thread_sender_visible
+  ON chat_messages(thread_id, sender_id, deleted_at, created_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_chat_receipts_user_message
+  ON chat_message_receipts(user_id, message_id);
+
+CREATE INDEX IF NOT EXISTS idx_chat_threads_type_updated
+  ON chat_threads(tenant_id, type, updated_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_chat_events_tenant_type_time
+  ON chat_message_events(tenant_id, event_type, event_at DESC);
