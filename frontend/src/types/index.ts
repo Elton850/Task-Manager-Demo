@@ -241,6 +241,48 @@ export interface Holiday {
   lastSyncedAt?: string;
 }
 
+// ─── Chat ─────────────────────────────────────────────────────────────────────
+
+export interface ChatParticipant {
+  id: string;
+  nome: string;
+  email: string;
+}
+
+export interface ChatLastMessage {
+  content: string;
+  senderId: string | null;
+  senderNome: string | null;
+  createdAt: string;
+}
+
+export interface ChatThread {
+  id: string;
+  type: "direct" | "subtask";
+  subtaskId: string | null;
+  unreadCount: number;
+  lastReadAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  participants: ChatParticipant[];
+  lastMessage: ChatLastMessage | null;
+}
+
+export interface ChatMessage {
+  id: string;
+  threadId: string;
+  senderId: string;
+  senderNome: string;
+  content: string;
+  createdAt: string;
+  deletedAt: string | null;
+}
+
+export interface ChatReadStatus {
+  readBy: string[];
+  deliveredTo: string[];
+}
+
 export const STATUS_COLORS: Record<string, string> = {
   "Em Andamento": "blue",
   "Concluído": "green",

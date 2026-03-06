@@ -12,10 +12,12 @@ import {
   ChevronLeft,
   FileText,
   ScrollText,
+  MessageCircle,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import Badge, { getRoleVariant } from "@/components/ui/Badge";
 import TenantLogo from "@/components/ui/TenantLogo";
+import { useChatUnread } from "@/hooks/useChatUnread";
 
 function formatDateTime(iso: string | null | undefined): string {
   if (!iso) return "—";
@@ -55,11 +57,13 @@ const navItems: NavItem[] = [
   { to: "/logs-acesso", icon: <ScrollText size={18} />, label: "Logs de acesso", roles: ["ADMIN"], systemOnly: true },
   { to: "/empresa", icon: <Building2 size={18} />, label: "Empresa", roles: ["ADMIN"], notSystem: true },
   { to: "/admin", icon: <Settings size={18} />, label: "Configurações", roles: ["ADMIN", "LEADER"] },
+  { to: "/chat", icon: <MessageCircle size={18} />, label: "Mensagens", notSystem: true },
 ];
 
 export default function Sidebar({ open, onToggle }: SidebarProps) {
   const { user, tenant, logout, lastLoginAt, lastLogoutAt } = useAuth();
   const basePath = useBasePath();
+  const { unread: chatUnread } = useChatUnread();
   const isSystemAdmin = tenant?.slug === "system" && user?.role === "ADMIN";
 
   const visibleItems = navItems.filter(item => {
@@ -103,24 +107,33 @@ export default function Sidebar({ open, onToggle }: SidebarProps) {
         </div>
 
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          {visibleItems.map(item => (
-            <NavLink
-              key={item.to}
-              to={`${basePath}${item.to}`}
-              className={({ isActive }) => `
-                flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium
-                transition-all duration-150
-                ${
-                  isActive
-                    ? "bg-brand-100 dark:bg-brand-900/50 text-brand-800 dark:text-brand-100 border border-brand-200 dark:border-brand-600/80"
-                    : "text-slate-600 dark:text-slate-300 hover:text-brand-800 dark:hover:text-brand-200 hover:bg-slate-50 dark:hover:bg-slate-800/80 border border-transparent"
-                }
-              `}
-            >
-              {item.icon}
-              {item.label}
-            </NavLink>
-          ))}
+          {visibleItems.map(item => {
+            const isChat = item.to === "/chat";
+            const badge = isChat && chatUnread > 0 ? chatUnread : 0;
+            return (
+              <NavLink
+                key={item.to}
+                to={`${basePath}${item.to}`}
+                className={({ isActive }) => `
+                  flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium
+                  transition-all duration-150
+                  ${
+                    isActive
+                      ? "bg-brand-100 dark:bg-brand-900/50 text-brand-800 dark:text-brand-100 border border-brand-200 dark:border-brand-600/80"
+                      : "text-slate-600 dark:text-slate-300 hover:text-brand-800 dark:hover:text-brand-200 hover:bg-slate-50 dark:hover:bg-slate-800/80 border border-transparent"
+                  }
+                `}
+              >
+                {item.icon}
+                <span className="flex-1">{item.label}</span>
+                {badge > 0 && (
+                  <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-xs font-bold bg-rose-500 text-white leading-none">
+                    {badge > 99 ? "99+" : badge}
+                  </span>
+                )}
+              </NavLink>
+            );
+          })}
         </nav>
 
         {user && (

@@ -21,6 +21,7 @@ const CompaniesPage = lazy(() => import("@/pages/CompaniesPage"));
 const JustificationsPage = lazy(() => import("@/pages/JustificationsPage"));
 const SystemDashboardPage = lazy(() => import("@/pages/SystemDashboardPage"));
 const SystemLogsPage = lazy(() => import("@/pages/SystemLogsPage"));
+const ChatPage = lazy(() => import("@/pages/ChatPage"));
 
 setTenantSlug(getTenantSlugFromUrl());
 
@@ -104,6 +105,7 @@ const appRouteChildren = (
       <Route path="logs-acesso" element={<SystemAdminRoute><Suspense fallback={<LoadingSpinner fullPage />}><SystemLogsPage /></Suspense></SystemAdminRoute>} />
       <Route path="empresas" element={<SystemAdminRoute><Suspense fallback={<LoadingSpinner fullPage />}><CompaniesPage /></Suspense></SystemAdminRoute>} />
       <Route path="empresa" element={<AdminRoute><Suspense fallback={<LoadingSpinner fullPage />}><CompanyPage /></Suspense></AdminRoute>} />
+      <Route path="chat" element={<Suspense fallback={<LoadingSpinner fullPage />}><ChatPage /></Suspense>} />
     </Route>
     <Route path="*" element={<NotFoundToErrorPage />} />
   </>

@@ -431,6 +431,43 @@ export const tenantApi = {
   removeLogo: (tenantId: string) => del<{ ok: boolean }>(`/tenants/${tenantId}/logo`),
 };
 
+import type { ChatThread, ChatMessage, ChatReadStatus } from "@/types";
+
+export const chatApi = {
+  /** Contagem global de mensagens não lidas. */
+  unreadCount: () => get<{ unread: number }>("/chat/unread-count"),
+
+  /** Lista threads do usuário autenticado. */
+  threads: () => get<{ threads: ChatThread[] }>("/chat/threads"),
+
+  /** Abre ou obtém thread direta com outro usuário. */
+  openDirect: (targetUserId: string) =>
+    post<{ threadId: string; created: boolean }>("/chat/threads/direct", { targetUserId }),
+
+  /** Abre ou obtém thread vinculada a uma subtarefa. */
+  openSubtask: (subtaskId: string) =>
+    post<{ threadId: string; created: boolean }>(`/chat/threads/subtask/${encodeURIComponent(subtaskId)}`),
+
+  /** Lista mensagens de um thread (cursor-based). */
+  messages: (threadId: string, options?: { before?: string; limit?: number }) => {
+    const params = new URLSearchParams();
+    if (options?.before) params.set("before", options.before);
+    if (options?.limit) params.set("limit", String(options.limit));
+    const qs = params.toString();
+    return get<{ messages: ChatMessage[]; readStatuses: Record<string, ChatReadStatus>; nextCursor: string | null; hasMore: boolean }>(
+      `/chat/threads/${encodeURIComponent(threadId)}/messages${qs ? `?${qs}` : ""}`
+    );
+  },
+
+  /** Envia mensagem em um thread. */
+  sendMessage: (threadId: string, content: string) =>
+    post<{ message: ChatMessage }>(`/chat/threads/${encodeURIComponent(threadId)}/messages`, { content }),
+
+  /** Marca thread como lida. */
+  markRead: (threadId: string) =>
+    post<{ ok: boolean }>(`/chat/threads/${encodeURIComponent(threadId)}/read`),
+};
+
 /** APIs apenas para administrador do sistema (tenant "system"). */
 export const systemApi = {
   stats: () =>

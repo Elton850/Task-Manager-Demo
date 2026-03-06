@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Paperclip, Upload, Trash2, ExternalLink, Download, FileText, Plus, Edit2, Layers } from "lucide-react";
+import { Paperclip, Upload, Trash2, ExternalLink, Download, FileText, Plus, Edit2, Layers, MessageCircle } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import Modal from "@/components/ui/Modal";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
@@ -8,6 +9,8 @@ import Textarea from "@/components/ui/Textarea";
 import Badge, { getStatusVariant } from "@/components/ui/Badge";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import { useAuth } from "@/contexts/AuthContext";
+import { useBasePath } from "@/contexts/BasePathContext";
+import { chatApi } from "@/services/api";
 import { useToast } from "@/contexts/ToastContext";
 import { tasksApi } from "@/services/api";
 import type { Task, Lookups, User, TaskEvidence, Rule } from "@/types";
@@ -68,6 +71,8 @@ export default function TaskModal({
 }: TaskModalProps) {
   const { user, tenant } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
+  const basePath = useBasePath();
   const isEdit = !!task;
   const isUserOnlyObservacoes = user?.role === "USER" && isEdit;
   const taskConcluida = task?.status === "Concluído" || task?.status === "Concluído em Atraso";
@@ -104,6 +109,16 @@ export default function TaskModal({
   const [deletingSubtask, setDeletingSubtask] = useState(false);
 
   const hasPendingSubtasks = subtasks.length > 0 && subtasks.some(s => s.status !== "Concluído" && s.status !== "Concluído em Atraso");
+
+  const handleChatSubtask = async (subtaskId: string) => {
+    try {
+      const data = await chatApi.openSubtask(subtaskId);
+      onClose();
+      navigate(`${basePath}/chat?thread=${encodeURIComponent(data.threadId)}`);
+    } catch {
+      toast("Não foi possível abrir a conversa.", "error");
+    }
+  };
 
   useEffect(() => {
     if (!open) setPendingCompletePayload(null);
@@ -656,6 +671,17 @@ export default function TaskModal({
                     </div>
                     <Badge variant={getStatusVariant(st.status)} size="sm">{st.status}</Badge>
                     <div className="flex items-center gap-0.5">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        aria-label={`Conversar sobre a subtarefa: ${st.atividade}`}
+                        title="Conversar com responsável"
+                        onClick={() => handleChatSubtask(st.id)}
+                        className="hover:text-brand-600 hover:bg-brand-50"
+                      >
+                        <MessageCircle size={14} />
+                      </Button>
                       <Button
                         type="button"
                         variant="ghost"

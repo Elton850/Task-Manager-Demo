@@ -19,6 +19,7 @@ import ruleRoutes from "./routes/rules";
 import tenantRoutes from "./routes/tenants";
 import systemRoutes from "./routes/system";
 import holidayRoutes from "./routes/holidays";
+import chatRoutes from "./routes/chat";
 
 // Initialize DB schema on startup (SQLite: schema criado aqui; Supabase: schema já criado via supabase-schema.sql)
 import "./db";
@@ -162,6 +163,13 @@ const apiLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
+const chatSendLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000,
+  max: 60,
+  message: { error: "Muitas mensagens enviadas. Aguarde um momento.", code: "RATE_LIMITED" },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 // ── DB Context (por request — necessário para transações com Supabase) ─────────
 // Para SQLite: no-op. Para Supabase: inicializa AsyncLocalStorage por request.
@@ -201,6 +209,8 @@ app.use("/api/rules", ruleRoutes);
 app.use("/api/tenants", tenantRoutes);
 app.use("/api/system", systemRoutes);
 app.use("/api/holidays", holidayRoutes);
+app.use("/api/chat/threads/:threadId/messages", chatSendLimiter);
+app.use("/api/chat", chatRoutes);
 
 // ── Serve React frontend in production ───────────────────────────────────────
 if (IS_PROD) {
