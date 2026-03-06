@@ -30,9 +30,7 @@ data/uploads/
 
 # IDE / Editor
 .cursor/
-.claude/
 .vscode/
-STATE.json
 *.swp
 *.swo
 .DS_Store

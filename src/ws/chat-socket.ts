@@ -20,9 +20,10 @@
  */
 
 import { Server as HttpServer } from "http";
-import { Server as SocketServer } from "socket.io";
+import { Server as SocketServer, Socket } from "socket.io";
 import db from "../db";
 import { verifyToken } from "../middleware/auth";
+import type { AuthUser } from "../types";
 
 // ─── Presence ─────────────────────────────────────────────────────────────────
 // Mapa em memória: "tenantId:userId" → conjunto de socketIds ativos
@@ -64,7 +65,7 @@ export function initChatSocket(
   const io = new SocketServer(httpServer, {
     path: "/ws-chat",
     cors: {
-      origin: (origin, callback) => {
+      origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
         if (!origin || corsOriginFn(origin)) {
           callback(null, true);
         } else {
@@ -77,7 +78,7 @@ export function initChatSocket(
   });
 
   // ── Middleware de autenticação no handshake ──
-  io.use((socket, next) => {
+  io.use((socket: Socket, next: (err?: Error) => void) => {
     try {
       const cookieHeader = socket.request.headers.cookie ?? "";
       const cookies = parseCookies(cookieHeader);
@@ -93,8 +94,8 @@ export function initChatSocket(
     }
   });
 
-  io.on("connection", (socket) => {
-    const user = socket.data.user as ReturnType<typeof verifyToken>;
+  io.on("connection", (socket: Socket) => {
+    const user = socket.data.user as AuthUser;
     const tenantId = socket.data.tenantId as string;
 
     // Room pessoal para notificações diretas ao usuário
