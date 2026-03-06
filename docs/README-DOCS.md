@@ -57,3 +57,4 @@
 | **[CHAT_IMPLEMENTACAO.md](./CHAT_IMPLEMENTACAO.md)** | Arquitetura e contratos da implementacao atual de chat (polling). |
 | **[CHAT_REALTIME_AJUSTES.md](./CHAT_REALTIME_AJUSTES.md)** | Ajustes necessarios (seguranca, performance, concorrencia) e plano para evoluir para realtime com fallback. |
 | **[PROMPT-CLAUDE-CHAT-REALTIME.md](./PROMPT-CLAUDE-CHAT-REALTIME.md)** | Prompt pronto para Claude Code executar correcao + realtime por fases com handoff em `IMPLEMENTATION_LOG.md` e `STATE.json`. |
+| **[PROMPT-CLAUDE-CHAT-PERFORMANCE-UPGRADE.md](./PROMPT-CLAUDE-CHAT-PERFORMANCE-UPGRADE.md)** | Prompt para upgrades de monitoramento/performance do chat no backend e pagina Master (`/sistema`). |

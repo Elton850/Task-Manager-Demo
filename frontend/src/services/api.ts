@@ -488,4 +488,16 @@ export const systemApi = {
       `/system/login-logs${qs ? `?${qs}` : ""}`
     );
   },
+  chatMetrics: (windowMinutes?: number) => {
+    const qs = windowMinutes ? `?window=${windowMinutes}` : "";
+    return get<{
+      status: "healthy" | "warning" | "critical";
+      windowMinutes: number;
+      messages: { sent: number; readEvents: number };
+      threads: { total: number; direct: number; subtask: number };
+      unread: { total: number };
+      topTenants: { tenantSlug: string; messageCount: number }[];
+      cachedAt: string;
+    }>(`/system/chat-metrics${qs}`);
+  },
 };

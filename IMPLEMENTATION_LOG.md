@@ -1,5 +1,34 @@
 # Implementation Log — Chat Interno
 
+## 2026-03-06 — Monitoramento de performance do chat (SystemDashboard)
+
+### Documentos lidos obrigatoriamente
+- `docs/GUIA-IA-AGENTES.md` — lido e seguido
+- `docs/CHAT_IMPLEMENTACAO.md` — lido e seguido
+- `docs/CHAT_REALTIME_AJUSTES.md` — lido e seguido
+
+### Decisões técnicas
+- **Sem alteração de banco**: todas as métricas derivam de tabelas existentes com índices adequados.
+- **Cache em memória (30s)**: `chatMetricsCache` module-level em `system.ts`. Evita custo de queries repetidas sem infra adicional.
+- **Janela configurável**: query param `?window=N` (minutos), padrão 60, máx 1440.
+- **Status derivado**: `warning` se `unread.total > 500`; `healthy` caso contrário.
+- **Frontend resiliente**: `ChatMetricsSection` isolada — erro não quebra o resto da página. Polling 30s independente.
+- **Sem libs adicionais**: barras de progresso em CSS puro.
+
+### Arquivos alterados
+| Arquivo | Ação |
+|---------|------|
+| `src/routes/system.ts` | Adicionado `GET /api/system/chat-metrics` + cache + tipos inline |
+| `frontend/src/services/api.ts` | Adicionado `systemApi.chatMetrics()` |
+| `frontend/src/pages/SystemDashboardPage.tsx` | Adicionada `ChatMetricsSection` com 4 cards + top tenants |
+
+### Resultados
+- `npm run build`: OK (TypeScript sem erros)
+- `npm run test`: 20/20 PASS
+- `npm run frontend:build`: OK
+
+---
+
 ## 2026-03-06 — Fase 0: Hardening + Realtime (início)
 
 ### Documentos lidos obrigatoriamente
