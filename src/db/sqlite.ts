@@ -352,6 +352,26 @@ try {
   `);
 } catch { /* ignorar se já existir */ }
 
+// ─── chat: migrações incrementais (colunas canônicas + índices de unicidade) ──
+try {
+  const chatCols = rawDb.prepare("PRAGMA table_info(chat_threads)").all() as { name: string }[];
+  if (!chatCols.some((c) => c.name === "participant_a_user_id"))
+    rawDb.exec("ALTER TABLE chat_threads ADD COLUMN participant_a_user_id TEXT REFERENCES users(id)");
+  if (!chatCols.some((c) => c.name === "participant_b_user_id"))
+    rawDb.exec("ALTER TABLE chat_threads ADD COLUMN participant_b_user_id TEXT REFERENCES users(id)");
+} catch { /* ignorar */ }
+
+try {
+  // Índice de unicidade para threads diretas (chave canônica: a < b lexicograficamente)
+  rawDb.exec("CREATE UNIQUE INDEX IF NOT EXISTS uidx_chat_threads_direct ON chat_threads(tenant_id, participant_a_user_id, participant_b_user_id) WHERE type='direct'");
+  // Índice de unicidade para threads de subtarefa
+  rawDb.exec("CREATE UNIQUE INDEX IF NOT EXISTS uidx_chat_threads_subtask ON chat_threads(tenant_id, subtask_id) WHERE type='subtask'");
+  // Índice adicional para contadores de não lidas por usuário
+  rawDb.exec("CREATE INDEX IF NOT EXISTS idx_chat_participants_unread ON chat_thread_participants(user_id, unread_count)");
+  // Índice composto para busca de eventos por mensagem+usuário+tipo
+  rawDb.exec("CREATE INDEX IF NOT EXISTS idx_chat_events_msg_user_type ON chat_message_events(message_id, user_id, event_type)");
+} catch { /* ignorar se já existir */ }
+
 // ─── Adapter wrapper ─────────────────────────────────────────────────────────
 // Envolve DatabaseSync na interface DbAdapter para que o código do index.ts
 // possa retornar o mesmo objeto tanto para SQLite quanto para PostgreSQL.

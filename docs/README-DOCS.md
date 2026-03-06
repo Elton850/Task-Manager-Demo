@@ -49,3 +49,11 @@
 - **Rodar testes e preparar ambientes** → [TESTES-E-AMBIENTES.md](./TESTES-E-AMBIENTES.md)
 - **Entender domínio e subdomínios** → [PLANEJAMENTO-DOMINIO-E-SUBDOMINIOS.md](./PLANEJAMENTO-DOMINIO-E-SUBDOMINIOS.md)
 - **Apresentar o projeto (sócios)** → [RESUMO-PROJETO-PARA-SOCIO.md](./RESUMO-PROJETO-PARA-SOCIO.md)
+
+## Chat (implementacao e evolucao)
+
+| Documento | Conteudo |
+|-----------|----------|
+| **[CHAT_IMPLEMENTACAO.md](./CHAT_IMPLEMENTACAO.md)** | Arquitetura e contratos da implementacao atual de chat (polling). |
+| **[CHAT_REALTIME_AJUSTES.md](./CHAT_REALTIME_AJUSTES.md)** | Ajustes necessarios (seguranca, performance, concorrencia) e plano para evoluir para realtime com fallback. |
+| **[PROMPT-CLAUDE-CHAT-REALTIME.md](./PROMPT-CLAUDE-CHAT-REALTIME.md)** | Prompt pronto para Claude Code executar correcao + realtime por fases com handoff em `IMPLEMENTATION_LOG.md` e `STATE.json`. |

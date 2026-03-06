@@ -60,3 +60,31 @@ CREATE INDEX IF NOT EXISTS idx_chat_messages_tenant     ON chat_messages(tenant_
 CREATE INDEX IF NOT EXISTS idx_chat_receipts_message    ON chat_message_receipts(message_id);
 CREATE INDEX IF NOT EXISTS idx_chat_receipts_user       ON chat_message_receipts(user_id);
 CREATE INDEX IF NOT EXISTS idx_chat_events_message      ON chat_message_events(message_id);
+
+-- ============================================================
+-- Migração incremental: colunas canônicas + índices de unicidade
+-- Aplicar em instâncias existentes (SQLite ≥ 3.8 suporta índices parciais)
+-- ============================================================
+
+-- Colunas canônicas para thread direta (participant_a < participant_b lexicograficamente)
+-- Usar ADD COLUMN IF NOT EXISTS (SQLite ≥ 3.37) ou verificar antes de aplicar
+ALTER TABLE chat_threads ADD COLUMN IF NOT EXISTS participant_a_user_id TEXT REFERENCES users(id);
+ALTER TABLE chat_threads ADD COLUMN IF NOT EXISTS participant_b_user_id TEXT REFERENCES users(id);
+
+-- Unicidade de thread direta: evita corrida na criação
+CREATE UNIQUE INDEX IF NOT EXISTS uidx_chat_threads_direct
+  ON chat_threads(tenant_id, participant_a_user_id, participant_b_user_id)
+  WHERE type = 'direct';
+
+-- Unicidade de thread de subtarefa
+CREATE UNIQUE INDEX IF NOT EXISTS uidx_chat_threads_subtask
+  ON chat_threads(tenant_id, subtask_id)
+  WHERE type = 'subtask';
+
+-- Índice para contagem de não lidas por usuário
+CREATE INDEX IF NOT EXISTS idx_chat_participants_unread
+  ON chat_thread_participants(user_id, unread_count);
+
+-- Índice para auditoria de eventos por mensagem/usuário
+CREATE INDEX IF NOT EXISTS idx_chat_events_msg_user_type
+  ON chat_message_events(message_id, user_id, event_type);

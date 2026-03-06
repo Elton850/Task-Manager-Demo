@@ -1,6 +1,7 @@
 // Carregamento de env DEVE ser o primeiro import — load-env.ts garante staging só .env.staging
 import "./load-env";
 import path from "path";
+import http from "http";
 import express from "express";
 import helmet from "helmet";
 import cookieParser from "cookie-parser";
@@ -20,6 +21,7 @@ import tenantRoutes from "./routes/tenants";
 import systemRoutes from "./routes/system";
 import holidayRoutes from "./routes/holidays";
 import chatRoutes from "./routes/chat";
+import { initChatSocket } from "./ws/chat-socket";
 
 // Initialize DB schema on startup (SQLite: schema criado aqui; Supabase: schema já criado via supabase-schema.sql)
 import "./db";
@@ -63,6 +65,7 @@ if (DB_PROVIDER === "supabase") {
 }
 
 const app = express();
+const httpServer = http.createServer(app);
 // Nginx é o proxy reverso — necessário para express-rate-limit e req.ip funcionarem corretamente
 app.set("trust proxy", 1);
 const PORT = Number(process.env.PORT) || 3000;
@@ -212,6 +215,12 @@ app.use("/api/holidays", holidayRoutes);
 app.use("/api/chat/threads/:threadId/messages", chatSendLimiter);
 app.use("/api/chat", chatRoutes);
 
+// ── Socket.IO — realtime chat (/ws-chat) ─────────────────────────────────────
+if (process.env.NODE_ENV !== "test") {
+  const io = initChatSocket(httpServer, isOriginAllowed);
+  app.locals.io = io;
+}
+
 // ── Serve React frontend in production ───────────────────────────────────────
 if (IS_PROD) {
   const frontendDist = path.resolve(__dirname, "../frontend/dist");
@@ -244,7 +253,7 @@ app.use((err: Error, _req: express.Request, res: express.Response, _next: expres
 if (process.env.NODE_ENV !== "test") {
   seedSystemAdminIfNeeded()
     .then(() => {
-      app.listen(PORT, () => {
+      httpServer.listen(PORT, () => {
         console.log(`\n Task Manager v2.0 rodando em http://localhost:${PORT}`);
         const modeLabel = process.env.NODE_ENV === "production" ? "produção" : process.env.NODE_ENV === "staging" ? "staging" : "desenvolvimento";
         console.log(`   Modo: ${modeLabel}`);

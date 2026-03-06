@@ -2,10 +2,13 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Send, CheckCheck, Check, Clock } from "lucide-react";
 import { chatApi } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
+import { useSocketChat } from "@/hooks/useSocketChat";
 import type { ChatMessage, ChatReadStatus, ChatThread } from "@/types";
 import Button from "@/components/ui/Button";
 
-const POLL_INTERVAL_MS = 5_000;
+// Polling ativo apenas como fallback quando socket está desconectado
+const POLL_INTERVAL_CONNECTED_MS = 30_000;
+const POLL_INTERVAL_FALLBACK_MS = 5_000;
 
 interface MessagePanelProps {
   thread: ChatThread;
@@ -42,6 +45,15 @@ export default function MessagePanel({ thread, onRead }: MessagePanelProps) {
 
   const displayName = thread.participants.map(p => p.nome).join(", ");
 
+  const markRead = useCallback(async () => {
+    try {
+      await chatApi.markRead(thread.id);
+      onRead();
+    } catch {
+      // silencioso
+    }
+  }, [thread.id, onRead]);
+
   const loadMessages = useCallback(async (scrollToBottom = false) => {
     try {
       const data = await chatApi.messages(thread.id);
@@ -52,23 +64,54 @@ export default function MessagePanel({ thread, onRead }: MessagePanelProps) {
       if (scrollToBottom) {
         setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
       }
-      // marcar como lido automaticamente
       if (data.messages.length > 0) {
-        await chatApi.markRead(thread.id);
-        onRead();
+        await markRead();
       }
     } catch {
       // silencioso
     } finally {
       setLoading(false);
     }
-  }, [thread.id, onRead]);
+  }, [thread.id, markRead]);
 
-  // Polling de novas mensagens
+  // ── Socket realtime ──────────────────────────────────────────────────────────
+  const { isConnected } = useSocketChat({
+    threadId: thread.id,
+
+    onNewMessage: useCallback(async (msg: ChatMessage) => {
+      if (msg.threadId !== thread.id) return;
+      setMessages(prev => {
+        // Evitar duplicatas (mensagem já pode estar no estado por otimismo de envio)
+        if (prev.some(m => m.id === msg.id)) return prev;
+        return [...prev, msg];
+      });
+      lastMessageIdRef.current = msg.id;
+      setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+      // Marcar como lido automaticamente ao receber
+      if (msg.senderId !== user?.id) {
+        await markRead();
+      }
+    }, [thread.id, user?.id, markRead]),
+
+    onMessageRead: useCallback(async (data: { threadId: string }) => {
+      if (data.threadId !== thread.id) return;
+      // Atualizar status de leitura recarregando do servidor
+      try {
+        const updated = await chatApi.messages(thread.id);
+        setReadStatuses(updated.readStatuses);
+      } catch {
+        // silencioso
+      }
+    }, [thread.id]),
+  });
+
+  // ── Carga inicial e polling de fallback ──────────────────────────────────────
   useEffect(() => {
     setLoading(true);
     setMessages([]);
     loadMessages(true);
+
+    const pollInterval = isConnected ? POLL_INTERVAL_CONNECTED_MS : POLL_INTERVAL_FALLBACK_MS;
     const timer = setInterval(async () => {
       try {
         const data = await chatApi.messages(thread.id);
@@ -79,15 +122,15 @@ export default function MessagePanel({ thread, onRead }: MessagePanelProps) {
         if (isNew) {
           lastMessageIdRef.current = lastId ?? null;
           setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
-          await chatApi.markRead(thread.id);
-          onRead();
+          await markRead();
         }
       } catch {
         // silencioso
       }
-    }, POLL_INTERVAL_MS);
+    }, pollInterval);
+
     return () => clearInterval(timer);
-  }, [thread.id, loadMessages, onRead]);
+  }, [thread.id, loadMessages, markRead, isConnected]);
 
   // Atualiza ref para detectar novas mensagens
   useEffect(() => {
@@ -155,12 +198,17 @@ export default function MessagePanel({ thread, onRead }: MessagePanelProps) {
         <div className="w-8 h-8 rounded-full bg-brand-100 dark:bg-brand-900/40 flex items-center justify-center text-sm font-semibold text-brand-700 dark:text-brand-300 flex-shrink-0">
           {displayName.charAt(0).toUpperCase()}
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">{displayName}</p>
           {thread.type === "subtask" && (
             <p className="text-xs text-slate-500 dark:text-slate-400">Conversa de subtarefa</p>
           )}
         </div>
+        {/* Indicador de conexão realtime */}
+        <div
+          className={`w-2 h-2 rounded-full flex-shrink-0 ${isConnected ? "bg-green-400" : "bg-slate-300 dark:bg-slate-600"}`}
+          title={isConnected ? "Tempo real ativo" : "Modo polling (sem conexão realtime)"}
+        />
       </div>
 
       {/* Messages */}

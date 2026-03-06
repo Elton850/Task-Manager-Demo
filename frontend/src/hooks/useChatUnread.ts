@@ -1,12 +1,14 @@
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { chatApi } from "@/services/api";
+import { useSocketChat } from "@/hooks/useSocketChat";
 
 const POLL_INTERVAL_MS = 30_000;
 
 /**
  * Polling leve para contagem global de mensagens não lidas.
  * Não ativa para o tenant "system" (admin mestre).
+ * Atualiza imediatamente via Socket.IO quando disponível.
  */
 export function useChatUnread(): { unread: number; refresh: () => void } {
   const { user, tenant } = useAuth();
@@ -25,11 +27,19 @@ export function useChatUnread(): { unread: number; refresh: () => void } {
     }
   }, [user, tenant]);
 
+  // Polling de fallback
   useEffect(() => {
     fetchCount();
     const timer = setInterval(fetchCount, POLL_INTERVAL_MS);
     return () => clearInterval(timer);
   }, [fetchCount]);
+
+  // Socket: atualiza contagem quando chegar evento de unread update
+  useSocketChat({
+    onUnreadUpdate: useCallback(() => {
+      fetchCount();
+    }, [fetchCount]),
+  });
 
   return { unread, refresh: fetchCount };
 }
