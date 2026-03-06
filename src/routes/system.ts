@@ -220,7 +220,8 @@ router.get("/chat-metrics", async (req: Request, res: Response): Promise<void> =
 
     chatMetricsCache = { data: payload, expiresAt: now + 30_000 };
     res.json(payload);
-  } catch {
+  } catch (err) {
+    console.error("[system] chat-metrics error:", err);
     res.status(500).json({ error: "Erro ao buscar métricas de chat.", code: "INTERNAL" });
   }
 });
