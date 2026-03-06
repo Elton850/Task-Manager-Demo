@@ -32,7 +32,6 @@ data/uploads/
 .cursor/
 .claude/
 .vscode/
-STATE.json
 *.swp
 *.swo
 .DS_Store
@@ -42,6 +41,9 @@ Thumbs.db
 *.log
 npm-debug.log*
 .cache/
+
+# Estado local
+STATE.json
 
 # Arquivos legados / temporarios
 *.tmp

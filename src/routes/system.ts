@@ -191,7 +191,7 @@ router.get("/chat-metrics", async (req: Request, res: Response): Promise<void> =
         FROM chat_messages m
         JOIN tenants t ON t.id = m.tenant_id
         WHERE m.created_at >= ?
-        GROUP BY m.tenant_id
+        GROUP BY m.tenant_id, t.slug
         ORDER BY msg_count DESC
         LIMIT 5
       `)
