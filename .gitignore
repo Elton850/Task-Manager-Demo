@@ -30,7 +30,6 @@ data/uploads/
 
 # IDE / Editor
 .cursor/
-.claude/
 .vscode/
 *.swp
 *.swo
@@ -41,9 +40,6 @@ Thumbs.db
 *.log
 npm-debug.log*
 .cache/
-
-# Estado local
-STATE.json
 
 # Arquivos legados / temporarios
 *.tmp

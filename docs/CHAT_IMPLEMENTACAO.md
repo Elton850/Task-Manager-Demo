@@ -1,192 +1,133 @@
-# Chat Interno — Documentação de Implementação
+﻿# Chat Interno - Estado Atual de Implementacao
 
-## Arquitetura
+## Status consolidado
 
-### Modelo de dados
+Data de referencia: 2026-03-06.
 
-```
-chat_threads
-  id          TEXT PK
-  tenant_id   TEXT → tenants(id)   [isolamento multi-tenant]
-  type        TEXT  CHECK IN ('direct','subtask')
-  subtask_id  TEXT → tasks(id)     [NULL para type='direct']
-  created_at  TEXT
-  updated_at  TEXT                  [atualizado a cada nova mensagem]
+O chat interno esta implementado e funcional com:
+- conversas diretas e por subtarefa
+- notificacao de nao lidas
+- status de mensagem (sent/delivered/read)
+- realtime via Socket.IO com fallback para polling
+- presenca online/offline basica
+- metricas agregadas no painel Master (`/sistema`)
 
-chat_thread_participants
-  id            TEXT PK
-  thread_id     TEXT → chat_threads(id)
-  user_id       TEXT → users(id)
-  unread_count  INTEGER DEFAULT 0   [denormalizado para performance]
-  last_read_at  TEXT
-  joined_at     TEXT
-  UNIQUE(thread_id, user_id)
+## Backend
 
-chat_messages
-  id          TEXT PK
-  tenant_id   TEXT → tenants(id)
-  thread_id   TEXT → chat_threads(id)
-  sender_id   TEXT → users(id)
-  content     TEXT                  [max 4000 chars]
-  created_at  TEXT
-  deleted_at  TEXT                  [soft delete — exibe "[mensagem removida]"]
+Arquivos principais:
+- `src/routes/chat.ts`
+- `src/ws/chat-socket.ts`
+- `src/server.ts`
+- `src/routes/system.ts`
 
-chat_message_receipts
-  id          TEXT PK
-  tenant_id   TEXT
-  message_id  TEXT → chat_messages(id)
-  user_id     TEXT → users(id)
-  read_at     TEXT
-  UNIQUE(message_id, user_id)
+## Endpoints de chat
 
-chat_message_events
-  id          TEXT PK
-  tenant_id   TEXT
-  message_id  TEXT → chat_messages(id)
-  user_id     TEXT
-  event_type  TEXT  CHECK IN ('sent','delivered','read')
-  event_at    TEXT
-```
+| Metodo | Rota | Finalidade |
+|--------|------|------------|
+| GET | `/api/chat/unread-count` | Total global de nao lidas do usuario |
+| GET | `/api/chat/threads` | Lista conversas do usuario |
+| POST | `/api/chat/threads/direct` | Abre/cria conversa direta |
+| POST | `/api/chat/threads/subtask/:subtaskId` | Abre/cria conversa vinculada a subtarefa |
+| GET | `/api/chat/threads/:threadId/messages` | Lista mensagens com cursor |
+| POST | `/api/chat/threads/:threadId/messages` | Envia mensagem |
+| POST | `/api/chat/threads/:threadId/read` | Marca como lido |
+| GET | `/api/chat/presence?userIds=...` | Presenca online/offline |
 
-### Índices criados
-- `idx_chat_threads_tenant` — busca de threads por tenant
-- `idx_chat_threads_updated` — ordenação por recência
-- `idx_chat_participants_thread` — participantes de um thread
-- `idx_chat_participants_user` — threads de um usuário
-- `idx_chat_messages_thread` — mensagens de um thread (com cursor)
-- `idx_chat_messages_tenant` — mensagens por tenant
-- `idx_chat_receipts_message` — recibos de uma mensagem
-- `idx_chat_receipts_user` — recibos de um usuário
-- `idx_chat_events_message` — eventos de uma mensagem
+## Endpoint de metricas no Master
 
----
+| Metodo | Rota | Finalidade |
+|--------|------|------------|
+| GET | `/api/system/chat-metrics` | Indicadores agregados de performance/uso do chat para o admin do tenant `system` |
 
-## Endpoints
+## Realtime
 
-| Método | Rota | Descrição | Auth |
-|--------|------|-----------|------|
-| GET | `/api/chat/unread-count` | Contagem global de não lidas | requireAuth |
-| GET | `/api/chat/threads` | Lista threads do usuário | requireAuth |
-| POST | `/api/chat/threads/direct` | Abre/cria thread direta | requireAuth |
-| POST | `/api/chat/threads/subtask/:subtaskId` | Abre/cria thread de subtarefa | requireAuth |
-| GET | `/api/chat/threads/:threadId/messages` | Lista mensagens (cursor) | requireAuth + participante |
-| POST | `/api/chat/threads/:threadId/messages` | Envia mensagem | requireAuth + participante |
-| POST | `/api/chat/threads/:threadId/read` | Marca como lido | requireAuth + participante |
+Namespace Socket.IO:
+- `path: /ws-chat`
 
-### Rate limiting
-- Envio de mensagens (`POST .../messages`): 60 msg/min por IP
-- Geral: 120 req/min por IP (apiLimiter)
+Eventos usados:
+- `chat:new_message`
+- `chat:message_read`
+- `chat:thread_unread_update`
+- `chat:presence_update`
 
-### Paginação de mensagens (cursor-based)
-```
-GET /api/chat/threads/:threadId/messages?before=<ISO_DATE>&limit=50
-Resposta:
-{
-  messages: ChatMessage[],
-  readStatuses: { [messageId]: { readBy: string[], deliveredTo: string[] } },
-  nextCursor: string | null,
-  hasMore: boolean
-}
-```
+Regra de seguranca:
+- handshake autenticado por cookie/JWT
+- join em thread apenas com validacao de participacao
+- tenant isolation preservado
 
----
+## Frontend
 
-## Regras de permissão
+Arquivos principais:
+- `frontend/src/pages/ChatPage.tsx`
+- `frontend/src/components/chat/ThreadList.tsx`
+- `frontend/src/components/chat/MessagePanel.tsx`
+- `frontend/src/hooks/useSocketChat.ts`
+- `frontend/src/hooks/useChatUnread.ts`
+- `frontend/src/pages/SystemDashboardPage.tsx` (secao de metricas)
 
-1. **Isolamento de tenant**: todas as queries incluem `tenant_id = ?`. Nunca há acesso cruzado.
-2. **Acesso a threads**: usuário só lê/envia mensagens se for participante verificado pela função `assertParticipant`.
-3. **Criação de thread direta**: alvo deve ser usuário ativo do mesmo tenant.
-4. **Thread de subtarefa**: subtarefa deve existir e pertencer ao tenant. Participantes iniciais: responsável + criador + solicitante. ADMIN/LEADER são adicionados ao acessar.
-5. **Impersonation**: respeita `blockWritesWhenImpersonating` do server (POST bloqueado em read-only).
+Pontos de UX:
+- atalho na subtarefa para abrir conversa
+- badge de nao lidas no header e sidebar
+- fallback automatico para polling quando socket indisponivel
 
----
+## Banco de dados
 
-## Estratégia de notificação
+Tabelas de chat:
+- `chat_threads`
+- `chat_thread_participants`
+- `chat_messages`
+- `chat_message_receipts`
+- `chat_message_events`
 
-- **Contadores**: `unread_count` denormalizado em `chat_thread_participants`. Atualizado atomicamente ao enviar mensagem.
-- **Polling**: 30s para lista de threads e contagem global; 5s para mensagens quando a conversa está aberta.
-- **Leitura automática**: ao abrir uma conversa, `markRead` é chamado automaticamente → zera `unread_count` e insere recibos.
-- **Status de mensagem**:
-  - `enviada`: evento `sent` ao criar mensagem
-  - `entregue`: evento `delivered` quando receptor carrega a lista de mensagens
-  - `lida`: evento `read` + receipt quando receptor abre a conversa
+Evolucoes ja aplicadas:
+- colunas canonicias para conversa direta:
+  - `participant_a_user_id`
+  - `participant_b_user_id`
+- indices de unicidade para reduzir duplicacao por corrida
 
----
+Scripts:
+- `scripts/migrations/chat-schema-sqlite.sql`
+- `scripts/migrations/chat-schema-postgres.sql`
 
-## Limites e performance
+## Limites e parametros atuais
 
-| Parâmetro | Valor |
-|-----------|-------|
-| Tamanho máximo de mensagem | 4000 caracteres |
-| Mensagens por página | 50 (max 100) |
-| Threads listadas | 100 (ordenadas por updated_at DESC) |
-| Polling threads/contadores | 30 segundos |
-| Polling mensagens abertas | 5 segundos |
-| Rate limit envio | 60 msg/min por IP |
+- tamanho maximo de mensagem: 4000 chars
+- pagina de mensagens: default 50, max 100
+- rate limit envio: 60 req/min (rota de envio)
+- polling unread/lista: 30s
+- polling mensagens abertas: fallback quando realtime falha
+- cache de metricas do Master: 30s
 
----
+## Seguranca e isolamento
 
-## Passos de deploy por ambiente
+- multi-tenant obrigatorio em queries sensiveis
+- acesso a thread apenas para participante autorizado
+- checks de role mantidos
+- impersonation read-only respeitado para escrita
+- CSRF, auth e middlewares globais preservados
 
-### Desenvolvimento (SQLite local)
-Nenhuma ação necessária — schema criado automaticamente ao reiniciar o servidor (`src/db/sqlite.ts`).
+## Deploy e operacao
 
-```bash
-npm run dev
-```
+### Desenvolvimento
+- SQLite recebe schema/migrations inline no startup.
 
-### Staging (Supabase)
-```bash
-# 1. Backup recomendado (via Supabase Dashboard > Database > Backups)
+### Staging/Producao
+- aplicar migracoes SQL idempotentes de chat antes do deploy backend, quando aplicavel
+- executar build backend/frontend
+- reiniciar processo (PM2)
+- validar:
+  - `/api/health`
+  - `/api/chat/unread-count` (autenticado)
+  - `/api/system/chat-metrics` (admin system)
+  - fluxo de conversa realtime entre 2 usuarios
 
-# 2. Aplicar migração SQL
-# Conectar ao banco staging e executar:
-psql $SUPABASE_DB_URL_STAGING < scripts/migrations/chat-schema-postgres.sql
+## Riscos residuais conhecidos
 
-# 3. Build e restart
-npm run build
-npm run frontend:build:staging
-pm2 restart task-manager-staging
+- presenca online/offline em memoria nao e global se houver varias instancias de app
+- para escala horizontal, planejar Socket.IO Redis adapter (ou estrategia equivalente)
 
-# 4. Validação
-curl https://staging.fluxiva.com.br/api/chat/unread-count \
-  -H "X-Tenant-Slug: empresateste" \
-  # deve retornar 401 sem cookie (correto — requer auth)
-```
+## Referencias
 
-### Produção (Supabase)
-```bash
-# 1. BACKUP OBRIGATÓRIO
-# Supabase Dashboard > Database > Backups > Create backup
-
-# 2. Janela de manutenção recomendada (baixo tráfego)
-
-# 3. Aplicar migração — todas as tabelas são CREATE IF NOT EXISTS (seguro, idempotente)
-psql $SUPABASE_DB_URL_PROD < scripts/migrations/chat-schema-postgres.sql
-
-# 4. Build
-npm run build
-npm run frontend:build
-
-# 5. Restart
-pm2 restart task-manager
-
-# 6. Validação pós-deploy
-# - Verificar logs: pm2 logs task-manager | grep -i chat
-# - Testar endpoint: GET /api/health → { status: "ok" }
-# - Testar unread: GET /api/chat/unread-count com cookie válido → { unread: 0 }
-# - Testar UI: abrir /chat e verificar lista de conversas
-```
-
-### Rollback
-Se necessário reverter antes de qualquer dado ser inserido:
-```sql
--- EXECUTAR APENAS SE NECESSÁRIO E COM ZERO DADOS NAS TABELAS DE CHAT
-DROP TABLE IF EXISTS chat_message_events;
-DROP TABLE IF EXISTS chat_message_receipts;
-DROP TABLE IF EXISTS chat_messages;
-DROP TABLE IF EXISTS chat_thread_participants;
-DROP TABLE IF EXISTS chat_threads;
-```
-
-**ATENÇÃO**: não fazer rollback se já houver dados de chat em produção — perda de dados.
+- plano de evolucao e backlog: `docs/CHAT_REALTIME_AJUSTES.md`
+- prompt de evolucao realtime: `docs/PROMPT-CLAUDE-CHAT-REALTIME.md`
+- prompt de upgrade de metricas/performance: `docs/PROMPT-CLAUDE-CHAT-PERFORMANCE-UPGRADE.md`
