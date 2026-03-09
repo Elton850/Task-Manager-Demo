@@ -466,6 +466,13 @@ export const chatApi = {
   /** Marca thread como lida. */
   markRead: (threadId: string) =>
     post<{ ok: boolean }>(`/chat/threads/${encodeURIComponent(threadId)}/read`),
+
+  /** Status online/offline para uma lista de userIds (mesmo tenant). Não chama se userIds for vazio. */
+  presence: (userIds: string[]) => {
+    if (userIds.length === 0) return Promise.resolve({ presence: {} as Record<string, "online" | "offline"> });
+    const qs = new URLSearchParams({ userIds: [...new Set(userIds)].slice(0, 50).join(",") });
+    return get<{ presence: Record<string, "online" | "offline"> }>(`/chat/presence?${qs.toString()}`);
+  },
 };
 
 /** APIs apenas para administrador do sistema (tenant "system"). */

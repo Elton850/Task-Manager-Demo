@@ -36,7 +36,7 @@ router.use(requireAuth);
 const MAX_CONTENT_LENGTH = 4000;
 const DEFAULT_PAGE_SIZE = 50;
 const CHAT_THREAD_MIN_INTERVAL_MS = Number.parseInt(
-  process.env.CHAT_THREAD_MIN_INTERVAL_MS || "1000",
+  process.env.CHAT_THREAD_MIN_INTERVAL_MS || "300",
   10,
 );
 const CHAT_THREAD_RATE_CACHE_MAX = Number.parseInt(
@@ -66,6 +66,11 @@ interface MessageRow {
   content: string;
   created_at: string;
   deleted_at: string | null;
+}
+
+interface ParsedMessageCursor {
+  createdAt: string;
+  id: string | null;
 }
 
 interface SubtaskRow {
@@ -154,6 +159,22 @@ function placeholders(n: number): string {
   return Array(n).fill("?").join(",");
 }
 
+/**
+ * Cursor opaco de paginação:
+ * - formato novo: "<createdAt>|<messageId>"
+ * - formato legado: "<createdAt>"
+ */
+function parseMessageCursor(raw: string): ParsedMessageCursor {
+  const sep = raw.lastIndexOf("|");
+  if (sep <= 0 || sep >= raw.length - 1) {
+    return { createdAt: raw, id: null };
+  }
+  return {
+    createdAt: raw.slice(0, sep),
+    id: raw.slice(sep + 1),
+  };
+}
+
 function canSendInThread(
   tenantId: string,
   userId: string,
@@ -222,7 +243,7 @@ router.get("/threads", async (req: Request, res: Response): Promise<void> => {
          LEFT JOIN chat_messages lm ON lm.id = (
            SELECT id FROM chat_messages
            WHERE thread_id = t.id AND deleted_at IS NULL
-           ORDER BY created_at DESC LIMIT 1
+           ORDER BY created_at DESC, id DESC LIMIT 1
          )
          LEFT JOIN users lu ON lu.id = lm.sender_id
          WHERE p.user_id = ? AND t.tenant_id = ?
@@ -550,37 +571,40 @@ router.get("/threads/:threadId/messages", async (req: Request, res: Response): P
       return;
     }
 
-    const threadRate = canSendInThread(tenantId, userId, threadId);
-    if (!threadRate.allowed) {
-      const retryAfterSec = Math.max(1, Math.ceil(threadRate.retryAfterMs / 1000));
-      res.setHeader("Retry-After", String(retryAfterSec));
-      res.status(429).json({
-        error: "Muitas mensagens nesta conversa em sequência. Aguarde um instante.",
-        code: "RATE_LIMITED",
-      });
-      return;
-    }
-
     let query: string;
     let params: unknown[];
 
     if (before && typeof before === "string") {
-      query = `
-        SELECT m.*, u.nome AS sender_nome
-        FROM chat_messages m
-        JOIN users u ON u.id = m.sender_id
-        WHERE m.thread_id = ? AND m.created_at < ?
-        ORDER BY m.created_at DESC
-        LIMIT ?
-      `;
-      params = [threadId, before, pageSize];
+      const cursor = parseMessageCursor(before);
+      if (cursor.id) {
+        query = `
+          SELECT m.*, u.nome AS sender_nome
+          FROM chat_messages m
+          JOIN users u ON u.id = m.sender_id
+          WHERE m.thread_id = ?
+            AND (m.created_at < ? OR (m.created_at = ? AND m.id < ?))
+          ORDER BY m.created_at DESC, m.id DESC
+          LIMIT ?
+        `;
+        params = [threadId, cursor.createdAt, cursor.createdAt, cursor.id, pageSize];
+      } else {
+        query = `
+          SELECT m.*, u.nome AS sender_nome
+          FROM chat_messages m
+          JOIN users u ON u.id = m.sender_id
+          WHERE m.thread_id = ? AND m.created_at < ?
+          ORDER BY m.created_at DESC, m.id DESC
+          LIMIT ?
+        `;
+        params = [threadId, cursor.createdAt, pageSize];
+      }
     } else {
       query = `
         SELECT m.*, u.nome AS sender_nome
         FROM chat_messages m
         JOIN users u ON u.id = m.sender_id
         WHERE m.thread_id = ?
-        ORDER BY m.created_at DESC
+        ORDER BY m.created_at DESC, m.id DESC
         LIMIT ?
       `;
       params = [threadId, pageSize];
@@ -615,7 +639,7 @@ router.get("/threads/:threadId/messages", async (req: Request, res: Response): P
     // Inverter para ordem cronológica
     const messages = rows.reverse().map((r) => formatMessage(r, r.sender_nome));
     const hasMore = rows.length === pageSize;
-    const nextCursor = hasMore && rows.length > 0 ? rows[0].created_at : null;
+    const nextCursor = hasMore && rows.length > 0 ? `${rows[0].created_at}|${rows[0].id}` : null;
 
     // Buscar status de leitura em lote para mensagens enviadas pelo usuário (elimina N+1)
     const sentIds = messages.filter((m) => m.senderId === userId).map((m) => m.id);
@@ -671,6 +695,17 @@ router.post("/threads/:threadId/messages", async (req: Request, res: Response): 
     const participant = await assertParticipant(threadId, userId, tenantId);
     if (!participant) {
       res.status(403).json({ error: "Acesso negado a esta conversa.", code: "FORBIDDEN" });
+      return;
+    }
+
+    const threadRate = canSendInThread(tenantId, userId, threadId);
+    if (!threadRate.allowed) {
+      const retryAfterSec = Math.max(1, Math.ceil(threadRate.retryAfterMs / 1000));
+      res.setHeader("Retry-After", String(retryAfterSec));
+      res.status(429).json({
+        error: "Muitas mensagens nesta conversa em sequência. Aguarde um instante.",
+        code: "RATE_LIMITED",
+      });
       return;
     }
 

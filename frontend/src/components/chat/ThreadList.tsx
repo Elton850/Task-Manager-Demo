@@ -3,11 +3,17 @@ import { MessageCircle, Users } from "lucide-react";
 import type { ChatThread } from "@/types";
 import { useAuth } from "@/contexts/AuthContext";
 
+export type PresenceMap = Record<string, "online" | "offline">;
+
 interface ThreadListProps {
   threads: ChatThread[];
   selectedThreadId: string | null;
   onSelect: (threadId: string) => void;
   loading: boolean;
+  /** Status online/offline por userId (conversas diretas). */
+  presenceByUserId?: PresenceMap;
+  /** ID do usuário atual (para não exibir presença de si mesmo). */
+  currentUserId?: string | null;
 }
 
 function formatTime(iso: string): string {
@@ -23,8 +29,16 @@ function formatTime(iso: string): string {
   return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
 }
 
-export default function ThreadList({ threads, selectedThreadId, onSelect, loading }: ThreadListProps) {
+export default function ThreadList({
+  threads,
+  selectedThreadId,
+  onSelect,
+  loading,
+  presenceByUserId = {},
+  currentUserId,
+}: ThreadListProps) {
   const { user } = useAuth();
+  const uid = currentUserId ?? user?.id;
 
   if (loading) {
     return (
@@ -53,6 +67,11 @@ export default function ThreadList({ threads, selectedThreadId, onSelect, loadin
         const isSubtask = thread.type === "subtask";
         const lastMsg = thread.lastMessage;
         const isMyLastMsg = lastMsg?.senderId === user?.id;
+        const isDirectWithOne = thread.type === "direct" && thread.participants.length === 1;
+        const remoteParticipant = isDirectWithOne ? thread.participants[0] : null;
+        const presenceStatus = remoteParticipant && uid && remoteParticipant.id !== uid
+          ? (presenceByUserId[remoteParticipant.id] ?? "offline")
+          : null;
 
         return (
           <button
@@ -68,18 +87,29 @@ export default function ThreadList({ threads, selectedThreadId, onSelect, loadin
               }
             `}
           >
-            {/* Avatar */}
-            <div className={`
-              flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold
-              ${isSubtask
-                ? "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300"
-                : "bg-brand-100 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300"
-              }
-            `}>
-              {isSubtask
-                ? <Users size={16} />
-                : displayName.charAt(0).toUpperCase()
-              }
+            {/* Avatar com indicador de presença (apenas conversa direta) */}
+            <div className="relative flex-shrink-0">
+              <div className={`
+                w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold
+                ${isSubtask
+                  ? "bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300"
+                  : "bg-brand-100 dark:bg-brand-900/40 text-brand-700 dark:text-brand-300"
+                }
+              `}>
+                {isSubtask
+                  ? <Users size={16} />
+                  : displayName.charAt(0).toUpperCase()
+                }
+              </div>
+              {presenceStatus != null && (
+                <span
+                  className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white dark:border-slate-900 ${
+                    presenceStatus === "online" ? "bg-green-500" : "bg-slate-300 dark:bg-slate-600"
+                  }`}
+                  title={presenceStatus === "online" ? "Online" : "Offline"}
+                  aria-label={presenceStatus === "online" ? "Online" : "Offline"}
+                />
+              )}
             </div>
 
             {/* Content */}

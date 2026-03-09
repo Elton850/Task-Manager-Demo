@@ -51,12 +51,16 @@ function releaseSocket(): void {
 }
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
+export type PresenceStatus = "online" | "offline";
+
 interface UseSocketChatOptions {
   /** ID da thread para entrar na sala e receber eventos de mensagem. Opcional. */
   threadId?: string | null;
   onNewMessage?: (msg: ChatMessage) => void;
   onMessageRead?: (data: { threadId: string; userId: string }) => void;
   onUnreadUpdate?: (data: { threadId: string; unreadCount: number }) => void;
+  /** Atualização de presença (online/offline) de usuários do mesmo tenant. */
+  onPresenceUpdate?: (data: { userId: string; status: PresenceStatus }) => void;
 }
 
 export function useSocketChat({
@@ -64,6 +68,7 @@ export function useSocketChat({
   onNewMessage,
   onMessageRead,
   onUnreadUpdate,
+  onPresenceUpdate,
 }: UseSocketChatOptions = {}): { isConnected: boolean } {
   const [isConnected, setIsConnected] = useState(false);
   const socketRef = useRef<Socket | null>(null);
@@ -73,9 +78,11 @@ export function useSocketChat({
   const onNewMessageRef = useRef(onNewMessage);
   const onMessageReadRef = useRef(onMessageRead);
   const onUnreadUpdateRef = useRef(onUnreadUpdate);
+  const onPresenceUpdateRef = useRef(onPresenceUpdate);
   onNewMessageRef.current = onNewMessage;
   onMessageReadRef.current = onMessageRead;
   onUnreadUpdateRef.current = onUnreadUpdate;
+  onPresenceUpdateRef.current = onPresenceUpdate;
 
   // Montar/desmontar socket
   useEffect(() => {
@@ -106,11 +113,16 @@ export function useSocketChat({
       onUnreadUpdateRef.current?.(data);
     }
 
+    function handlePresenceUpdate(data: { userId: string; status: "online" | "offline" }) {
+      onPresenceUpdateRef.current?.(data);
+    }
+
     socket.on("connect", handleConnect);
     socket.on("disconnect", handleDisconnect);
     socket.on("chat:new_message", handleNewMessage);
     socket.on("chat:message_read", handleMessageRead);
     socket.on("chat:thread_unread_update", handleUnreadUpdate);
+    socket.on("chat:presence_update", handlePresenceUpdate);
 
     // Estado inicial da conexão
     setIsConnected(socket.connected);
@@ -121,6 +133,7 @@ export function useSocketChat({
       socket.off("chat:new_message", handleNewMessage);
       socket.off("chat:message_read", handleMessageRead);
       socket.off("chat:thread_unread_update", handleUnreadUpdate);
+      socket.off("chat:presence_update", handlePresenceUpdate);
       releaseSocket();
       socketRef.current = null;
     };

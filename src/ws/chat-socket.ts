@@ -100,6 +100,8 @@ export function initChatSocket(
 
     // Room pessoal para notificações diretas ao usuário
     socket.join(`user:${user.id}`);
+    // Room por tenant: presença e eventos só para usuários do mesmo tenant
+    socket.join(`tenant:${tenantId}`);
 
     // ── Presença: marcar online ──
     const key = presenceKey(tenantId, user.id);
@@ -108,8 +110,8 @@ export function initChatSocket(
     presenceMap.get(key)!.add(socket.id);
 
     if (wasOffline) {
-      // Broadcast para todos os sockets do tenant que este usuário ficou online
-      socket.broadcast.emit("chat:presence_update", { userId: user.id, status: "online" });
+      // Notificar apenas usuários do mesmo tenant (exclui este socket)
+      socket.to(`tenant:${tenantId}`).emit("chat:presence_update", { userId: user.id, status: "online" });
     }
 
     // ── join_thread: entrar na sala de uma thread após verificar participação ──
@@ -149,7 +151,8 @@ export function initChatSocket(
         set.delete(socket.id);
         if (set.size === 0) {
           presenceMap.delete(key);
-          socket.broadcast.emit("chat:presence_update", { userId: user.id, status: "offline" });
+          // Notificar apenas usuários do mesmo tenant (usar io para não depender do socket já desconectado)
+          io.to(`tenant:${tenantId}`).emit("chat:presence_update", { userId: user.id, status: "offline" });
         }
       }
     });

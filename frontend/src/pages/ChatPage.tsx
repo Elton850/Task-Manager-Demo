@@ -5,6 +5,7 @@ import { chatApi, usersApi } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
 import { useBasePath } from "@/contexts/BasePathContext";
 import { useChatUnread } from "@/hooks/useChatUnread";
+import { useSocketChat } from "@/hooks/useSocketChat";
 import type { ChatThread, User } from "@/types";
 import ThreadList from "@/components/chat/ThreadList";
 import MessagePanel from "@/components/chat/MessagePanel";
@@ -29,6 +30,13 @@ export default function ChatPage() {
   const [creatingChat, setCreatingChat] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
   const [isMobileView, setIsMobileView] = useState(false);
+  const [presenceByUserId, setPresenceByUserId] = useState<Record<string, "online" | "offline">>({});
+
+  useSocketChat({
+    onPresenceUpdate: useCallback((data: { userId: string; status: "online" | "offline" }) => {
+      setPresenceByUserId(prev => ({ ...prev, [data.userId]: data.status }));
+    }, []),
+  });
 
   // Detectar se está em mobile (ocultar thread list quando conversa aberta)
   useEffect(() => {
@@ -42,12 +50,24 @@ export default function ChatPage() {
     try {
       const data = await chatApi.threads();
       setThreads(data.threads);
+      if (user?.id) {
+        const participantIds = new Set<string>();
+        for (const t of data.threads) {
+          for (const p of t.participants) {
+            if (p.id !== user.id) participantIds.add(p.id);
+          }
+        }
+        if (participantIds.size > 0) {
+          const { presence } = await chatApi.presence([...participantIds]);
+          setPresenceByUserId(prev => ({ ...prev, ...presence }));
+        }
+      }
     } catch {
       // silencioso
     } finally {
       setLoadingThreads(false);
     }
-  }, []);
+  }, [user?.id]);
 
   useEffect(() => {
     loadThreads();
@@ -138,6 +158,8 @@ export default function ChatPage() {
             selectedThreadId={selectedThreadId}
             onSelect={handleSelectThread}
             loading={loadingThreads}
+            presenceByUserId={presenceByUserId}
+            currentUserId={user?.id ?? null}
           />
         </div>
       )}
@@ -161,6 +183,7 @@ export default function ChatPage() {
               <MessagePanel
                 thread={selectedThread}
                 onRead={handleRead}
+                presenceByUserId={presenceByUserId}
               />
             </>
           ) : (

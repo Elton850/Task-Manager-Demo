@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Send, CheckCheck, Check, Clock } from "lucide-react";
 import { chatApi } from "@/services/api";
 import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/contexts/ToastContext";
 import { useSocketChat } from "@/hooks/useSocketChat";
 import type { ChatMessage, ChatReadStatus, ChatThread } from "@/types";
 import Button from "@/components/ui/Button";
@@ -10,9 +11,13 @@ import Button from "@/components/ui/Button";
 const POLL_INTERVAL_CONNECTED_MS = 30_000;
 const POLL_INTERVAL_FALLBACK_MS = 5_000;
 
+export type PresenceMap = Record<string, "online" | "offline">;
+
 interface MessagePanelProps {
   thread: ChatThread;
   onRead: () => void;
+  /** Status online/offline por userId (ex.: conversa direta). */
+  presenceByUserId?: PresenceMap;
 }
 
 function formatMessageTime(iso: string): string {
@@ -28,8 +33,9 @@ function MessageStatus({ messageId, readStatuses }: { messageId: string; readSta
   return <Check size={12} className="opacity-60" />;
 }
 
-export default function MessagePanel({ thread, onRead }: MessagePanelProps) {
+export default function MessagePanel({ thread, onRead, presenceByUserId = {} }: MessagePanelProps) {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [readStatuses, setReadStatuses] = useState<Record<string, ChatReadStatus>>({});
   const [loading, setLoading] = useState(true);
@@ -42,8 +48,21 @@ export default function MessagePanel({ thread, onRead }: MessagePanelProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const messagesRef = useRef<HTMLDivElement>(null);
   const lastMessageIdRef = useRef<string | null>(null);
+  const syncingLatestRef = useRef(false);
 
   const displayName = thread.participants.map(p => p.nome).join(", ");
+  const isDirectWithOne = thread.type === "direct" && thread.participants.length === 1;
+  const remoteParticipant = isDirectWithOne ? thread.participants[0] : null;
+  const participantStatus = remoteParticipant && user?.id && remoteParticipant.id !== user.id
+    ? (presenceByUserId[remoteParticipant.id] ?? "offline")
+    : null;
+
+  const appendMessageIfMissing = useCallback((msg: ChatMessage) => {
+    setMessages((prev) => {
+      if (prev.some((m) => m.id === msg.id)) return prev;
+      return [...prev, msg];
+    });
+  }, []);
 
   const markRead = useCallback(async () => {
     try {
@@ -74,24 +93,53 @@ export default function MessagePanel({ thread, onRead }: MessagePanelProps) {
     }
   }, [thread.id, markRead]);
 
+  const syncLatest = useCallback(async (markAsRead: boolean) => {
+    if (syncingLatestRef.current) return;
+    syncingLatestRef.current = true;
+    try {
+      const data = await chatApi.messages(thread.id);
+      const prevLastId = lastMessageIdRef.current;
+      const nextLastId = data.messages.at(-1)?.id ?? null;
+      const hasNewTail = !!nextLastId && nextLastId !== prevLastId;
+
+      setMessages(data.messages);
+      setReadStatuses(data.readStatuses);
+      setHasMore(data.hasMore);
+      setNextCursor(data.nextCursor);
+
+      if (nextLastId) {
+        lastMessageIdRef.current = nextLastId;
+      }
+
+      if (hasNewTail) {
+        setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+      }
+
+      if (markAsRead && data.messages.length > 0) {
+        await markRead();
+      }
+    } catch {
+      // silencioso
+    } finally {
+      syncingLatestRef.current = false;
+    }
+  }, [thread.id, markRead]);
+
   // ── Socket realtime ──────────────────────────────────────────────────────────
   const { isConnected } = useSocketChat({
     threadId: thread.id,
 
     onNewMessage: useCallback(async (msg: ChatMessage) => {
       if (msg.threadId !== thread.id) return;
-      setMessages(prev => {
-        // Evitar duplicatas (mensagem já pode estar no estado por otimismo de envio)
-        if (prev.some(m => m.id === msg.id)) return prev;
-        return [...prev, msg];
-      });
+      // Evitar duplicatas (mensagem já pode estar no estado por resposta de envio)
+      appendMessageIfMissing(msg);
       lastMessageIdRef.current = msg.id;
       setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
       // Marcar como lido automaticamente ao receber
       if (msg.senderId !== user?.id) {
         await markRead();
       }
-    }, [thread.id, user?.id, markRead]),
+    }, [thread.id, user?.id, markRead, appendMessageIfMissing]),
 
     onMessageRead: useCallback(async (data: { threadId: string }) => {
       if (data.threadId !== thread.id) return;
@@ -103,6 +151,11 @@ export default function MessagePanel({ thread, onRead }: MessagePanelProps) {
         // silencioso
       }
     }, [thread.id]),
+
+    onUnreadUpdate: useCallback(async (data: { threadId: string; unreadCount: number }) => {
+      if (data.threadId !== thread.id) return;
+      await syncLatest(data.unreadCount > 0);
+    }, [thread.id, syncLatest]),
   });
 
   // ── Carga inicial e polling de fallback ──────────────────────────────────────
@@ -161,12 +214,14 @@ export default function MessagePanel({ thread, onRead }: MessagePanelProps) {
     setSending(true);
     try {
       const data = await chatApi.sendMessage(thread.id, trimmed);
-      setMessages(prev => [...prev, data.message]);
+      // Idempotente com socket: evita duplicar quando chat:new_message já chegou.
+      appendMessageIfMissing(data.message);
       setContent("");
       setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
       textareaRef.current?.focus();
-    } catch {
-      // silencioso — usuário vê que não foi enviado
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Falha ao enviar mensagem.";
+      toast(message, "error");
     } finally {
       setSending(false);
     }
@@ -195,16 +250,30 @@ export default function MessagePanel({ thread, onRead }: MessagePanelProps) {
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-200 dark:border-slate-700/80 bg-white dark:bg-slate-900/95 flex-shrink-0">
-        <div className="w-8 h-8 rounded-full bg-brand-100 dark:bg-brand-900/40 flex items-center justify-center text-sm font-semibold text-brand-700 dark:text-brand-300 flex-shrink-0">
-          {displayName.charAt(0).toUpperCase()}
+        <div className="relative flex-shrink-0">
+          <div className="w-8 h-8 rounded-full bg-brand-100 dark:bg-brand-900/40 flex items-center justify-center text-sm font-semibold text-brand-700 dark:text-brand-300">
+            {displayName.charAt(0).toUpperCase()}
+          </div>
+          {participantStatus != null && (
+            <span
+              className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white dark:border-slate-900 ${
+                participantStatus === "online" ? "bg-green-500" : "bg-slate-300 dark:bg-slate-600"
+              }`}
+              title={participantStatus === "online" ? "Online" : "Offline"}
+              aria-label={participantStatus === "online" ? "Online" : "Offline"}
+            />
+          )}
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">{displayName}</p>
           {thread.type === "subtask" && (
             <p className="text-xs text-slate-500 dark:text-slate-400">Conversa de subtarefa</p>
           )}
+          {participantStatus != null && (
+            <p className="text-xs text-slate-500 dark:text-slate-400 capitalize">{participantStatus === "online" ? "Online" : "Offline"}</p>
+          )}
         </div>
-        {/* Indicador de conexão realtime */}
+        {/* Indicador de conexão realtime (socket) */}
         <div
           className={`w-2 h-2 rounded-full flex-shrink-0 ${isConnected ? "bg-green-400" : "bg-slate-300 dark:bg-slate-600"}`}
           title={isConnected ? "Tempo real ativo" : "Modo polling (sem conexão realtime)"}
