@@ -8,6 +8,7 @@
     "dev:demo": "ts-node-dev --respawn --transpile-only src/server.demo.ts",
     "dev:demo:all": "concurrently \"npm run dev:demo\" \"npm run frontend:dev\"",
     "build": "tsc -p tsconfig.json",
+    "build:render": "npm ci && cd frontend && npm ci && cd .. && tsc -p tsconfig.json && cd frontend && npm run build",
     "start": "node dist/server.js",
     "start:demo": "node dist/server.demo.js",
     "demo:setup": "node -e \"require('fs').copyFileSync('.env.demo','.env');require('fs').copyFileSync('frontend/.env.demo','frontend/.env.development.local');console.log('Pronto! Rode: npm run dev:demo:all')\"",

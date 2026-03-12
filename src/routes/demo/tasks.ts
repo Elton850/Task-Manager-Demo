@@ -175,19 +175,19 @@ router.put("/:id", requireAuth, (req: Request, res: Response): void => {
   const body = req.body as Record<string, unknown>;
 
   const updated = tasks.update(req.params.id, tenantId, {
-    ...(body.competencia_ym && { competencia_ym: String(body.competencia_ym) }),
-    ...(body.recorrencia && { recorrencia: String(body.recorrencia) }),
-    ...(body.tipo && { tipo: String(body.tipo) }),
-    ...(body.atividade && { atividade: String(body.atividade) }),
-    ...(body.responsavel_email && {
+    ...(body.competencia_ym ? { competencia_ym: String(body.competencia_ym) } : {}),
+    ...(body.recorrencia ? { recorrencia: String(body.recorrencia) } : {}),
+    ...(body.tipo ? { tipo: String(body.tipo) } : {}),
+    ...(body.atividade ? { atividade: String(body.atividade) } : {}),
+    ...(body.responsavel_email ? {
       responsavel_email: String(body.responsavel_email).toLowerCase(),
       responsavel_nome: resolveResponsavelNome(tenantId, String(body.responsavel_email).toLowerCase()),
-    }),
-    ...(body.area && { area: String(body.area) }),
-    ...(body.prazo !== undefined && { prazo: body.prazo ? String(body.prazo) : null }),
-    ...(body.realizado !== undefined && { realizado: body.realizado ? String(body.realizado) : null }),
-    ...(body.status && { status: String(body.status) }),
-    ...(body.observacoes !== undefined && { observacoes: body.observacoes ? String(body.observacoes) : null }),
+    } : {}),
+    ...(body.area ? { area: String(body.area) } : {}),
+    ...(body.prazo !== undefined ? { prazo: body.prazo ? String(body.prazo) : null } : {}),
+    ...(body.realizado !== undefined ? { realizado: body.realizado ? String(body.realizado) : null } : {}),
+    ...(body.status ? { status: String(body.status) } : {}),
+    ...(body.observacoes !== undefined ? { observacoes: body.observacoes ? String(body.observacoes) : null } : {}),
     updated_by: req.user!.email,
   });
 
