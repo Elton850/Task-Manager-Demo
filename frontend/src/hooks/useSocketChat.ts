@@ -20,6 +20,9 @@ import { useEffect, useRef, useState } from "react";
 import { io, Socket } from "socket.io-client";
 import type { ChatMessage } from "@/types";
 
+// Em modo demo não há backend de socket.io — evita erros de WebSocket no console.
+const DEMO_MODE = (import.meta.env.VITE_DEMO_MODE as string | undefined) === "true";
+
 // ─── Singleton ────────────────────────────────────────────────────────────────
 // Uma única instância de socket por tab de navegador.
 let _socket: Socket | null = null;
@@ -86,6 +89,7 @@ export function useSocketChat({
 
   // Montar/desmontar socket
   useEffect(() => {
+    if (DEMO_MODE) return; // sem socket.io na demo
     const socket = acquireSocket();
     socketRef.current = socket;
 

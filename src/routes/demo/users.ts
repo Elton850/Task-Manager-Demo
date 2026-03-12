@@ -5,35 +5,20 @@ import { Router, Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import { users } from "../../demo/repository";
 import { requireAuth, requireRole } from "../../demo/middleware";
+import { serializeUser } from "./serialize";
 
 const router = Router();
 
 // GET /api/users
 router.get("/", requireAuth, (req: Request, res: Response): void => {
   const list = users.list(req.tenantId!);
-  res.json({
-    users: list.map((u) => ({
-      id: u.id,
-      email: u.email,
-      nome: u.nome,
-      role: u.role,
-      area: u.area,
-      active: u.active,
-      can_delete: u.can_delete,
-      last_login_at: u.last_login_at ?? null,
-    })),
-  });
+  res.json({ users: list.map(serializeUser) });
 });
 
 // GET /api/users/all — lista completa (usersApi.listAll, usado em AdminPage)
 router.get("/all", requireAuth, requireRole("ADMIN"), (req: Request, res: Response): void => {
   const list = users.list(req.tenantId!);
-  res.json({
-    users: list.map((u) => {
-      const { password_hash: _ph, ...safe } = u;
-      return safe;
-    }),
-  });
+  res.json({ users: list.map(serializeUser) });
 });
 
 // GET /api/users/login-counts — contagem de logins por período
@@ -71,8 +56,7 @@ router.get("/:id", requireAuth, (req: Request, res: Response): void => {
     res.status(404).json({ error: "Usuário não encontrado.", code: "NOT_FOUND" });
     return;
   }
-  const { password_hash: _ph, ...safe } = u;
-  res.json({ user: safe });
+  res.json({ user: serializeUser(u) });
 });
 
 // POST /api/users
@@ -107,8 +91,7 @@ router.post("/", requireAuth, requireRole("ADMIN"), async (req: Request, res: Re
     must_change_password: false,
   });
 
-  const { password_hash: _ph, ...safe } = user;
-  res.status(201).json({ user: safe });
+  res.status(201).json({ user: serializeUser(user) });
 });
 
 // PUT /api/users/:id
@@ -136,8 +119,7 @@ router.put("/:id", requireAuth, requireRole("ADMIN", "LEADER"), async (req: Requ
     return;
   }
 
-  const { password_hash: _ph, ...safe } = updated;
-  res.json({ user: safe });
+  res.json({ user: serializeUser(updated) });
 });
 
 // DELETE /api/users/:id
@@ -165,10 +147,8 @@ function handleToggleActive(req: Request, res: Response): void {
     return;
   }
   const updated = users.update(req.params.id, { active: !u.active });
-  // Frontend (usersApi.toggleActive) espera { user } com objeto completo
   if (updated) {
-    const { password_hash: _ph, ...safe } = updated;
-    res.json({ user: safe, active: updated.active });
+    res.json({ user: serializeUser(updated), active: updated.active });
   } else {
     res.json({ active: !u.active });
   }

@@ -18,5 +18,7 @@ services:
         value: render-demo-super-admin-key
       - key: VITE_FORCE_TENANT
         value: demo
+      - key: VITE_DEMO_MODE
+        value: "true"
       - key: ALLOWED_ORIGINS
         value: ""

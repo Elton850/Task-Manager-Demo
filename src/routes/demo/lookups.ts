@@ -6,6 +6,7 @@ import { lookups } from "../../demo/repository";
 import { readJson, writeJson } from "../../demo/json-store";
 import type { Lookup } from "../../demo/repository";
 import { requireAuth, requireRole } from "../../demo/middleware";
+import { serializeLookup } from "./serialize";
 
 const router = Router();
 
@@ -19,13 +20,13 @@ router.get("/", requireAuth, (req: Request, res: Response): void => {
     grouped[l.category].push(l.value);
   }
 
-  res.json({ lookups: all, grouped });
+  res.json({ lookups: all.map(serializeLookup), grouped });
 });
 
 // GET /api/lookups/all — lista completa com metadata (lookupsApi.listAll)
 router.get("/all", requireAuth, (req: Request, res: Response): void => {
   const all = lookups.list(req.tenantId!).sort((a, b) => a.order_index - b.order_index);
-  res.json({ lookups: all });
+  res.json({ lookups: all.map(serializeLookup) });
 });
 
 // GET /api/lookups/:category
@@ -34,7 +35,7 @@ router.get("/:category", requireAuth, (req: Request, res: Response): void => {
     req.tenantId!,
     req.params.category.toUpperCase()
   );
-  res.json({ lookups: items, values: items.map((l) => l.value) });
+  res.json({ lookups: items.map(serializeLookup), values: items.map((l) => l.value) });
 });
 
 // POST /api/lookups — cria novo lookup
@@ -56,7 +57,7 @@ router.post("/", requireAuth, requireRole("ADMIN", "LEADER"), (req: Request, res
   }
 
   const lookup = lookups.create(req.tenantId!, category.toUpperCase(), value.trim());
-  res.status(201).json({ lookup });
+  res.status(201).json({ lookup: serializeLookup(lookup) });
 });
 
 // PUT /api/lookups/:id — renomeia valor (lookupsApi.rename)
@@ -75,7 +76,7 @@ router.put("/:id", requireAuth, requireRole("ADMIN", "LEADER"), (req: Request, r
   }
   all[idx] = { ...all[idx], value: value.trim() };
   writeJson("lookups.json", all);
-  res.json({ ok: true, lookup: all[idx] });
+  res.json({ ok: true, lookup: serializeLookup(all[idx]) });
 });
 
 // DELETE /api/lookups/:id

@@ -4,12 +4,13 @@
 import { Router, Request, Response } from "express";
 import { rules } from "../../demo/repository";
 import { requireAuth, requireRole } from "../../demo/middleware";
+import { serializeRule } from "./serialize";
 
 const router = Router();
 
 // GET /api/rules
 router.get("/", requireAuth, (req: Request, res: Response): void => {
-  res.json({ rules: rules.list(req.tenantId!) });
+  res.json({ rules: rules.list(req.tenantId!).map(serializeRule) });
 });
 
 // GET /api/rules/by-area?area=... — alias usado pelo frontend (rulesApi.byArea)
@@ -19,8 +20,8 @@ router.get("/by-area", requireAuth, (req: Request, res: Response): void => {
     res.status(400).json({ error: "area é obrigatório.", code: "MISSING_FIELDS" });
     return;
   }
-  const rule = rules.findByArea(req.tenantId!, area) ?? null;
-  res.json({ rule });
+  const found = rules.findByArea(req.tenantId!, area);
+  res.json({ rule: found ? serializeRule(found) : null });
 });
 
 // PUT /api/rules — upsert sem área no path (rulesApi.save: PUT /rules com area no body)
@@ -47,7 +48,7 @@ router.put("/", requireAuth, requireRole("ADMIN", "LEADER"), (req: Request, res:
   if (Array.isArray(body.allowed_recorrencias)) patch.allowed_recorrencias = body.allowed_recorrencias as string[];
 
   const rule = rules.upsert(req.tenantId!, area, patch, req.user!.email);
-  res.json({ rule });
+  res.json({ rule: serializeRule(rule) });
 });
 
 // GET /api/rules/:area
@@ -57,7 +58,7 @@ router.get("/:area", requireAuth, (req: Request, res: Response): void => {
     res.status(404).json({ error: "Regra não encontrada.", code: "NOT_FOUND" });
     return;
   }
-  res.json({ rule });
+  res.json({ rule: rule ? serializeRule(rule) : null });
 });
 
 // PUT /api/rules/:area — upsert (cria ou atualiza)
@@ -72,7 +73,7 @@ router.put("/:area", requireAuth, requireRole("ADMIN", "LEADER"), (req: Request,
   if (Array.isArray(body.allowed_recorrencias)) patch.allowed_recorrencias = body.allowed_recorrencias as string[];
 
   const rule = rules.upsert(req.tenantId!, req.params.area, patch, req.user!.email);
-  res.json({ rule });
+  res.json({ rule: serializeRule(rule) });
 });
 
 export default router;

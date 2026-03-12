@@ -1,19 +1,38 @@
 /**
  * Demo: CRUD de tarefas sobre JSON store.
  * Upload de evidências desabilitado (retorna mensagem amigável).
+ * Aceita tanto camelCase (frontend) quanto snake_case nos campos de entrada.
  */
 import { Router, Request, Response } from "express";
-import { tasks, users, lookups } from "../../demo/repository";
+import { tasks, users } from "../../demo/repository";
 import { requireAuth } from "../../demo/middleware";
+import { serializeTask } from "./serialize";
 
 const router = Router();
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function validateTaskBody(body: Record<string, unknown>): string | null {
-  const required = ["competencia_ym", "recorrencia", "tipo", "atividade", "responsavel_email", "area"];
+/** Normaliza body recebido: aceita camelCase ou snake_case */
+function normalizeBody(body: Record<string, unknown>) {
+  return {
+    competencia_ym: (body.competenciaYm || body.competencia_ym) as string | undefined,
+    recorrencia: body.recorrencia as string | undefined,
+    tipo: body.tipo as string | undefined,
+    atividade: body.atividade as string | undefined,
+    responsavel_email: (body.responsavelEmail || body.responsavel_email) as string | undefined,
+    area: body.area as string | undefined,
+    prazo: (body.prazo !== undefined ? body.prazo : undefined) as string | null | undefined,
+    realizado: (body.realizado !== undefined ? body.realizado : undefined) as string | null | undefined,
+    status: body.status as string | undefined,
+    observacoes: (body.observacoes !== undefined ? body.observacoes : undefined) as string | null | undefined,
+    parent_task_id: (body.parentTaskId || body.parent_task_id) as string | undefined,
+  };
+}
+
+function validateNormalizedBody(b: ReturnType<typeof normalizeBody>): string | null {
+  const required: (keyof typeof b)[] = ["competencia_ym", "recorrencia", "tipo", "atividade", "responsavel_email", "area"];
   for (const field of required) {
-    if (!body[field] || typeof body[field] !== "string" || !(body[field] as string).trim()) {
+    if (!b[field] || typeof b[field] !== "string" || !(b[field] as string).trim()) {
       return `Campo obrigatório ausente: ${field}`;
     }
   }
@@ -55,7 +74,7 @@ router.get("/", requireAuth, (req: Request, res: Response): void => {
   const q = req.query as Record<string, string | undefined>;
   const competencia_ym = q.competenciaYm || q.competencia_ym;
   const { status, area, tipo, recorrencia } = q;
-  const responsavel_email = q.responsavel || q.responsavel_email;
+  const responsavel_email = q.responsavel || q.responsavelEmail || q.responsavel_email;
   const search = q.search || q.q;
 
   if (competencia_ym) list = list.filter((t) => t.competencia_ym === competencia_ym);
@@ -80,7 +99,7 @@ router.get("/", requireAuth, (req: Request, res: Response): void => {
     list = list.filter((t) => !t.parent_task_id);
   }
 
-  res.json({ tasks: list, total: list.length });
+  res.json({ tasks: list.map(serializeTask), total: list.length });
 });
 
 // GET /api/tasks/competencias — lista de competências disponíveis
@@ -98,7 +117,7 @@ router.get("/:id", requireAuth, (req: Request, res: Response): void => {
     res.status(404).json({ error: "Tarefa não encontrada.", code: "NOT_FOUND" });
     return;
   }
-  res.json({ task });
+  res.json({ task: serializeTask(task) });
 });
 
 // GET /api/tasks/:id/subtasks
@@ -109,7 +128,7 @@ router.get("/:id/subtasks", requireAuth, (req: Request, res: Response): void => 
     res.status(404).json({ error: "Tarefa não encontrada.", code: "NOT_FOUND" });
     return;
   }
-  const subs = tasks.subtasksOf(req.params.id, tenantId);
+  const subs = tasks.subtasksOf(req.params.id, tenantId).map(serializeTask);
   res.json({ tasks: subs, subtasks: subs });
 });
 
@@ -118,23 +137,24 @@ router.get("/:id/subtasks", requireAuth, (req: Request, res: Response): void => 
 // POST /api/tasks
 router.post("/", requireAuth, (req: Request, res: Response): void => {
   const tenantId = req.tenantId!;
-  const body = req.body as Record<string, unknown>;
+  const body = normalizeBody(req.body as Record<string, unknown>);
 
-  const validErr = validateTaskBody(body);
+  const validErr = validateNormalizedBody(body);
   if (validErr) {
     res.status(400).json({ error: validErr, code: "VALIDATION_ERROR" });
     return;
   }
 
+  const email = body.responsavel_email!.trim().toLowerCase();
   const task = tasks.create({
     tenant_id: tenantId,
-    competencia_ym: String(body.competencia_ym).trim(),
-    recorrencia: String(body.recorrencia).trim(),
-    tipo: String(body.tipo).trim(),
-    atividade: String(body.atividade).trim(),
-    responsavel_email: String(body.responsavel_email).trim().toLowerCase(),
-    responsavel_nome: resolveResponsavelNome(tenantId, String(body.responsavel_email).trim().toLowerCase()),
-    area: String(body.area).trim(),
+    competencia_ym: body.competencia_ym!.trim(),
+    recorrencia: body.recorrencia!.trim(),
+    tipo: body.tipo!.trim(),
+    atividade: body.atividade!.trim(),
+    responsavel_email: email,
+    responsavel_nome: resolveResponsavelNome(tenantId, email),
+    area: body.area!.trim(),
     prazo: body.prazo ? String(body.prazo).trim() : null,
     realizado: body.realizado ? String(body.realizado).trim() : null,
     status: String(body.status || "Em Andamento").trim(),
@@ -147,7 +167,7 @@ router.post("/", requireAuth, (req: Request, res: Response): void => {
     deleted_by: null,
   });
 
-  res.status(201).json({ task });
+  res.status(201).json({ task: serializeTask(task) });
 });
 
 // POST /api/tasks/:id/subtasks
@@ -159,21 +179,21 @@ router.post("/:id/subtasks", requireAuth, (req: Request, res: Response): void =>
     return;
   }
 
-  const body = req.body as Record<string, unknown>;
-  const validErr = validateTaskBody(body);
-  if (validErr) {
-    res.status(400).json({ error: validErr, code: "VALIDATION_ERROR" });
+  const body = normalizeBody(req.body as Record<string, unknown>);
+  if (!body.atividade?.trim() || !body.responsavel_email?.trim()) {
+    res.status(400).json({ error: "atividade e responsavelEmail são obrigatórios.", code: "VALIDATION_ERROR" });
     return;
   }
 
+  const email = body.responsavel_email.trim().toLowerCase();
   const task = tasks.create({
     tenant_id: tenantId,
     competencia_ym: parent.competencia_ym,
-    recorrencia: String(body.recorrencia || parent.recorrencia).trim(),
-    tipo: String(body.tipo || parent.tipo).trim(),
-    atividade: String(body.atividade).trim(),
-    responsavel_email: String(body.responsavel_email).trim().toLowerCase(),
-    responsavel_nome: resolveResponsavelNome(tenantId, String(body.responsavel_email).trim().toLowerCase()),
+    recorrencia: body.recorrencia?.trim() || parent.recorrencia,
+    tipo: body.tipo?.trim() || parent.tipo,
+    atividade: body.atividade.trim(),
+    responsavel_email: email,
+    responsavel_nome: resolveResponsavelNome(tenantId, email),
     area: parent.area,
     prazo: body.prazo ? String(body.prazo).trim() : null,
     realizado: null,
@@ -187,7 +207,7 @@ router.post("/:id/subtasks", requireAuth, (req: Request, res: Response): void =>
     deleted_by: null,
   });
 
-  res.status(201).json({ task });
+  res.status(201).json({ task: serializeTask(task) });
 });
 
 // ─── Atualização ──────────────────────────────────────────────────────────────
@@ -195,30 +215,30 @@ router.post("/:id/subtasks", requireAuth, (req: Request, res: Response): void =>
 // PUT /api/tasks/:id
 router.put("/:id", requireAuth, (req: Request, res: Response): void => {
   const tenantId = req.tenantId!;
-  const body = req.body as Record<string, unknown>;
+  const body = normalizeBody(req.body as Record<string, unknown>);
 
-  const updated = tasks.update(req.params.id, tenantId, {
-    ...(body.competencia_ym ? { competencia_ym: String(body.competencia_ym) } : {}),
-    ...(body.recorrencia ? { recorrencia: String(body.recorrencia) } : {}),
-    ...(body.tipo ? { tipo: String(body.tipo) } : {}),
-    ...(body.atividade ? { atividade: String(body.atividade) } : {}),
-    ...(body.responsavel_email ? {
-      responsavel_email: String(body.responsavel_email).toLowerCase(),
-      responsavel_nome: resolveResponsavelNome(tenantId, String(body.responsavel_email).toLowerCase()),
-    } : {}),
-    ...(body.area ? { area: String(body.area) } : {}),
-    ...(body.prazo !== undefined ? { prazo: body.prazo ? String(body.prazo) : null } : {}),
-    ...(body.realizado !== undefined ? { realizado: body.realizado ? String(body.realizado) : null } : {}),
-    ...(body.status ? { status: String(body.status) } : {}),
-    ...(body.observacoes !== undefined ? { observacoes: body.observacoes ? String(body.observacoes) : null } : {}),
-    updated_by: req.user!.email,
-  });
+  const patch: Record<string, unknown> = { updated_by: req.user!.email };
+  if (body.competencia_ym) patch.competencia_ym = body.competencia_ym;
+  if (body.recorrencia) patch.recorrencia = body.recorrencia;
+  if (body.tipo) patch.tipo = body.tipo;
+  if (body.atividade) patch.atividade = body.atividade;
+  if (body.responsavel_email) {
+    const email = body.responsavel_email.toLowerCase();
+    patch.responsavel_email = email;
+    patch.responsavel_nome = resolveResponsavelNome(tenantId, email);
+  }
+  if (body.area) patch.area = body.area;
+  if (body.prazo !== undefined) patch.prazo = body.prazo ? String(body.prazo) : null;
+  if (body.realizado !== undefined) patch.realizado = body.realizado ? String(body.realizado) : null;
+  if (body.status) patch.status = body.status;
+  if (body.observacoes !== undefined) patch.observacoes = body.observacoes ? String(body.observacoes) : null;
 
+  const updated = tasks.update(req.params.id, tenantId, patch);
   if (!updated) {
     res.status(404).json({ error: "Tarefa não encontrada.", code: "NOT_FOUND" });
     return;
   }
-  res.json({ task: updated });
+  res.json({ task: serializeTask(updated) });
 });
 
 // PATCH /api/tasks/:id/status
@@ -239,7 +259,7 @@ router.patch("/:id/status", requireAuth, (req: Request, res: Response): void => 
     res.status(404).json({ error: "Tarefa não encontrada.", code: "NOT_FOUND" });
     return;
   }
-  res.json({ task: updated });
+  res.json({ task: serializeTask(updated) });
 });
 
 // ─── Deleção ──────────────────────────────────────────────────────────────────
@@ -265,7 +285,8 @@ router.post("/:id/duplicate", requireAuth, (req: Request, res: Response): void =
     return;
   }
 
-  const { competencia_ym, prazo } = req.body as Record<string, string | undefined>;
+  const body = req.body as Record<string, string | undefined>;
+  const competencia_ym = body.competenciaYm || body.competencia_ym;
   const task = tasks.create({
     tenant_id: tenantId,
     competencia_ym: competencia_ym || original.competencia_ym,
@@ -275,7 +296,7 @@ router.post("/:id/duplicate", requireAuth, (req: Request, res: Response): void =
     responsavel_email: original.responsavel_email,
     responsavel_nome: original.responsavel_nome,
     area: original.area,
-    prazo: prazo || original.prazo,
+    prazo: body.prazo || original.prazo,
     realizado: null,
     status: "Em Andamento",
     observacoes: original.observacoes,
@@ -287,7 +308,7 @@ router.post("/:id/duplicate", requireAuth, (req: Request, res: Response): void =
     deleted_by: null,
   });
 
-  res.status(201).json({ task });
+  res.status(201).json({ task: serializeTask(task) });
 });
 
 // ─── Evidências (desabilitado na demo) ───────────────────────────────────────
@@ -303,7 +324,7 @@ router.post("/:id/evidences", requireAuth, (_req: Request, res: Response): void 
   });
 });
 
-// GET /api/tasks — estatísticas/performance (simplificado)
+// GET /api/tasks/stats/summary — estatísticas simplificadas
 router.get("/stats/summary", requireAuth, (req: Request, res: Response): void => {
   const tenantId = req.tenantId!;
   const all = tasks.list(tenantId);
