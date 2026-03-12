@@ -27,6 +27,8 @@ data/*.db
 data/*.db-shm
 data/*.db-wal
 data/uploads/
+# Demo: JSONs gerados em runtime (seed recria automaticamente no startup)
+data/demo/*.json
 
 # IDE / Editor
 .cursor/

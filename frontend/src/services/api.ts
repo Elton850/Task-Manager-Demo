@@ -54,6 +54,11 @@ function isSubdomainMode(): boolean {
  * Desenvolvimento (localhost, path-based): /empresax/login → "empresax".
  */
 export function getTenantSlugFromUrl(): string {
+  // Override para deploy em cloud sem subdomínio de empresa (ex.: Render, Vercel).
+  // Definir VITE_FORCE_TENANT=demo nas env vars de build do serviço de hospedagem.
+  const forcedTenant = (import.meta.env.VITE_FORCE_TENANT as string | undefined)?.trim().toLowerCase();
+  if (forcedTenant) return forcedTenant;
+
   // 1. Subdomínio: produção ou desenvolvimento com *.localhost / *.127.0.0.1
   //    (staging.fluxiva.com.br retorna false em isSubdomainMode → cai no path-based abaixo)
   if (isSubdomainMode()) {

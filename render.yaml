@@ -1,0 +1,42 @@
+services:
+  - type: web
+    name: task-manager-demo
+    runtime: node
+    region: oregon
+    plan: free
+
+    # Build: instala deps, compila TS e builda frontend
+    buildCommand: >
+      npm ci &&
+      cd frontend && npm ci && cd .. &&
+      npm run build &&
+      npm run frontend:build
+
+    # Start: servidor demo (JSON persistence, sem Supabase)
+    startCommand: node dist/server.demo.js
+
+    # Health check
+    healthCheckPath: /api/health
+
+    # Variáveis de ambiente (definir no painel do Render ou aqui)
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+      - key: PORT
+        value: 3000
+
+      # Chave JWT — TROQUE por um valor secreto no painel do Render!
+      - key: JWT_SECRET
+        value: render-demo-change-this-secret-at-least-32chars
+
+      - key: SUPER_ADMIN_KEY
+        value: render-demo-super-admin-key
+
+      # Força o tenant "demo" no frontend (evita subdomain detection no *.onrender.com)
+      - key: VITE_FORCE_TENANT
+        value: demo
+
+      # Origens permitidas — Render injeta a URL automaticamente; ajuste se necessário
+      - key: ALLOWED_ORIGINS
+        value: ""
