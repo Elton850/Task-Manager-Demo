@@ -1,0 +1,134 @@
+/**
+ * Demo: CRUD de usuários sobre JSON store.
+ */
+import { Router, Request, Response } from "express";
+import bcrypt from "bcryptjs";
+import { users } from "../../demo/repository";
+import { requireAuth, requireRole } from "../../demo/middleware";
+
+const router = Router();
+
+// GET /api/users
+router.get("/", requireAuth, (req: Request, res: Response): void => {
+  const list = users.list(req.tenantId!);
+  res.json({
+    users: list.map((u) => ({
+      id: u.id,
+      email: u.email,
+      nome: u.nome,
+      role: u.role,
+      area: u.area,
+      active: u.active,
+      can_delete: u.can_delete,
+      last_login_at: u.last_login_at ?? null,
+    })),
+  });
+});
+
+// GET /api/users/:id
+router.get("/:id", requireAuth, (req: Request, res: Response): void => {
+  const u = users.findById(req.params.id);
+  if (!u || u.tenant_id !== req.tenantId) {
+    res.status(404).json({ error: "Usuário não encontrado.", code: "NOT_FOUND" });
+    return;
+  }
+  const { password_hash: _ph, ...safe } = u;
+  res.json({ user: safe });
+});
+
+// POST /api/users
+router.post("/", requireAuth, requireRole("ADMIN"), async (req: Request, res: Response): Promise<void> => {
+  const { email: emailRaw, nome, role, area, password } = req.body as Record<string, string | undefined>;
+
+  if (!emailRaw || !nome || !role || !area) {
+    res.status(400).json({ error: "email, nome, role e area são obrigatórios.", code: "MISSING_FIELDS" });
+    return;
+  }
+
+  const email = emailRaw.trim().toLowerCase();
+  const tenantId = req.tenantId!;
+
+  if (users.findByEmail(tenantId, email)) {
+    res.status(409).json({ error: "E-mail já cadastrado nesta empresa.", code: "DUPLICATE_EMAIL" });
+    return;
+  }
+
+  const pw = password?.trim() || "123456";
+  const passwordHash = await bcrypt.hash(pw, 10);
+
+  const user = users.create({
+    tenant_id: tenantId,
+    email,
+    nome: nome.trim(),
+    role: role as "USER" | "LEADER" | "ADMIN",
+    area: area.trim(),
+    active: true,
+    can_delete: true,
+    password_hash: passwordHash,
+    must_change_password: false,
+  });
+
+  const { password_hash: _ph, ...safe } = user;
+  res.status(201).json({ user: safe });
+});
+
+// PUT /api/users/:id
+router.put("/:id", requireAuth, requireRole("ADMIN", "LEADER"), async (req: Request, res: Response): Promise<void> => {
+  const u = users.findById(req.params.id);
+  if (!u || u.tenant_id !== req.tenantId) {
+    res.status(404).json({ error: "Usuário não encontrado.", code: "NOT_FOUND" });
+    return;
+  }
+
+  const { nome, role, area, active, password } = req.body as Record<string, unknown>;
+  const patch: Partial<typeof u> = {};
+
+  if (nome && typeof nome === "string") patch.nome = nome.trim();
+  if (role && typeof role === "string") patch.role = role as "USER" | "LEADER" | "ADMIN";
+  if (area && typeof area === "string") patch.area = area.trim();
+  if (active !== undefined) patch.active = Boolean(active);
+  if (password && typeof password === "string" && password.trim()) {
+    patch.password_hash = await bcrypt.hash(password.trim(), 10);
+  }
+
+  const updated = users.update(req.params.id, patch);
+  if (!updated) {
+    res.status(404).json({ error: "Usuário não encontrado.", code: "NOT_FOUND" });
+    return;
+  }
+
+  const { password_hash: _ph, ...safe } = updated;
+  res.json({ user: safe });
+});
+
+// DELETE /api/users/:id
+router.delete("/:id", requireAuth, requireRole("ADMIN"), (req: Request, res: Response): void => {
+  const u = users.findById(req.params.id);
+  if (!u || u.tenant_id !== req.tenantId) {
+    res.status(404).json({ error: "Usuário não encontrado.", code: "NOT_FOUND" });
+    return;
+  }
+
+  // Impedir auto-deleção
+  if (u.id === req.user!.id) {
+    res.status(400).json({ error: "Não é possível deletar o próprio usuário.", code: "SELF_DELETE" });
+    return;
+  }
+
+  users.delete(req.params.id);
+  res.json({ ok: true });
+});
+
+// POST /api/users/:id/toggle-active
+router.post("/:id/toggle-active", requireAuth, requireRole("ADMIN"), (req: Request, res: Response): void => {
+  const u = users.findById(req.params.id);
+  if (!u || u.tenant_id !== req.tenantId) {
+    res.status(404).json({ error: "Usuário não encontrado.", code: "NOT_FOUND" });
+    return;
+  }
+
+  const updated = users.update(req.params.id, { active: !u.active });
+  res.json({ active: updated?.active });
+});
+
+export default router;
