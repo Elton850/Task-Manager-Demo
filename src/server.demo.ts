@@ -27,6 +27,8 @@ import userRoutes from "./routes/demo/users";
 import lookupRoutes from "./routes/demo/lookups";
 import ruleRoutes from "./routes/demo/rules";
 import justificationRoutes from "./routes/demo/justifications";
+import holidayRoutes from "./routes/demo/holidays";
+import tenantRoutes from "./routes/demo/tenants";
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -89,6 +91,8 @@ app.use("/api/users", userRoutes);
 app.use("/api/lookups", lookupRoutes);
 app.use("/api/rules", ruleRoutes);
 app.use("/api/justifications", justificationRoutes);
+app.use("/api/holidays", holidayRoutes);
+app.use("/api/tenants", tenantRoutes);
 
 // ── Servir frontend em modo produção (se existir) ────────────────────────────
 const frontendDist = path.resolve(__dirname, "../frontend/dist");

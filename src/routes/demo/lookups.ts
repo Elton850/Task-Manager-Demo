@@ -3,6 +3,8 @@
  */
 import { Router, Request, Response } from "express";
 import { lookups } from "../../demo/repository";
+import { readJson, writeJson } from "../../demo/json-store";
+import type { Lookup } from "../../demo/repository";
 import { requireAuth, requireRole } from "../../demo/middleware";
 
 const router = Router();
@@ -18,6 +20,12 @@ router.get("/", requireAuth, (req: Request, res: Response): void => {
   }
 
   res.json({ lookups: all, grouped });
+});
+
+// GET /api/lookups/all — lista completa com metadata (lookupsApi.listAll)
+router.get("/all", requireAuth, (req: Request, res: Response): void => {
+  const all = lookups.list(req.tenantId!).sort((a, b) => a.order_index - b.order_index);
+  res.json({ lookups: all });
 });
 
 // GET /api/lookups/:category
@@ -49,6 +57,25 @@ router.post("/", requireAuth, requireRole("ADMIN", "LEADER"), (req: Request, res
 
   const lookup = lookups.create(req.tenantId!, category.toUpperCase(), value.trim());
   res.status(201).json({ lookup });
+});
+
+// PUT /api/lookups/:id — renomeia valor (lookupsApi.rename)
+router.put("/:id", requireAuth, requireRole("ADMIN", "LEADER"), (req: Request, res: Response): void => {
+  const { value } = req.body as Record<string, string | undefined>;
+  if (!value?.trim()) {
+    res.status(400).json({ error: "value é obrigatório.", code: "MISSING_FIELDS" });
+    return;
+  }
+
+  const all = readJson<Lookup[]>("lookups.json", []);
+  const idx = all.findIndex((l) => l.id === req.params.id && l.tenant_id === req.tenantId);
+  if (idx === -1) {
+    res.status(404).json({ error: "Lookup não encontrado.", code: "NOT_FOUND" });
+    return;
+  }
+  all[idx] = { ...all[idx], value: value.trim() };
+  writeJson("lookups.json", all);
+  res.json({ ok: true, lookup: all[idx] });
 });
 
 // DELETE /api/lookups/:id

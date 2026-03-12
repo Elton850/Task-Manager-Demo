@@ -25,6 +25,45 @@ router.get("/", requireAuth, (req: Request, res: Response): void => {
   });
 });
 
+// GET /api/users/all — lista completa (usersApi.listAll, usado em AdminPage)
+router.get("/all", requireAuth, requireRole("ADMIN"), (req: Request, res: Response): void => {
+  const list = users.list(req.tenantId!);
+  res.json({
+    users: list.map((u) => {
+      const { password_hash: _ph, ...safe } = u;
+      return safe;
+    }),
+  });
+});
+
+// GET /api/users/login-counts — contagem de logins por período
+router.get("/login-counts", requireAuth, requireRole("ADMIN"), (req: Request, res: Response): void => {
+  const list = users.list(req.tenantId!);
+  const counts: Record<string, number> = {};
+  for (const u of list) {
+    if (u.last_login_at) counts[u.id] = 1;
+  }
+  res.json({ counts });
+});
+
+// PATCH /api/users/bulk-toggle-active — ativa/desativa múltiplos usuários
+router.patch("/bulk-toggle-active", requireAuth, requireRole("ADMIN"), (req: Request, res: Response): void => {
+  const { ids, active } = req.body as { ids?: string[]; active?: boolean };
+  if (!Array.isArray(ids) || ids.length === 0) {
+    res.status(400).json({ error: "ids é obrigatório.", code: "MISSING_FIELDS" });
+    return;
+  }
+  let updated = 0;
+  for (const id of ids) {
+    const u = users.findById(id);
+    if (u && u.tenant_id === req.tenantId) {
+      users.update(id, { active: active ?? !u.active });
+      updated++;
+    }
+  }
+  res.json({ updated });
+});
+
 // GET /api/users/:id
 router.get("/:id", requireAuth, (req: Request, res: Response): void => {
   const u = users.findById(req.params.id);
@@ -119,16 +158,26 @@ router.delete("/:id", requireAuth, requireRole("ADMIN"), (req: Request, res: Res
   res.json({ ok: true });
 });
 
-// POST /api/users/:id/toggle-active
-router.post("/:id/toggle-active", requireAuth, requireRole("ADMIN"), (req: Request, res: Response): void => {
+function handleToggleActive(req: Request, res: Response): void {
   const u = users.findById(req.params.id);
   if (!u || u.tenant_id !== req.tenantId) {
     res.status(404).json({ error: "Usuário não encontrado.", code: "NOT_FOUND" });
     return;
   }
-
   const updated = users.update(req.params.id, { active: !u.active });
-  res.json({ active: updated?.active });
-});
+  // Frontend (usersApi.toggleActive) espera { user } com objeto completo
+  if (updated) {
+    const { password_hash: _ph, ...safe } = updated;
+    res.json({ user: safe, active: updated.active });
+  } else {
+    res.json({ active: !u.active });
+  }
+}
+
+// POST /api/users/:id/toggle-active
+router.post("/:id/toggle-active", requireAuth, requireRole("ADMIN"), handleToggleActive);
+
+// PATCH /api/users/:id/toggle-active — alias (frontend usa PATCH)
+router.patch("/:id/toggle-active", requireAuth, requireRole("ADMIN"), handleToggleActive);
 
 export default router;

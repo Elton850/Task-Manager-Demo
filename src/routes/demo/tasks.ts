@@ -25,6 +25,25 @@ function resolveResponsavelNome(tenantId: string, email: string): string {
   return u?.nome ?? email;
 }
 
+// ─── Notificações ─────────────────────────────────────────────────────────────
+
+// GET /api/tasks/notification-counts
+router.get("/notification-counts", requireAuth, (req: Request, res: Response): void => {
+  const tenantId = req.tenantId!;
+  const all = tasks.list(tenantId).filter((t) => !t.parent_task_id);
+  const today = new Date().toISOString().slice(0, 10);
+  const tomorrow = new Date(Date.now() + 86400000).toISOString().slice(0, 10);
+
+  const done = ["Concluído", "Concluída", "Aprovado", "Aprovada"];
+  const active = all.filter((t) => !done.includes(t.status));
+
+  const overdue = active.filter((t) => t.prazo && t.prazo < today).length;
+  const dueToday = active.filter((t) => t.prazo === today).length;
+  const dueTomorrow = active.filter((t) => t.prazo === tomorrow).length;
+
+  res.json({ overdue, dueToday, dueTomorrow });
+});
+
 // ─── Listagem ─────────────────────────────────────────────────────────────────
 
 // GET /api/tasks
@@ -32,8 +51,12 @@ router.get("/", requireAuth, (req: Request, res: Response): void => {
   const tenantId = req.tenantId!;
   let list = tasks.list(tenantId);
 
-  // Filtros opcionais
-  const { competencia_ym, status, area, responsavel_email, tipo, recorrencia, q } = req.query as Record<string, string | undefined>;
+  // Filtros opcionais — aceita tanto camelCase (frontend) quanto snake_case
+  const q = req.query as Record<string, string | undefined>;
+  const competencia_ym = q.competenciaYm || q.competencia_ym;
+  const { status, area, tipo, recorrencia } = q;
+  const responsavel_email = q.responsavel || q.responsavel_email;
+  const search = q.search || q.q;
 
   if (competencia_ym) list = list.filter((t) => t.competencia_ym === competencia_ym);
   if (status) list = list.filter((t) => t.status === status);
@@ -41,8 +64,8 @@ router.get("/", requireAuth, (req: Request, res: Response): void => {
   if (responsavel_email) list = list.filter((t) => t.responsavel_email === responsavel_email);
   if (tipo) list = list.filter((t) => t.tipo === tipo);
   if (recorrencia) list = list.filter((t) => t.recorrencia === recorrencia);
-  if (q) {
-    const lq = q.toLowerCase();
+  if (search) {
+    const lq = search.toLowerCase();
     list = list.filter(
       (t) =>
         t.atividade.toLowerCase().includes(lq) ||
@@ -87,7 +110,7 @@ router.get("/:id/subtasks", requireAuth, (req: Request, res: Response): void => 
     return;
   }
   const subs = tasks.subtasksOf(req.params.id, tenantId);
-  res.json({ subtasks: subs });
+  res.json({ tasks: subs, subtasks: subs });
 });
 
 // ─── Criação ──────────────────────────────────────────────────────────────────
@@ -229,6 +252,42 @@ router.delete("/:id", requireAuth, (req: Request, res: Response): void => {
     return;
   }
   res.json({ ok: true });
+});
+
+// ─── Duplicação ───────────────────────────────────────────────────────────────
+
+// POST /api/tasks/:id/duplicate
+router.post("/:id/duplicate", requireAuth, (req: Request, res: Response): void => {
+  const tenantId = req.tenantId!;
+  const original = tasks.findById(req.params.id, tenantId);
+  if (!original) {
+    res.status(404).json({ error: "Tarefa não encontrada.", code: "NOT_FOUND" });
+    return;
+  }
+
+  const { competencia_ym, prazo } = req.body as Record<string, string | undefined>;
+  const task = tasks.create({
+    tenant_id: tenantId,
+    competencia_ym: competencia_ym || original.competencia_ym,
+    recorrencia: original.recorrencia,
+    tipo: original.tipo,
+    atividade: original.atividade,
+    responsavel_email: original.responsavel_email,
+    responsavel_nome: original.responsavel_nome,
+    area: original.area,
+    prazo: prazo || original.prazo,
+    realizado: null,
+    status: "Em Andamento",
+    observacoes: original.observacoes,
+    parent_task_id: null,
+    justification_blocked: false,
+    created_by: req.user!.email,
+    updated_by: req.user!.email,
+    deleted_at: null,
+    deleted_by: null,
+  });
+
+  res.status(201).json({ task });
 });
 
 // ─── Evidências (desabilitado na demo) ───────────────────────────────────────
