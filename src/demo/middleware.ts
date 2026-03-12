@@ -100,6 +100,9 @@ export function demoTenantMiddleware(req: Request, res: Response, next: NextFunc
   // Sanitizar slug
   slug = slug.replace(/[^a-z0-9-]/g, "") || "demo";
 
+  // Na demo não há acesso real ao tenant "system" — fallback para "demo"
+  if (slug === "system") slug = "demo";
+
   const tenant = tenants.findBySlug(slug);
   if (!tenant) {
     res.status(404).json({ error: "Tenant não encontrado.", code: "TENANT_NOT_FOUND" });
