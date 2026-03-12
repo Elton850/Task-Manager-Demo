@@ -28,10 +28,10 @@ services:
 
       # Chave JWT — TROQUE por um valor secreto no painel do Render!
       - key: JWT_SECRET
-        value: render-demo-change-this-secret-at-least-32chars
+        value: xSdYsUOKVW5Af5VBGJKu6YRkvwSMKmK+r2FEhWEhfGtxAZs2WavgLXxNdJijqgO4
 
       - key: SUPER_ADMIN_KEY
-        value: render-demo-super-admin-key
+        value: MKsFA4tt0lLRbpuqtbEv4w0x3+yjHbIXEHqW6MK10VmakUlmkZyozf4HVyy4HjiG
 
       # Força o tenant "demo" no frontend (evita subdomain detection no *.onrender.com)
       - key: VITE_FORCE_TENANT

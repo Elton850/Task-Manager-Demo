@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls -la /c/Users/BENEL/Documents/Task-Manager/*.md /c/Users/BENEL/Documents/Task-Manager/*.js)",
+      "Bash(git checkout:*)",
+      "Bash(npx tsc:*)",
+      "Bash(cmd /c \"cd /d C:\\\\Users\\\\BENEL\\\\Documents\\\\Task-Manager && npx tsc --noEmit 2>&1\")",
+      "Bash(cmd /c \"cd /d C:\\\\Users\\\\BENEL\\\\Documents\\\\Task-Manager && npx tsc --noEmit\")",
+      "Bash(cmd /c \"cd /d C:\\\\Users\\\\BENEL\\\\Documents\\\\Task-Manager && git status\")",
+      "Bash(cmd /c \"cd /d C:\\\\Users\\\\BENEL\\\\Documents\\\\Task-Manager && git status 2>&1\")",
+      "Bash(cmd /c \"cd /d C:\\\\Users\\\\BENEL\\\\Documents\\\\Task-Manager && git status && echo EXIT_CODE=%errorlevel%\")",
+      "Bash(git -C \"/mnt/c/Users/BENEL/Documents/Task-Manager\" status)",
+      "Bash(git -C \"C:/Users/BENEL/Documents/Task-Manager\" status)",
+      "Bash(git -C \"C:/Users/BENEL/Documents/Task-Manager\" add src/demo/ src/routes/demo/ src/server.demo.ts .env.demo frontend/.env.demo docs/DEMO_HANDOFF.md docs/DEMO_REFACTOR_LOG.md docs/DEMO_RUNBOOK.md package.json)",
+      "Bash(git -C \"C:/Users/BENEL/Documents/Task-Manager\" add src/demo/ src/routes/demo/ src/server.demo.ts .env.demo docs/DEMO_HANDOFF.md docs/DEMO_REFACTOR_LOG.md docs/DEMO_RUNBOOK.md package.json)",
+      "Bash(git -C:*)",
+      "Bash(gh --version)",
+      "Bash(cmd /c \"gh --version\")",
+      "Bash(cmd /c \"gh --version 2>&1\")",
+      "Bash(powershell -Command \"gh --version\")",
+      "Bash(powershell -Command \"cd ''C:\\\\Users\\\\BENEL\\\\Documents\\\\Task-Manager''; npx tsc --noEmit 2>&1\")"
+    ]
+  }
+}
